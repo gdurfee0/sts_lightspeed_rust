@@ -18,6 +18,7 @@ impl GameContext {
         let seed = args
             .next()
             .unwrap_or_else(|| panic!("No seed provided"))
+            .as_str()
             .try_into()
             .unwrap_or_else(|e| panic!("Invalid seed: {}", e));
         let character = args

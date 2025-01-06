@@ -6,7 +6,7 @@ use crate::seed::Seed;
 
 #[derive(Debug)]
 pub struct GameContext {
-    seed: Seed,
+    pub seed: Seed,
     character: Character,
     ascension: Ascension,
 }

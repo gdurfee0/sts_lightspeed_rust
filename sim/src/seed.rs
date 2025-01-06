@@ -5,14 +5,14 @@ use std::result::Result;
 use anyhow::anyhow;
 
 #[derive(PartialEq)]
-pub struct Seed(u64);
+pub struct Seed(pub u64);
 
 impl TryFrom<String> for Seed {
     type Error = anyhow::Error;
 
     fn try_from(value: String) -> Result<Self, Self::Error> {
         if value.len() != 13 {
-            return Err(anyhow!("Seed must be 13 characters long"));
+            return Err(anyhow!("Seed must be exactly 13 characters long"));
         }
         let mut seed = 0;
         for c in value.to_uppercase().chars() {
@@ -87,11 +87,8 @@ mod test {
 
     #[test]
     fn test_seed_to_string() {
-        assert_eq!(Seed(0).to_string(), "0000000000000".to_string());
-        assert_eq!(Seed(1).to_string(), "0000000000001".to_string());
-        assert_eq!(
-            Seed(2665621045298406349).to_string(),
-            "0SLAYTHESPIRE".to_string()
-        );
+        assert_eq!(Seed(0).to_string(), "0000000000000");
+        assert_eq!(Seed(1).to_string(), "0000000000001");
+        assert_eq!(Seed(2665621045298406349).to_string(), "0SLAYTHESPIRE");
     }
 }

@@ -541,4 +541,64 @@ mod test {
             ]
         );
     }
+
+    #[test]
+    fn test_sts_random_gen_bool() {
+        let mut r = StsRandom::from(2665621045298406349u64);
+        assert_eq!(
+            (0..100).map(|_| r.gen_bool(0.75)).collect::<Vec<_>>(),
+            vec![
+                true, false, true, true, true, true, true, true, true, true, false, true, false,
+                true, true, true, false, true, true, false, true, true, false, true, false, true,
+                false, true, true, true, true, true, true, true, false, true, true, false, false,
+                false, true, true, true, true, true, true, false, false, true, true, true, true,
+                true, false, false, true, true, true, false, true, true, false, true, true, true,
+                true, true, false, false, false, true, true, true, true, false, false, false, true,
+                false, true, true, false, true, true, true, false, false, true, true, true, true,
+                true, false, true, true, false, true, true, false, true,
+            ]
+        );
+        assert_eq!(
+            (0..100).map(|_| r.gen_bool(0.5)).collect::<Vec<_>>(),
+            vec![
+                true, true, true, true, true, false, true, true, false, true, false, false, false,
+                false, true, true, true, true, true, false, true, true, false, false, false, false,
+                false, true, false, true, false, true, false, false, false, false, true, false,
+                false, false, true, true, false, true, true, true, true, true, true, false, false,
+                false, false, false, true, false, true, true, true, false, true, false, false,
+                false, true, false, true, true, false, false, true, true, false, false, false,
+                true, false, false, false, true, false, true, false, true, false, false, true,
+                true, false, false, false, false, true, false, false, true, false, false, false,
+                false,
+            ]
+        );
+        assert_eq!(
+            (0..100).map(|_| r.gen_bool(0.25)).collect::<Vec<_>>(),
+            vec![
+                false, false, false, false, false, false, false, true, false, false, false, true,
+                false, false, true, true, false, true, true, false, false, true, true, false,
+                false, false, true, false, false, true, false, false, false, false, false, true,
+                false, false, false, false, true, false, true, true, false, false, false, false,
+                true, false, true, false, false, false, true, false, true, true, true, false, true,
+                false, false, false, false, false, true, false, false, false, false, true, true,
+                false, false, false, false, true, false, true, false, false, false, false, false,
+                false, false, false, false, false, false, true, false, false, true, false, false,
+                false, false, false,
+            ]
+        );
+        assert_eq!(
+            (0..100).map(|_| r.gen_bool(0.05)).collect::<Vec<_>>(),
+            vec![
+                false, true, false, false, false, false, false, false, false, false, false, false,
+                false, false, false, false, true, false, false, false, false, false, false, false,
+                false, true, false, false, false, false, false, false, false, false, false, false,
+                false, false, false, false, false, false, false, false, false, false, false, false,
+                false, false, false, false, false, false, true, false, false, false, false, false,
+                false, false, false, false, false, false, false, false, false, false, false, false,
+                false, false, false, false, false, false, false, false, false, false, false, false,
+                false, false, false, false, false, false, false, false, false, false, false, false,
+                false, false, false, false,
+            ]
+        );
+    }
 }

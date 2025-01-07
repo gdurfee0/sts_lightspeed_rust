@@ -4,6 +4,7 @@
 
 #include <cmath>
 #include <cassert>
+#include <iostream>
 
 #include "game/Map.h"
 #include "game/Random.h"
@@ -65,6 +66,62 @@ Map Map::fromSeed(std::uint64_t seed, int ascension, int act, bool setBurning) {
         assignBurningElite(map, mapRng);
         map.burningEliteBuff = mapRng.random(0,3);
     }
+    std::cout << "[" << std::endl;
+    for (int y = 0; y < MAP_HEIGHT; y++) {
+        std::cout << "    [" << std::endl;
+        for (int x = 0; x < MAP_WIDTH; x++) {
+            auto& node = map.nodes.at(y).at(x);
+            if (node.room == Room::NONE) {
+                std::cout << "        None, " << std::endl;
+                continue;
+            }
+            std::cout << "        Some(";
+            switch (node.room) {
+                case Room::SHOP:
+                    std::cout << "Room::Shop(";
+                    break;
+                case Room::REST:
+                    std::cout << "Room::Campfire(";
+                    break;
+                case Room::EVENT:
+                    std::cout << "Room::Event(";
+                    break;
+                case Room::ELITE:
+                    if (x == map.burningEliteX && y == map.burningEliteY) {
+                        std::cout << "Room::BurningElite" << (map.burningEliteBuff + 1) << "(";
+                    } else {
+                        std::cout << "Room::Elite(";
+                    }
+                    break;
+                case Room::MONSTER:
+                    std::cout << "Room::Monster(";
+                    break;
+                case Room::TREASURE:
+                    std::cout << "Room::Treasure(";
+                    break;
+                case Room::BOSS:
+                    std::cout << "Room::Boss(";
+                    break;
+                default:
+                    break;
+            }
+            for (int i = 0; i < node.edgeCount; i++) {
+                if (i > 0) {
+                    std::cout << " | ";
+                }
+                if (node.edges[i] < x) {
+                    std::cout << "Exit::Left";
+                } else if (node.edges[i] == x) {
+                    std::cout << "Exit::Straight";
+                } else {
+                    std::cout << "Exit::Right";
+                }
+            }
+            std::cout << "))," << std::endl;
+        }
+        std::cout << "    ]," << std::endl;
+    }
+    std::cout << "];" << std::endl;
     return map;
 }
 

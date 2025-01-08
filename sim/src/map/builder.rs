@@ -39,17 +39,13 @@ impl MapBuilder {
     pub fn build(mut self) -> Map {
         self.embed_paths();
         self.prune_bottom_row();
+        self.assign_rooms();
         Map(self
             .nodes
             .iter_mut()
             .map(|row| {
                 row.iter_mut()
-                    .map(|maybe_node| {
-                        maybe_node
-                            .take()
-                            // TODO: Actual room assignments instead of hard coded value
-                            .and_then(|node| node.set_room(Room::Monster).build())
-                    })
+                    .map(|maybe_node| maybe_node.take().map(|node| node.build()))
                     .collect::<Vec<Option<Node>>>()
             })
             .collect::<Vec<Vec<Option<Node>>>>()
@@ -95,6 +91,37 @@ impl MapBuilder {
             } else {
                 None
             };
+        }
+    }
+
+    fn assign_rooms(&mut self) {
+        self.assign_predetermined_rooms_to_row(0, Room::Monster);
+        self.assign_predetermined_rooms_to_row(8, Room::Treasure);
+        self.assign_predetermined_rooms_to_row(ROW_COUNT - 1, Room::Campfire);
+        let mut unassigned_room_count = self
+            .nodes
+            .iter()
+            .flatten()
+            .filter(|maybe_node| {
+                maybe_node
+                    .as_ref()
+                    .map(|node| node.room.is_none())
+                    .unwrap_or(false)
+            })
+            .count();
+        let room_total = self
+            .nodes
+            .iter()
+            .enumerate()
+            .filter(|&(row, _)| row != ROW_COUNT - 2) // Original code calls this "restRowBug"
+            .flat_map(|(_, row)| row)
+            .filter(|maybe_node| maybe_node.is_some())
+            .count();
+    }
+
+    fn assign_predetermined_rooms_to_row(&mut self, row: usize, room: Room) {
+        for col in 0..COLUMN_COUNT {
+            self.nodes[row][col] = self.nodes[row][col].take().map(|node| node.set_room(room));
         }
     }
 
@@ -162,7 +189,7 @@ impl MapBuilder {
                 .expect("Node already populated");
             // The use of a for loop here is almost certainly a bug in the original code. The
             // intent seems to be to avoid small cycles like tiny parallelograms, isosceles
-            // triangles, and diamonds.
+            // triangles, and diamonds with areas of 1 or 2 units.
             //
             // However, this loop is problematic for a few reasons:
             //   (1) While one iteration of the loop might avoid an unwanted cycle, the next
@@ -307,8 +334,11 @@ impl NodeBuilder {
         self.entrance_cols.iter().max().copied()
     }
 
-    pub fn build(self) -> Option<Node> {
-        self.room.map(|room| Node(room, self.exit))
+    pub fn build(self) -> Node {
+        self.room
+            .map(|room| Node(room, self.exit))
+            .unwrap_or(Node(Room::Monster, self.exit))
+        //.expect("All Some() nodes must be assigned a room")
     }
 }
 

@@ -1,6 +1,6 @@
 use std::fmt;
 
-#[derive(Debug)]
+#[derive(Clone, Copy, Debug)]
 pub enum Room {
     BurningElite1,
     BurningElite2,

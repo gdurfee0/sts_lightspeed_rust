@@ -4,113 +4,25 @@ use std::fmt;
 use crate::random::StsRandom;
 
 use super::exit::Exit;
-use super::map::Node;
-use super::room::Room;
-use super::{COLUMN_COUNT, ROW_COUNT};
+use super::grid::NodeBuilderGrid;
+use super::{COLUMN_COUNT, PATH_DENSITY, ROW_COUNT};
 
 const COLUMN_MAX: usize = COLUMN_COUNT - 1;
-const PATH_DENSITY: usize = 6;
 
 pub struct GraphBuilder<'a> {
     sts_random: &'a mut StsRandom,
-    node_grid: NodeGridBuilder,
-}
-
-pub struct NodeBuilder {
-    exit: Exit,
-    entrance_cols: Vec<usize>,
-}
-
-#[derive(Default)]
-pub struct NodeGridBuilder {
-    grid: [[Option<NodeBuilder>; COLUMN_COUNT]; ROW_COUNT],
-}
-
-impl NodeGridBuilder {
-    pub fn new() -> Self {
-        Self {
-            grid: Default::default(),
-        }
-    }
-
-    fn remove(&mut self, row: usize, col: usize) -> Option<NodeBuilder> {
-        self.grid[row][col].take()
-    }
-
-    fn has_exit(&self, row: usize, col: usize, exit: Exit) -> bool {
-        self.grid[row][col]
-            .as_ref()
-            .map_or(false, |node| node.exit.contains(exit))
-    }
-
-    fn add_entrance(&mut self, row: usize, col: usize, entrance_col: usize) {
-        self.grid[row][col] = Some(
-            self.grid[row][col]
-                .take()
-                .unwrap_or_default()
-                .add_entrance_col(entrance_col),
-        );
-    }
-
-    fn add_exit(&mut self, row: usize, col: usize, exit: Exit) {
-        self.grid[row][col] = Some(
-            self.grid[row][col]
-                .take()
-                .unwrap_or_default()
-                .add_exit(exit),
-        );
-    }
-
-    fn entrance_cols(&self, row: usize, col: usize) -> impl Iterator<Item = &usize> {
-        self.grid[row][col]
-            .as_ref()
-            .map(|node| node.entrance_cols.iter())
-            .unwrap_or_else(|| [].iter())
-    }
-
-    fn entrances_collide(&self, row: usize, my_col: usize, other_col: usize) -> bool {
-        if let (Some(my_node), Some(other_node)) = (
-            &self.grid[row][my_col].as_ref(),
-            &self.grid[row][other_col].as_ref(),
-        ) {
-            // "other_col >= row" is almost certainly a bug in the original code; it's
-            // probably supposed to be "other_col >= my_col". This causes a lot of small
-            // cycles to be missed because the wrong comparisons are being performed.
-            if other_col >= row {
-                my_node.rightmost_entrance_col() == other_node.leftmost_entrance_col()
-            } else {
-                other_node.rightmost_entrance_col() == my_node.leftmost_entrance_col()
-            }
-        } else {
-            false
-        }
-    }
-
-    pub fn build(mut self) -> [[Option<Node>; COLUMN_COUNT]; ROW_COUNT] {
-        self.grid
-            .iter_mut()
-            .map(|row| {
-                row.iter_mut()
-                    .map(|maybe_node| maybe_node.take().map(|node| node.build()))
-                    .collect::<Vec<Option<Node>>>()
-                    .try_into()
-                    .expect("Builder should have built rows of the correct length")
-            })
-            .collect::<Vec<[Option<Node>; COLUMN_COUNT]>>()
-            .try_into()
-            .expect("Builder should have built the correct number of rows")
-    }
+    node_grid: NodeBuilderGrid,
 }
 
 impl<'a> GraphBuilder<'a> {
     pub fn new(sts_random: &'a mut StsRandom) -> Self {
         Self {
             sts_random,
-            node_grid: NodeGridBuilder::new(),
+            node_grid: NodeBuilderGrid::new(),
         }
     }
 
-    pub fn build(mut self) -> NodeGridBuilder {
+    pub fn build(mut self) -> NodeBuilderGrid {
         self.embed_paths();
         self.prune_bottom_row();
         self.node_grid
@@ -290,109 +202,20 @@ impl fmt::Display for GraphBuilder<'_> {
     }
 }
 
-impl fmt::Display for NodeGridBuilder {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        for row in self.grid.iter().rev() {
-            for maybe_node in row.iter() {
-                match maybe_node {
-                    Some(node) => {
-                        write!(f, "{} ", node)?;
-                    }
-                    None => {
-                        write!(f, "       ")?;
-                    }
-                }
-            }
-            if row.as_ptr() != self.grid[0].as_ptr() {
-                writeln!(f)?;
-            }
-        }
-        Ok(())
-    }
-}
-
-impl NodeBuilder {
-    pub fn add_exit(mut self, exit: Exit) -> Self {
-        self.exit |= exit;
-        self
-    }
-
-    pub fn add_entrance_col(mut self, entrance_col: usize) -> Self {
-        self.entrance_cols.push(entrance_col);
-        self
-    }
-
-    pub fn leftmost_entrance_col(&self) -> Option<usize> {
-        self.entrance_cols.iter().min().copied()
-    }
-
-    pub fn rightmost_entrance_col(&self) -> Option<usize> {
-        self.entrance_cols.iter().max().copied()
-    }
-
-    pub fn build(self) -> Node {
-        Node(Room::Monster, self.exit)
-    }
-}
-
-impl Default for NodeBuilder {
-    fn default() -> Self {
-        Self {
-            exit: Exit::empty(),
-            entrance_cols: Vec::with_capacity(PATH_DENSITY),
-        }
-    }
-}
-
-impl fmt::Display for NodeBuilder {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        let entrance_cols = self.entrance_cols.iter().map(|&col| col.to_string()).chain(
-            std::iter::repeat("-".to_string()).take(PATH_DENSITY - self.entrance_cols.len()),
-        );
-        write!(f, "{}", entrance_cols.collect::<String>())
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use std::time::Instant;
 
     use super::*;
 
-    use base64::engine::general_purpose::STANDARD;
-    use base64::Engine;
-
     const TEST_VECTORS: &str = include_str!("map-exit-data.txt");
-
-    fn exits_as_vec(node_grid: &NodeGridBuilder) -> [[u8; COLUMN_COUNT]; ROW_COUNT - 1] {
-        let mut exits = [[0; COLUMN_COUNT]; ROW_COUNT - 1];
-        for (row, row_nodes) in node_grid.grid.iter().enumerate().take(ROW_COUNT - 1) {
-            for (col, maybe_node) in row_nodes.iter().enumerate() {
-                if let Some(node) = maybe_node {
-                    exits[row][col] = node.exit.bits();
-                }
-            }
-        }
-        exits
-    }
-
-    fn exits_as_base64(node_grid: &NodeGridBuilder) -> String {
-        STANDARD.encode(
-            exits_as_vec(node_grid)
-                .as_flattened()
-                .chunks(21)
-                .map(|chunk| chunk.iter().fold(0, |acc, &exit| (acc << 3) | exit as u64))
-                .flat_map(|val64| val64.to_be_bytes())
-                .collect::<Vec<u8>>(),
-        )
-    }
 
     #[test]
     fn test_connection_graph() {
         let mut sts_random = StsRandom::from(2);
         let node_grid = GraphBuilder::new(&mut sts_random).build();
         assert_eq!(
-            exits_as_vec(&node_grid),
+            node_grid.exits_as_vec(),
             [
                 [0, 6, 0, 1, 0, 0, 0,],
                 [1, 2, 0, 0, 6, 0, 0,],
@@ -414,7 +237,7 @@ mod tests {
         let mut sts_random = StsRandom::from(3);
         let node_grid = GraphBuilder::new(&mut sts_random).build();
         assert_eq!(
-            exits_as_vec(&node_grid),
+            node_grid.exits_as_vec(),
             [
                 [2, 0, 1, 1, 0, 0, 2,],
                 [1, 0, 0, 2, 6, 0, 4,],
@@ -433,7 +256,7 @@ mod tests {
             ]
         );
         assert_eq!(
-            exits_as_base64(&node_grid),
+            node_grid.exits_as_base64(),
             "IEgIgLCCBlAQEuAQWkBAmggGmQE0hBJQCAlggBKAgLgAAAACM0ANCg=="
         );
     }
@@ -446,14 +269,14 @@ mod tests {
                 let mut sts_random = StsRandom::from(i);
                 GraphBuilder::new(&mut sts_random).build()
             })
-            .collect::<Vec<NodeGridBuilder>>();
+            .collect::<Vec<NodeBuilderGrid>>();
         println!(
             "Time taken to generate {} graphs: {:?}",
             node_grids.len(),
             now.elapsed()
         );
         for (i, vector) in TEST_VECTORS.lines().enumerate() {
-            assert_eq!((i, exits_as_base64(&node_grids[i]).as_str()), (i, vector));
+            assert_eq!((i, node_grids[i].exits_as_base64().as_str()), (i, vector));
         }
     }
 }

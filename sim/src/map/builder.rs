@@ -1,5 +1,3 @@
-use std::cmp::Ordering;
-use std::fmt;
 use std::iter::repeat;
 
 use crate::act::Act;
@@ -8,9 +6,8 @@ use crate::game_context::GAME_CONTEXT;
 use crate::random::StsRandom;
 use crate::seed::Seed;
 
-use super::exit::Exit;
 use super::graph::GraphBuilder;
-use super::map::{Map, Node};
+use super::grid::{NodeBuilderGrid, NodeGrid};
 use super::room::Room;
 use super::{COLUMN_COUNT, ROW_COUNT};
 
@@ -45,35 +42,18 @@ impl MapBuilder {
         }
     }
 
-    pub fn build(mut self) -> Map {
-        let node_grid = GraphBuilder::new(&mut self.sts_random).build();
-        //self.assign_rooms(&mut node_grid);
-        Map(node_grid.build())
+    pub fn build(mut self) -> NodeGrid {
+        let mut node_grid = GraphBuilder::new(&mut self.sts_random).build();
+        self.assign_rooms(&mut node_grid);
+        node_grid.into()
     }
 
-    /*
-    fn assign_rooms(&mut self, node_grid: &mut [[Option<Node>; COLUMN_COUNT]; ROW_COUNT]) {
-        self.assign_predetermined_rooms_to_row(0, Room::Monster);
-        self.assign_predetermined_rooms_to_row(8, Room::Treasure);
-        self.assign_predetermined_rooms_to_row(ROW_COUNT - 1, Room::Campfire);
-        let unassigned_room_count = node_grid
-            .iter()
-            .flatten()
-            .filter(|maybe_node| {
-                maybe_node
-                    .as_ref()
-                    .map(|node| node.room.is_none())
-                    .unwrap_or(false)
-            })
-            .count();
-        let room_total = self
-            .nodes
-            .iter()
-            .enumerate()
-            .filter(|&(row, _)| row != ROW_COUNT - 2) // Original code calls this "restRowBug"
-            .flat_map(|(_, row)| row)
-            .filter(|maybe_node| maybe_node.is_some())
-            .count();
+    fn assign_rooms(&mut self, node_grid: &mut NodeBuilderGrid) {
+        self.assign_predetermined_rooms_to_row(0, Room::Monster, node_grid);
+        self.assign_predetermined_rooms_to_row(8, Room::Treasure, node_grid);
+        self.assign_predetermined_rooms_to_row(ROW_COUNT - 1, Room::Campfire, node_grid);
+        let unassigned_room_count = node_grid.unassigned_room_count();
+        let room_total = node_grid.room_total();
         let shop_room_count = (SHOP_ROOM_CHANCE * room_total as f32).round() as usize;
         let rest_room_count = (REST_ROOM_CHANCE * room_total as f32).round() as usize;
         let treasure_room_count = (TREASURE_ROOM_CHANCE * room_total as f32).round() as usize;
@@ -93,12 +73,16 @@ impl MapBuilder {
             .collect();
     }
 
-    fn assign_predetermined_rooms_to_row(&mut self, row: usize, room: Room) {
+    fn assign_predetermined_rooms_to_row(
+        &mut self,
+        row: usize,
+        room: Room,
+        node_grid: &mut NodeBuilderGrid,
+    ) {
         for col in 0..COLUMN_COUNT {
-            self.nodes[row][col] = self.nodes[row][col].take().map(|node| node.set_room(room));
+            node_grid.set_room(row, col, room);
         }
     }
-    */
 }
 
 #[cfg(test)]

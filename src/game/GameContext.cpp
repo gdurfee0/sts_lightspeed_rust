@@ -32,6 +32,8 @@ SelectScreenCard::SelectScreenCard(const Card &card) : card(card) {}
 
 SelectScreenCard::SelectScreenCard(const Card &card, int deckIdx) : card(card), deckIdx(deckIdx) {}
 
+#include <chrono>
+
 GameContext::GameContext(CharacterClass cc, std::uint64_t seed, int ascension)
     : seed(seed),
     neowRng(seed),
@@ -69,9 +71,17 @@ GameContext::GameContext(CharacterClass cc, std::uint64_t seed, int ascension)
     curEvent = Event::NEOW;
     info.neowRewards = Neow::getOptions(neowRng);
     screenState = ScreenState::EVENT_SCREEN;
+    auto start = std::chrono::high_resolution_clock::now();    
+    std::vector<Map> maps;
+    for (int i = 1; i < 1000001; i++) {
+        maps.push_back(Map::fromSeed(i, 0, 1, true));
+    }
+    auto end = std::chrono::high_resolution_clock::now();
+    auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
+    std::cout << "Time taken to generate 1M maps: " << duration.count() << "ms\n";
     std::ofstream os("/tmp/map-exit-data.txt");
-    for (int i = 1; i < 1000; i++) {
-        Map::fromSeed(i, 0, 1, true).writeExitData(os);
+    for (int i = 0; i < 10000; i++) {
+        maps[i].writeExitData(os);
     }
 }
 

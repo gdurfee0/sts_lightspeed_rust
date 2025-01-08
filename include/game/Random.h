@@ -92,7 +92,7 @@ namespace sts {
             s1 ^= s1 << 23;
 
             seed1 = s1 ^ s0 ^ s1 >> 17 ^ s0 >> 26;
-            std::cout << "rng iter " << counter1 << ": " << (seed1 + s0) << std::endl;
+            //std::cout << "rng iter " << counter1 << ": " << (seed1 + s0) << std::endl;
             counter1++;
             return seed1 + s0;
         }

@@ -77,11 +77,13 @@ impl StsRandom {
         self.state0 = s0;
         s1 ^= s1 << 23;
         self.state1 = s1 ^ s0 ^ (s1 >> 17) ^ (s0 >> 26);
+        /*
         println!(
             "rng iter {}: {}",
             self.counter,
             self.state1.wrapping_add(s0)
         );
+        */
         self.counter += 1;
         self.state1.wrapping_add(s0)
     }
@@ -123,9 +125,8 @@ impl StsRandom {
     where
         T: fmt::Debug,
     {
-        let result = &slice[self.gen_range(0..slice.len())];
-        println!("rng choose: {:?}", result);
-        result
+        //println!("rng choose: {:?}", result);
+        &slice[self.gen_range(0..slice.len())]
     }
 
     // TODO: Review which of these are actually needed and cull the rest.

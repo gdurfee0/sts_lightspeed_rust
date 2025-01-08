@@ -136,9 +136,7 @@ impl MapBuilder {
 
     pub fn create_paths(&mut self) {
         let first_col = self.sts_random.gen_range(0..COLUMN_COUNT);
-        println!("{}", self);
         self.create_paths_step(first_col);
-        println!("Counter: {}", self.sts_random.get_counter());
         for i in 1..PATH_DENSITY {
             let mut col = self.sts_random.gen_range(0..COLUMN_COUNT);
             while col == first_col && i == 1 {
@@ -177,20 +175,8 @@ impl MapBuilder {
     fn create_paths_step(&mut self, mut col: usize) {
         for row in 0..(ROW_COUNT - 1) {
             let (exit, next_col) = self.propose_exit(col);
-            println!(
-                "First proposed exit from node at {} {}: {:?} ({})",
-                row, col, exit, next_col
-            );
             let (exit, next_col) = self.avoid_small_cycles(row, col, exit, next_col);
-            println!(
-                "Next proposed exit from node at {} {}: {:?} ({})",
-                row, col, exit, next_col
-            );
             let (exit, next_col) = self.prevent_crossed_paths(row, col, exit, next_col);
-            println!(
-                "Final proposed exit from node at {} {}: {:?} ({})",
-                row, col, exit, next_col
-            );
             self.nodes[row][col] = Some(
                 self.nodes[row][col]
                     .take()
@@ -204,7 +190,6 @@ impl MapBuilder {
                     .add_entrance_col(col),
             );
             col = next_col;
-            println!("{}", self);
         }
         self.nodes[ROW_COUNT - 1][col] = Some(
             self.nodes[ROW_COUNT - 1][col]
@@ -246,12 +231,6 @@ impl MapBuilder {
             return (exit, next_col);
         }
         if let Some(dest_node) = self.nodes[row + 1][next_col].as_ref() {
-            println!(
-                "Investigating destination node: {} {} {:?}",
-                row + 1,
-                next_col,
-                dest_node
-            );
             let left_clamp = match col {
                 0 => (Exit::Straight, 0),
                 _ => (Exit::Left, col - 1),
@@ -280,10 +259,6 @@ impl MapBuilder {
                     .as_ref()
                     .expect("Node already populated");
                 if Self::entrances_collide(node, other_node, entrance >= row) {
-                    println!(
-                        "Collision detected! {} {} {} {}",
-                        row, col, next_col, entrance
-                    );
                     (exit, next_col) = match next_col.cmp(&col) {
                         Ordering::Greater => *self.sts_random.choose(&[left_clamp, straight]),
                         Ordering::Equal => {
@@ -474,6 +449,8 @@ impl fmt::Display for Map {
 
 #[cfg(test)]
 mod tests {
+    use std::time::Instant;
+
     use crate::seed::Seed;
 
     use super::*;
@@ -880,8 +857,7 @@ mod tests {
 
         fn exits_compact(&self) -> String {
             STANDARD.encode(
-                &self
-                    .exits()
+                self.exits()
                     .as_flattened()
                     .chunks(21)
                     .map(|chunk| chunk.iter().fold(0, |acc, &exit| (acc << 3) | exit as u64))
@@ -959,13 +935,19 @@ mod tests {
 
     #[test]
     fn test_connection_graph_test_vectors() {
+        let now = Instant::now();
+        let maps: Vec<Map> = (2..1000002)
+            .map(|i| {
+                MapBuilder {
+                    nodes: Default::default(),
+                    sts_random: StsRandom::from(i),
+                }
+                .build()
+            })
+            .collect();
+        println!("Time taken to generate 1M maps: {:?}", now.elapsed());
         for (i, vector) in TEST_VECTORS.lines().enumerate() {
-            let map = MapBuilder {
-                nodes: Default::default(),
-                sts_random: StsRandom::from(2 + i as u64),
-            }
-            .build();
-            assert_eq!(map.exits_compact(), vector);
+            assert_eq!(maps[i].exits_compact(), vector);
         }
     }
 }

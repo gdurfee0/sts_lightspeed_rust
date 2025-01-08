@@ -368,8 +368,9 @@ inline int getCommonAncestor(const Map &map, int x1, int x2, int y) {
         l_node = x1;
         r_node = x2;
     } else {
+#ifdef DEBUG        
         std::cout << "x1: " << x1 << ", x2: " << x2 << ", y: " << y << std::endl;
-        //return -1;
+#endif
         l_node = x2;
         r_node = x1;
     }
@@ -387,14 +388,15 @@ inline int getCommonAncestor(const Map &map, int x1, int x2, int y) {
 
 inline int choosePathParentLoopRandomizer(const Map &map, Random &rng, int curX, int curY, int newX) {
     const MapNode &newEdgeDest = map.getNode(newX, curY + 1);
+#ifdef DEBUG
     std::cout << "Investigating destination node: " << (curY + 1 ) << " " << newX << " (" << newEdgeDest.parentCount << "): ";
     for (int i = 0; i < newEdgeDest.parentCount; i++) {
         std::cout << newEdgeDest.parents.at(i) << " ";
     }
     std::cout << std::endl;
-
-
     bool cycle_detected = false;
+#endif
+
     for (int i = 0; i < newEdgeDest.parentCount; i++) {
         int parentX = newEdgeDest.parents.at(i);
         if (curX == parentX) {
@@ -403,16 +405,18 @@ inline int choosePathParentLoopRandomizer(const Map &map, Random &rng, int curX,
         if (getCommonAncestor(map, parentX, curX, curY) == -1) {
             continue;
         }
+#ifdef DEBUG
         cycle_detected = true;
-        std::cout << "Cycle detected, iteration " << i << " curX: " << curX << " newX: " << newX << " parentX: " << parentX << std::endl;
+#endif
+        //std::cout << "Cycle detected, iteration " << i << " curX: " << curX << " newX: " << newX << " parentX: " << parentX << std::endl;
         if (newX > curX) {
-            std::cout << "newX > curX so sampling " << (curX - 1) << ", " << curX << std::endl;
+            //std::cout << "newX > curX so sampling " << (curX - 1) << ", " << curX << std::endl;
             newX = curX + randRange(rng, -1, 0);
             if (newX < 0) {
                 newX = curX;
             }
         } else if (newX == curX) {
-            std::cout << "newX == curX so sampling " << (curX - 1) << ", " << curX << ", " << (curX + 1) << std::endl;
+            //std::cout << "newX == curX so sampling " << (curX - 1) << ", " << curX << ", " << (curX + 1) << std::endl;
             newX = curX + randRange(rng, -1, 1);
             if (newX > ROW_END_NODE) {
                 newX = curX - 1;
@@ -420,17 +424,19 @@ inline int choosePathParentLoopRandomizer(const Map &map, Random &rng, int curX,
                 newX = curX + 1;
             }
         } else {
-            std::cout << "newX < curX so sampling " << curX  << ", " << (curX + 1) << std::endl;
+            //std::cout << "newX < curX so sampling " << curX  << ", " << (curX + 1) << std::endl;
             newX = curX + randRange(rng, 0, 1);
             if (newX > ROW_END_NODE) {
                 newX = curX;
             }
         }
-        std::cout << "Cycle iteration " << i << " remedy: " << newX << ", which is " << (newX - curX) << std::endl;
+        //std::cout << "Cycle iteration " << i << " remedy: " << newX << ", which is " << (newX - curX) << std::endl;
     }
+#ifdef DEBUG    
     if (cycle_detected) {
         std::cout << "Cycle final remedy: " << newX << std::endl;
     }
+#endif
 
     return newX;
 }
@@ -476,13 +482,13 @@ int chooseNewPath(Map &map, Random &rng, int curX, int curY) {
     }
 
     int r = randRange(rng, min, max);
-    std::cout << "curY: " << curY << ", curX: " << curX << ", r: " << r << " from min=" << min << ", max=" << max << std::endl;
+    //std::cout << "curY: " << curY << ", curX: " << curX << ", r: " << r << " from min=" << min << ", max=" << max << std::endl;
     int newEdgeX = curX + r;
-    std::cout << "First proposed exit from node at " << curY << " " << curX << " is " << (newEdgeX - curX) << std::endl;
+    //std::cout << "First proposed exit from node at " << curY << " " << curX << " is " << (newEdgeX - curX) << std::endl;
     newEdgeX = choosePathParentLoopRandomizer(map, rng, curX, curY, newEdgeX);
-    std::cout << "Next proposed exit from node at " << curY << " " << curX << " is " << (newEdgeX - curX) << std::endl;
+    //std::cout << "Next proposed exit from node at " << curY << " " << curX << " is " << (newEdgeX - curX) << std::endl;
     newEdgeX = choosePathAdjustNewX(map, curX, curY, newEdgeX);
-    std::cout << "Final proposed exit from node at " << curY << " " << curX << " is " << (newEdgeX - curX) << std::endl;
+    //std::cout << "Final proposed exit from node at " << curY << " " << curX << " is " << (newEdgeX - curX) << std::endl;
 
     return newEdgeX;
 }
@@ -491,7 +497,7 @@ void createPathsIteration(Map &map, Random &rng, int startX) {
     int curX = startX;
     for (int curY = 0; curY < MAP_HEIGHT-1; ++curY) {
         int newX = chooseNewPath(map, rng, curX, curY);
-        std::cout << "curY: " << curY << " curX: " << curX << " newX: " << newX << std::endl;
+        //std::cout << "curY: " << curY << " curX: " << curX << " newX: " << newX << std::endl;
         map.getNode(curX, curY).addEdge(newX);
         map.getNode(newX, curY+1).addParent(curX);
         //std::cout << map.toString() << std::endl;
@@ -502,10 +508,10 @@ void createPathsIteration(Map &map, Random &rng, int startX) {
 
 void createPaths(Map &map, Random &mapRng) {
     int firstStartX = randRange(mapRng, 0, MAP_WIDTH - 1);
-    std::cout << "First Start X: " << firstStartX << std::endl;
+    //std::cout << "First Start X: " << firstStartX << std::endl;
     createPathsIteration(map, mapRng, firstStartX);
-    std::cout << "RNG counter after first path: " << mapRng.counter1 << std::endl;
-    std::cout << map.toString() << std::endl;
+    //std::cout << "RNG counter after first path: " << mapRng.counter1 << std::endl;
+    //std::cout << map.toString() << std::endl;
 
     for(int i = 1; i < PATH_DENSITY; ++i) {
         int startX = randRange(mapRng, 0, MAP_WIDTH - 1);
@@ -515,8 +521,8 @@ void createPaths(Map &map, Random &mapRng) {
         }
 
         createPathsIteration(map, mapRng, startX);
-        std::cout << "RNG counter after iteration " << (i+1) << ": " << mapRng.counter1 << std::endl;
-    std::cout << map.toString() << std::endl;
+        //std::cout << "RNG counter after iteration " << (i+1) << ": " << mapRng.counter1 << std::endl;
+        //std::cout << map.toString() << std::endl;
     }
 }
 

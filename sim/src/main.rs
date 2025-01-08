@@ -1,3 +1,4 @@
+mod act;
 mod ascension;
 mod character;
 mod game_context;
@@ -5,16 +6,12 @@ mod map;
 mod random;
 mod seed;
 
-use crate::game_context::GameContext;
-use crate::random::JavaRandom;
+use crate::act::Act;
+use crate::game_context::GAME_CONTEXT;
+use crate::map::MapBuilder;
 
 fn main() {
-    let game_context = GameContext::from_args();
-    let mut java_rng: JavaRandom = game_context.seed.into();
-    for _ in 0..10 {
-        println!("{}", java_rng.next_i32());
-    }
-    for i in 0..10 {
-        println!("{}", java_rng.next_i32_bounded(42 + (1 << i)));
-    }
+    println!("Seed: {:?}", GAME_CONTEXT.seed);
+    println!("Map for act 1:");
+    println!("{}", MapBuilder::for_act(Act(1)).build());
 }

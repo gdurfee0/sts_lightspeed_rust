@@ -49,6 +49,7 @@ namespace sts {
         static Map act4Map();
 
         void normalizeParents();
+        void writeExitData(std::ostream &os) const;
     };
 
 }

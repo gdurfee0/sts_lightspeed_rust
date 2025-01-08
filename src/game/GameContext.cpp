@@ -69,6 +69,10 @@ GameContext::GameContext(CharacterClass cc, std::uint64_t seed, int ascension)
     curEvent = Event::NEOW;
     info.neowRewards = Neow::getOptions(neowRng);
     screenState = ScreenState::EVENT_SCREEN;
+    std::ofstream os("/tmp/map-exit-data.txt");
+    for (int i = 1; i < 1000; i++) {
+        Map::fromSeed(i, 0, 1, true).writeExitData(os);
+    }
 }
 
 void GameContext::initFromSave(const SaveFile &s) {

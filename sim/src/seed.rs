@@ -7,6 +7,12 @@ use anyhow::anyhow;
 #[derive(PartialEq)]
 pub struct Seed(u64);
 
+impl Seed {
+    pub fn with_offset(&self, offset: u64) -> Self {
+        Self(self.0.wrapping_add(offset))
+    }
+}
+
 impl TryFrom<&str> for Seed {
     type Error = anyhow::Error;
 
@@ -59,6 +65,12 @@ impl From<&Seed> for String {
 impl From<&Seed> for u64 {
     fn from(value: &Seed) -> u64 {
         value.0
+    }
+}
+
+impl From<u64> for Seed {
+    fn from(value: u64) -> Self {
+        Self(value)
     }
 }
 

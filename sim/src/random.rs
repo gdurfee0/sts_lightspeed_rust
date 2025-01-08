@@ -1,4 +1,9 @@
-use crate::seed::Seed;
+use std::{
+    fmt::{self, Debug},
+    ops::Range,
+};
+
+use crate::{game_context::GAME_CONTEXT, seed::Seed};
 
 #[derive(Clone)]
 pub struct JavaRandom {
@@ -8,6 +13,7 @@ pub struct JavaRandom {
 pub struct StsRandom {
     state0: u64,
     state1: u64,
+    counter: usize,
 }
 
 impl JavaRandom {
@@ -57,31 +63,72 @@ impl From<Seed> for JavaRandom {
 }
 
 impl StsRandom {
+    pub fn with_offset(offset: u64) -> Self {
+        GAME_CONTEXT.seed.with_offset(offset).into()
+    }
+
+    pub fn get_counter(&self) -> usize {
+        self.counter
+    }
+
     pub fn next_u64(&mut self) -> u64 {
         let mut s1 = self.state0;
         let s0 = self.state1;
         self.state0 = s0;
         s1 ^= s1 << 23;
         self.state1 = s1 ^ s0 ^ (s1 >> 17) ^ (s0 >> 26);
+        println!(
+            "rng iter {}: {}",
+            self.counter,
+            self.state1.wrapping_add(s0)
+        );
+        self.counter += 1;
         self.state1.wrapping_add(s0)
     }
 
-    // TODO: Review which of these are actually needed and cull the rest.
     pub fn next_u64_bounded(&mut self, bound: u64) -> u64 {
         loop {
-            let bits = (self.next_u64() >> 1) as i64;
-            let value = bits % (bound as i64);
-            if bits
-                .wrapping_sub(value)
-                .wrapping_add(bound as i64)
-                .wrapping_sub(1)
-                >= 0
-            {
-                return value as u64;
+            let bits = self.next_u64() >> 1;
+            let value = bits % bound;
+            let t = bits.wrapping_sub(value).wrapping_add(bound).wrapping_sub(1);
+            if (t & (1 << 63)) == 0 {
+                return value;
             }
         }
     }
 
+    pub fn gen_range<T>(&mut self, range: Range<T>) -> T
+    where
+        T: Copy + TryFrom<u64> + TryInto<u64>,
+        <T as TryInto<u64>>::Error: Debug,
+        <T as TryFrom<u64>>::Error: Debug,
+    {
+        let start_u64 = range
+            .start
+            .try_into()
+            .expect("Conversion failed for range start");
+        let end_u64 = range
+            .end
+            .try_into()
+            .expect("Conversion failed for range end");
+        assert!(
+            start_u64 < end_u64,
+            "Invalid range: range.end must be greater than range.start"
+        );
+        T::try_from(self.next_u64_bounded(end_u64 - start_u64) + start_u64)
+            .expect("Conversion failed for random number")
+    }
+
+    pub fn choose<'a, T>(&mut self, slice: &'a [T]) -> &'a T
+    where
+        T: fmt::Debug,
+    {
+        let result = &slice[self.gen_range(0..slice.len())];
+        println!("rng choose: {:?}", result);
+        result
+    }
+
+    // TODO: Review which of these are actually needed and cull the rest.
     pub fn next_i32(&mut self) -> i32 {
         self.next_u64() as i32
     }
@@ -144,7 +191,11 @@ impl From<u64> for StsRandom {
     fn from(seed: u64) -> Self {
         let state0 = StsRandom::murmur_hash_3(if seed == 0 { 1u64 << 63 } else { seed });
         let state1 = StsRandom::murmur_hash_3(state0);
-        Self { state0, state1 }
+        Self {
+            state0,
+            state1,
+            counter: 0,
+        }
     }
 }
 

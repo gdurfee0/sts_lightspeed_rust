@@ -54,6 +54,84 @@ void initNodes(Map &map) {
     }
 }
 
+#include "base64.h"
+#include <vector>
+#include <fstream>
+#include <iomanip>
+#include <cstdint>
+
+uint64_t to_big_endian(uint64_t value) {
+    #if __BYTE_ORDER__ == __ORDER_BIG_ENDIAN__
+        return value;
+    #elif __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
+        return __builtin_bswap64(value);
+    #else
+        #error "Unknown endianness"
+    #endif
+}
+
+void Map::writeExitData(std::ostream &os) const {
+    /*
+    std::vector<char> exitData;
+    for (int y = 0; y < MAP_HEIGHT; y++) {
+        for (int x = 0; x < MAP_WIDTH; x++) {
+            auto &node = nodes.at(y).at(x);
+            int left = x - 1;
+            int straight = x;
+            int right = x + 1;
+            char edgesVal = 0;
+            for (int i = 0; i < node.edgeCount; i++) {
+                if (node.edges[i] == left) {
+                    edgesVal |= 4;
+                } else if (node.edges[i] == straight) {
+                    edgesVal |= 2;
+                } else if (node.edges[i] == right) {
+                    edgesVal |= 1;
+                }
+            }
+            exitData.push_back(edgesVal);
+        }
+    }
+    // Base 64 encode the result
+    os << base64_encode(reinterpret_cast<const unsigned char*>(exitData.data()), exitData.size());
+    */
+    std::vector<char> exitData;   
+    for (int y = 0; y < MAP_HEIGHT - 1; y++) {
+        for (int x = 0; x < MAP_WIDTH; x++) {
+            auto &node = nodes.at(y).at(x);
+            int left = x - 1;
+            int straight = x;
+            int right = x + 1;
+            int edgesVal = 0;
+            for (int i = 0; i < node.edgeCount; i++) {
+                if (node.edges[i] == left) {
+                    edgesVal |= 4;
+                } else if (node.edges[i] == straight) {
+                    edgesVal |= 2;
+                } else if (node.edges[i] == right) {
+                    edgesVal |= 1;
+                }
+            }
+            exitData.push_back(edgesVal);
+        }
+    }
+    std::vector<uint64_t> flattened;
+    for (int i = 0; i < exitData.size(); i += 21) {
+        uint64_t acc = 0;
+        for (int j = 0; j < 21; j++) {
+            if (i+j < exitData.size()) {
+                acc <<= 3;
+                acc |= exitData[i+j];
+            }
+        }
+        flattened.push_back(to_big_endian(acc));
+    }
+    os << base64_encode(
+        reinterpret_cast<const unsigned char*>(flattened.data()), flattened.size()*8
+    ) << std::endl;
+}
+
+
 Map Map::fromSeed(std::uint64_t seed, int ascension, int act, bool setBurning) {
     Map map;
     auto offset = act == 1 ? 1 : act*(100*(act-1));
@@ -66,6 +144,7 @@ Map Map::fromSeed(std::uint64_t seed, int ascension, int act, bool setBurning) {
         assignBurningElite(map, mapRng);
         map.burningEliteBuff = mapRng.random(0,3);
     }
+    /*
     std::cout << "[" << std::endl;
     for (int y = 0; y < MAP_HEIGHT; y++) {
         std::cout << "    [" << std::endl;
@@ -122,6 +201,7 @@ Map Map::fromSeed(std::uint64_t seed, int ascension, int act, bool setBurning) {
         std::cout << "    ]," << std::endl;
     }
     std::cout << "];" << std::endl;
+    */
     return map;
 }
 
@@ -288,6 +368,8 @@ inline int getCommonAncestor(const Map &map, int x1, int x2, int y) {
         l_node = x1;
         r_node = x2;
     } else {
+        std::cout << "x1: " << x1 << ", x2: " << x2 << ", y: " << y << std::endl;
+        //return -1;
         l_node = x2;
         r_node = x1;
     }
@@ -305,7 +387,14 @@ inline int getCommonAncestor(const Map &map, int x1, int x2, int y) {
 
 inline int choosePathParentLoopRandomizer(const Map &map, Random &rng, int curX, int curY, int newX) {
     const MapNode &newEdgeDest = map.getNode(newX, curY + 1);
+    std::cout << "Investigating destination node: " << (curY + 1 ) << " " << newX << " (" << newEdgeDest.parentCount << "): ";
+    for (int i = 0; i < newEdgeDest.parentCount; i++) {
+        std::cout << newEdgeDest.parents.at(i) << " ";
+    }
+    std::cout << std::endl;
 
+
+    bool cycle_detected = false;
     for (int i = 0; i < newEdgeDest.parentCount; i++) {
         int parentX = newEdgeDest.parents.at(i);
         if (curX == parentX) {
@@ -314,13 +403,16 @@ inline int choosePathParentLoopRandomizer(const Map &map, Random &rng, int curX,
         if (getCommonAncestor(map, parentX, curX, curY) == -1) {
             continue;
         }
-
+        cycle_detected = true;
+        std::cout << "Cycle detected, iteration " << i << " curX: " << curX << " newX: " << newX << " parentX: " << parentX << std::endl;
         if (newX > curX) {
+            std::cout << "newX > curX so sampling " << (curX - 1) << ", " << curX << std::endl;
             newX = curX + randRange(rng, -1, 0);
             if (newX < 0) {
                 newX = curX;
             }
         } else if (newX == curX) {
+            std::cout << "newX == curX so sampling " << (curX - 1) << ", " << curX << ", " << (curX + 1) << std::endl;
             newX = curX + randRange(rng, -1, 1);
             if (newX > ROW_END_NODE) {
                 newX = curX - 1;
@@ -328,11 +420,16 @@ inline int choosePathParentLoopRandomizer(const Map &map, Random &rng, int curX,
                 newX = curX + 1;
             }
         } else {
+            std::cout << "newX < curX so sampling " << curX  << ", " << (curX + 1) << std::endl;
             newX = curX + randRange(rng, 0, 1);
             if (newX > ROW_END_NODE) {
                 newX = curX;
             }
         }
+        std::cout << "Cycle iteration " << i << " remedy: " << newX << ", which is " << (newX - curX) << std::endl;
+    }
+    if (cycle_detected) {
+        std::cout << "Cycle final remedy: " << newX << std::endl;
     }
 
     return newX;
@@ -378,9 +475,14 @@ int chooseNewPath(Map &map, Random &rng, int curX, int curY) {
         max = 1;
     }
 
-    int newEdgeX = curX + randRange(rng, min, max);
+    int r = randRange(rng, min, max);
+    std::cout << "curY: " << curY << ", curX: " << curX << ", r: " << r << " from min=" << min << ", max=" << max << std::endl;
+    int newEdgeX = curX + r;
+    std::cout << "First proposed exit from node at " << curY << " " << curX << " is " << (newEdgeX - curX) << std::endl;
     newEdgeX = choosePathParentLoopRandomizer(map, rng, curX, curY, newEdgeX);
+    std::cout << "Next proposed exit from node at " << curY << " " << curX << " is " << (newEdgeX - curX) << std::endl;
     newEdgeX = choosePathAdjustNewX(map, curX, curY, newEdgeX);
+    std::cout << "Final proposed exit from node at " << curY << " " << curX << " is " << (newEdgeX - curX) << std::endl;
 
     return newEdgeX;
 }
@@ -389,8 +491,10 @@ void createPathsIteration(Map &map, Random &rng, int startX) {
     int curX = startX;
     for (int curY = 0; curY < MAP_HEIGHT-1; ++curY) {
         int newX = chooseNewPath(map, rng, curX, curY);
+        std::cout << "curY: " << curY << " curX: " << curX << " newX: " << newX << std::endl;
         map.getNode(curX, curY).addEdge(newX);
         map.getNode(newX, curY+1).addParent(curX);
+        //std::cout << map.toString() << std::endl;
         curX = newX;
     }
     map.getNode(curX, 14).addEdge(3);
@@ -398,7 +502,10 @@ void createPathsIteration(Map &map, Random &rng, int startX) {
 
 void createPaths(Map &map, Random &mapRng) {
     int firstStartX = randRange(mapRng, 0, MAP_WIDTH - 1);
+    std::cout << "First Start X: " << firstStartX << std::endl;
     createPathsIteration(map, mapRng, firstStartX);
+    std::cout << "RNG counter after first path: " << mapRng.counter1 << std::endl;
+    std::cout << map.toString() << std::endl;
 
     for(int i = 1; i < PATH_DENSITY; ++i) {
         int startX = randRange(mapRng, 0, MAP_WIDTH - 1);
@@ -408,6 +515,8 @@ void createPaths(Map &map, Random &mapRng) {
         }
 
         createPathsIteration(map, mapRng, startX);
+        std::cout << "RNG counter after iteration " << (i+1) << ": " << mapRng.counter1 << std::endl;
+    std::cout << map.toString() << std::endl;
     }
 }
 

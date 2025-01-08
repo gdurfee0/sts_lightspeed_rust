@@ -5,6 +5,8 @@
 #ifndef STS_LIGHTSPEED_RANDOM_H
 #define STS_LIGHTSPEED_RANDOM_H
 
+#include <iostream>
+
 namespace java {
 
     class Random {
@@ -70,6 +72,7 @@ namespace sts {
         static constexpr std::uint64_t ONE_IN_MOST_SIGNIFICANT = static_cast<std::uint64_t>(1) << 63;
 
         std::int32_t counter;
+        std::int32_t counter1;
         std::uint64_t seed0;
         std::uint64_t seed1;
 
@@ -89,6 +92,8 @@ namespace sts {
             s1 ^= s1 << 23;
 
             seed1 = s1 ^ s0 ^ s1 >> 17 ^ s0 >> 26;
+            std::cout << "rng iter " << counter1 << ": " << (seed1 + s0) << std::endl;
+            counter1++;
             return seed1 + s0;
         }
 
@@ -135,6 +140,7 @@ namespace sts {
 
         Random(std::uint64_t seed) {
             counter = 0;
+            counter1 = 0;
             seed0 = murmurHash3(seed == 0 ? ONE_IN_MOST_SIGNIFICANT : seed);
             seed1 = murmurHash3(seed0);
         }

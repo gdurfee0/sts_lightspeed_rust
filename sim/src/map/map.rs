@@ -49,7 +49,7 @@ mod tests {
 
     use once_cell::sync::Lazy;
 
-    static MAP_0SLAYTHESPIRE: Lazy<Map> = Lazy::new(|| {
+    pub static MAP_0SLAYTHESPIRE: Lazy<Map> = Lazy::new(|| {
         Map([
             [
                 Some(Node(Room::Monster, Exit::Straight)),

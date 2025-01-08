@@ -1,5 +1,6 @@
 mod builder;
 mod exit;
+mod graph;
 mod map;
 mod room;
 

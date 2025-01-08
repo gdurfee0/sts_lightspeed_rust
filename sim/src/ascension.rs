@@ -1,17 +1,24 @@
 use anyhow::anyhow;
 
-#[derive(Debug, PartialEq)]
-pub struct Ascension(u8);
+#[derive(Copy, Clone, Debug, PartialEq)]
+pub struct Ascension(pub u8);
 
 impl TryFrom<&str> for Ascension {
     type Error = anyhow::Error;
 
     fn try_from(value: &str) -> Result<Self, Self::Error> {
-        let ascension = value.parse()?;
-        if ascension > 20 {
+        value.parse::<u8>()?.try_into()
+    }
+}
+
+impl TryFrom<u8> for Ascension {
+    type Error = anyhow::Error;
+
+    fn try_from(value: u8) -> Result<Self, Self::Error> {
+        if value > 20 {
             Err(anyhow!("Ascension level must be between 0 and 20"))
         } else {
-            Ok(Self(ascension))
+            Ok(Self(value))
         }
     }
 }

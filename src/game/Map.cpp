@@ -896,10 +896,20 @@ void assignRooms(Map &map, Random &rng, int ascensionLevel) {
 
     Room rooms[counts.unassigned];
     fillRoomArray(rooms, counts, ascensionLevel > 0 ? ELITE_ROOM_CHANCE_A1 : ELITE_ROOM_CHANCE_A0);
+    std::cout << "Initial room array: ";
+    for (int i = 0; i < counts.unassigned; i++) {
+        std::cout << getRoomSymbol(rooms[i]);
+    }
+    std::cout << std::endl;
 
     for (int i=counts.unassigned; i>1; i--) {
         std::swap(rooms[i-1], rooms[rng.nextInt(i)]);
     }
+    std::cout << "Permuted room array: ";
+    for (int i = 0; i < counts.unassigned; i++) {
+        std::cout << getRoomSymbol(rooms[i]);
+    }
+    std::cout << std::endl;
 
     assignRoomsToNodes(map, rooms, counts.unassigned);
 }

@@ -68,12 +68,15 @@ impl NodeGridBuilder {
             .unwrap_or_else(|| [].iter())
     }
 
-    fn entrances_collide(&self, row: usize, my_col: usize, other_col: usize, flip: bool) -> bool {
+    fn entrances_collide(&self, row: usize, my_col: usize, other_col: usize) -> bool {
         if let (Some(my_node), Some(other_node)) = (
             &self.grid[row][my_col].as_ref(),
             &self.grid[row][other_col].as_ref(),
         ) {
-            if flip {
+            // "other_col >= row" is almost certainly a bug in the original code; it's
+            // probably supposed to be "other_col >= my_col". This causes a lot of small
+            // cycles to be missed because the wrong comparisons are being performed.
+            if other_col >= row {
                 my_node.rightmost_entrance_col() == other_node.leftmost_entrance_col()
             } else {
                 other_node.rightmost_entrance_col() == my_node.leftmost_entrance_col()
@@ -111,19 +114,6 @@ impl<'a> GraphBuilder<'a> {
         self.embed_paths();
         self.prune_bottom_row();
         self.node_grid
-        /*
-            .iter_mut()
-            .map(|row| {
-                row.iter_mut()
-                    .map(|maybe_node| maybe_node.take().map(|node| node.build()))
-                    .collect::<Vec<Option<Node>>>()
-                    .try_into()
-                    .expect("Builder should have built rows of the correct length")
-            })
-            .collect::<Vec<[Option<Node>; COLUMN_COUNT]>>()
-            .try_into()
-            .expect("Builder should have built the correct number of rows")
-        */
     }
 
     fn embed_paths(&mut self) {
@@ -234,13 +224,7 @@ impl<'a> GraphBuilder<'a> {
             if other_col == my_col {
                 continue;
             }
-            // "other_col >= row" is almost certainly a bug in the original code; it's
-            // probably supposed to be "other_col >= my_col". This causes a lot of small
-            // cycles to be missed because the wrong comparisons are being performed.
-            if self
-                .node_grid
-                .entrances_collide(row, my_col, other_col, other_col >= row)
-            {
+            if self.node_grid.entrances_collide(row, my_col, other_col) {
                 (exit, next_col) = match next_col.cmp(&my_col) {
                     Ordering::Less => *self.sts_random.choose(&[
                         (Exit::Straight, my_col),

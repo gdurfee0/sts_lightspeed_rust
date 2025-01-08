@@ -2,33 +2,33 @@ use std::fmt;
 
 use crate::map::PATH_DENSITY;
 
-use super::exit::Exit;
+use super::exit::ExitBits;
 use super::room::Room;
 
 #[derive(Debug)]
 pub struct Node {
     room: Room,
-    exit: Exit,
+    exit_bits: ExitBits,
 }
 
 #[derive(Debug)]
 pub struct NodeBuilder {
     room: Option<Room>,
-    exit: Exit,
+    exit_bits: ExitBits,
     entrance_cols: Vec<usize>,
 }
 
 impl Node {
-    pub fn new(room: Room, exit: Exit) -> Self {
-        Self { room, exit }
+    pub fn new(room: Room, exit_bits: ExitBits) -> Self {
+        Self { room, exit_bits }
     }
 
     pub fn room(&self) -> Room {
         self.room
     }
 
-    pub fn exit_bits(&self) -> Exit {
-        self.exit
+    pub fn exit_bits(&self) -> ExitBits {
+        self.exit_bits
     }
 }
 
@@ -45,8 +45,8 @@ impl NodeBuilder {
         self.entrance_cols.iter().max().copied()
     }
 
-    pub fn has_exit(&self, exit: Exit) -> bool {
-        self.exit.contains(exit)
+    pub fn has_exit(&self, exit: ExitBits) -> bool {
+        self.exit_bits.contains(exit)
     }
 
     pub fn entrance_col_iter(&self) -> impl Iterator<Item = &usize> {
@@ -58,8 +58,8 @@ impl NodeBuilder {
         self
     }
 
-    pub fn add_exit(mut self, exit: Exit) -> Self {
-        self.exit |= exit;
+    pub fn add_exit(mut self, exit: ExitBits) -> Self {
+        self.exit_bits |= exit;
         self
     }
 
@@ -69,7 +69,7 @@ impl NodeBuilder {
     }
 
     pub fn build(self) -> Node {
-        Node::new(self.room.unwrap_or(Room::Monster), self.exit)
+        Node::new(self.room.unwrap_or(Room::Monster), self.exit_bits)
     }
 }
 
@@ -86,7 +86,7 @@ impl Default for NodeBuilder {
     fn default() -> Self {
         Self {
             room: None,
-            exit: Exit::empty(),
+            exit_bits: ExitBits::empty(),
             entrance_cols: Vec::with_capacity(PATH_DENSITY),
         }
     }
@@ -97,8 +97,8 @@ mod test {
     use super::*;
 
     impl NodeBuilder {
-        pub fn exit_bits(&self) -> Exit {
-            self.exit
+        pub fn exit_bits(&self) -> ExitBits {
+            self.exit_bits
         }
     }
 }

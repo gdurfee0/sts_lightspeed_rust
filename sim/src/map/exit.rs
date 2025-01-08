@@ -4,14 +4,14 @@ use bitflags::bitflags;
 
 bitflags! {
     #[derive(Clone, Copy, Debug, Default, PartialEq)]
-    pub struct Exit: u8 {
+    pub struct ExitBits: u8 {
         const Left     = 0b100;
         const Straight = 0b010;
         const Right    = 0b001;
     }
 }
 
-impl fmt::Display for Exit {
+impl fmt::Display for ExitBits {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(
             f,

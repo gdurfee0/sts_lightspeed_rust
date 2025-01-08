@@ -3,7 +3,7 @@ use std::fmt;
 
 use crate::random::StsRandom;
 
-use super::exit::Exit;
+use super::exit::ExitBits;
 use super::grid::NodeBuilderGrid;
 use super::{COLUMN_COUNT, PATH_DENSITY, ROW_COUNT};
 
@@ -43,24 +43,24 @@ impl<'a> GraphBuilder<'a> {
     fn prune_bottom_row(&mut self) {
         let mut row1_seen = [false; COLUMN_COUNT];
         for col in 0..COLUMN_COUNT {
-            let mut exits_to_keep = Exit::empty();
-            if col > 0 && !row1_seen[col - 1] && self.node_grid.has_exit(0, col, Exit::Left) {
-                exits_to_keep |= Exit::Left;
+            let mut exits_to_keep = ExitBits::empty();
+            if col > 0 && !row1_seen[col - 1] && self.node_grid.has_exit(0, col, ExitBits::Left) {
+                exits_to_keep |= ExitBits::Left;
                 row1_seen[col - 1] = true;
             }
-            if !row1_seen[col] && self.node_grid.has_exit(0, col, Exit::Straight) {
-                exits_to_keep |= Exit::Straight;
+            if !row1_seen[col] && self.node_grid.has_exit(0, col, ExitBits::Straight) {
+                exits_to_keep |= ExitBits::Straight;
                 row1_seen[col] = true;
             }
             if col < COLUMN_MAX
                 && !row1_seen[col + 1]
-                && self.node_grid.has_exit(0, col, Exit::Right)
+                && self.node_grid.has_exit(0, col, ExitBits::Right)
             {
-                exits_to_keep |= Exit::Right;
+                exits_to_keep |= ExitBits::Right;
                 row1_seen[col + 1] = true;
             }
             self.node_grid.remove(0, col);
-            if exits_to_keep != Exit::empty() {
+            if exits_to_keep != ExitBits::empty() {
                 self.node_grid.add_exit(0, col, exits_to_keep);
             }
         }
@@ -79,26 +79,27 @@ impl<'a> GraphBuilder<'a> {
             ROW_COUNT - 1,
             col,
             match col.cmp(&(COLUMN_COUNT / 2)) {
-                Ordering::Less => Exit::Right,
-                Ordering::Equal => Exit::Straight,
-                Ordering::Greater => Exit::Left,
+                Ordering::Less => ExitBits::Right,
+                Ordering::Equal => ExitBits::Straight,
+                Ordering::Greater => ExitBits::Left,
             },
         );
     }
 
-    fn propose_exit(&mut self, col: usize) -> (Exit, usize) {
+    fn propose_exit(&mut self, col: usize) -> (ExitBits, usize) {
         match col {
             0 => *self
                 .sts_random
-                .choose(&[(Exit::Straight, 0), (Exit::Right, 1)]),
+                .choose(&[(ExitBits::Straight, 0), (ExitBits::Right, 1)]),
             1..COLUMN_MAX => *self.sts_random.choose(&[
-                (Exit::Left, col - 1),
-                (Exit::Straight, col),
-                (Exit::Right, col + 1),
+                (ExitBits::Left, col - 1),
+                (ExitBits::Straight, col),
+                (ExitBits::Right, col + 1),
             ]),
-            COLUMN_MAX => *self
-                .sts_random
-                .choose(&[(Exit::Left, COLUMN_MAX - 1), (Exit::Straight, COLUMN_MAX)]),
+            COLUMN_MAX => *self.sts_random.choose(&[
+                (ExitBits::Left, COLUMN_MAX - 1),
+                (ExitBits::Straight, COLUMN_MAX),
+            ]),
             _ => unreachable!(),
         }
     }
@@ -107,9 +108,9 @@ impl<'a> GraphBuilder<'a> {
         &mut self,
         row: usize,
         my_col: usize,
-        mut exit: Exit,
+        mut exit: ExitBits,
         mut next_col: usize,
-    ) -> (Exit, usize) {
+    ) -> (ExitBits, usize) {
         if row == 0 {
             return (exit, next_col);
         }
@@ -139,29 +140,29 @@ impl<'a> GraphBuilder<'a> {
             if self.node_grid.entrances_collide(row, my_col, other_col) {
                 (exit, next_col) = match next_col.cmp(&my_col) {
                     Ordering::Less => *self.sts_random.choose(&[
-                        (Exit::Straight, my_col),
+                        (ExitBits::Straight, my_col),
                         match my_col {
-                            COLUMN_MAX => (Exit::Straight, COLUMN_MAX),
-                            _ => (Exit::Right, my_col + 1),
+                            COLUMN_MAX => (ExitBits::Straight, COLUMN_MAX),
+                            _ => (ExitBits::Right, my_col + 1),
                         },
                     ]),
                     Ordering::Equal => *self.sts_random.choose(&[
                         match my_col {
-                            0 => (Exit::Right, 1),
-                            _ => (Exit::Left, my_col - 1), // bounce instead of clamp; intended?
+                            0 => (ExitBits::Right, 1),
+                            _ => (ExitBits::Left, my_col - 1), // bounce instead of clamp; intended?
                         },
-                        (Exit::Straight, my_col),
+                        (ExitBits::Straight, my_col),
                         match my_col {
-                            COLUMN_MAX => (Exit::Left, COLUMN_MAX - 1),
-                            _ => (Exit::Right, my_col + 1), // bounce not clamp; intended?
+                            COLUMN_MAX => (ExitBits::Left, COLUMN_MAX - 1),
+                            _ => (ExitBits::Right, my_col + 1), // bounce not clamp; intended?
                         },
                     ]),
                     Ordering::Greater => *self.sts_random.choose(&[
                         match my_col {
-                            0 => (Exit::Straight, 0),
-                            _ => (Exit::Left, my_col - 1),
+                            0 => (ExitBits::Straight, 0),
+                            _ => (ExitBits::Left, my_col - 1),
                         },
-                        (Exit::Straight, my_col),
+                        (ExitBits::Straight, my_col),
                     ]),
                 };
             }
@@ -173,20 +174,20 @@ impl<'a> GraphBuilder<'a> {
         &self,
         row: usize,
         col: usize,
-        exit: Exit,
+        exit: ExitBits,
         next_col: usize,
-    ) -> (Exit, usize) {
+    ) -> (ExitBits, usize) {
         match exit {
-            Exit::Left => {
-                if self.node_grid.has_exit(row, col - 1, Exit::Right) {
-                    (Exit::Straight, col)
+            ExitBits::Left => {
+                if self.node_grid.has_exit(row, col - 1, ExitBits::Right) {
+                    (ExitBits::Straight, col)
                 } else {
                     (exit, next_col)
                 }
             }
-            Exit::Right => {
-                if self.node_grid.has_exit(row, col + 1, Exit::Left) {
-                    (Exit::Straight, col)
+            ExitBits::Right => {
+                if self.node_grid.has_exit(row, col + 1, ExitBits::Left) {
+                    (ExitBits::Straight, col)
                 } else {
                     (exit, next_col)
                 }
@@ -215,7 +216,7 @@ mod tests {
         let mut sts_random = StsRandom::from(2);
         let node_grid = GraphBuilder::new(&mut sts_random).build();
         assert_eq!(
-            node_grid.exits_as_vec(),
+            node_grid.exit_bits_as_vec(),
             [
                 [0, 6, 0, 1, 0, 0, 0,],
                 [1, 2, 0, 0, 6, 0, 0,],
@@ -237,7 +238,7 @@ mod tests {
         let mut sts_random = StsRandom::from(3);
         let node_grid = GraphBuilder::new(&mut sts_random).build();
         assert_eq!(
-            node_grid.exits_as_vec(),
+            node_grid.exit_bits_as_vec(),
             [
                 [2, 0, 1, 1, 0, 0, 2,],
                 [1, 0, 0, 2, 6, 0, 4,],
@@ -256,7 +257,7 @@ mod tests {
             ]
         );
         assert_eq!(
-            node_grid.exits_as_base64(),
+            node_grid.exit_bits_as_base64(),
             "IEgIgLCCBlAQEuAQWkBAmggGmQE0hBJQCAlggBKAgLgAAAACM0ANCg=="
         );
     }
@@ -276,7 +277,10 @@ mod tests {
             now.elapsed()
         );
         for (i, vector) in TEST_VECTORS.lines().enumerate() {
-            assert_eq!((i, node_grids[i].exits_as_base64().as_str()), (i, vector));
+            assert_eq!(
+                (i, node_grids[i].exit_bits_as_base64().as_str()),
+                (i, vector)
+            );
         }
     }
 }

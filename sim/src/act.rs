@@ -8,7 +8,7 @@ impl TryFrom<&str> for Act {
 
     fn try_from(value: &str) -> Result<Self, Self::Error> {
         let act = value.parse()?;
-        if act < 1 || act > 4 {
+        if !(1..=4).contains(&act) {
             Err(anyhow!("Act must be between 1 and 4"))
         } else {
             Ok(Self(act))

@@ -71,6 +71,7 @@ GameContext::GameContext(CharacterClass cc, std::uint64_t seed, int ascension)
     curEvent = Event::NEOW;
     info.neowRewards = Neow::getOptions(neowRng);
     screenState = ScreenState::EVENT_SCREEN;
+    /*
     auto start = std::chrono::high_resolution_clock::now();    
     std::vector<Map> maps;
     for (int i = 1; i < 1000001; i++) {
@@ -80,9 +81,10 @@ GameContext::GameContext(CharacterClass cc, std::uint64_t seed, int ascension)
     auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
     std::cout << "Time taken to generate 1M maps: " << duration.count() << "ms\n";
     std::ofstream os("/tmp/map-exit-data.txt");
-    for (int i = 0; i < 10000; i++) {
+    for (int i = 0; i < 1000000; i++) {
         maps[i].writeExitData(os);
     }
+    */
 }
 
 void GameContext::initFromSave(const SaveFile &s) {

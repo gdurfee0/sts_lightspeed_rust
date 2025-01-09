@@ -3,6 +3,7 @@ mod ascension;
 mod character;
 mod game_context;
 mod map;
+mod monster;
 mod random;
 mod seed;
 

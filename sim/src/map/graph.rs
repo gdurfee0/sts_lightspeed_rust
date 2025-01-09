@@ -185,6 +185,7 @@ impl<'a> GraphBuilder<'a> {
                     (exit, next_col)
                 }
             }
+            ExitBits::Up => (exit, next_col),
             ExitBits::Right => {
                 if self.node_grid.has_exit(row, col + 1, ExitBits::Left) {
                     (ExitBits::Up, col)
@@ -192,7 +193,7 @@ impl<'a> GraphBuilder<'a> {
                     (exit, next_col)
                 }
             }
-            _ => (exit, next_col),
+            _ => unreachable!(),
         }
     }
 }

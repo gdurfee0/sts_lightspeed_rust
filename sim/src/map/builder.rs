@@ -155,15 +155,11 @@ impl MapBuilder {
     }
 
     fn from(seed: &Seed, ascension: Ascension, act: Act) -> Self {
-        let offset = if act.0 == 1 {
-            1
-        } else {
-            act.0 * (100 * (act.0 - 1))
-        };
+        let offset = act.get_details().map_seed_offset;
         Self {
             act,
             ascension,
-            sts_random: seed.with_offset(offset as u64).into(),
+            sts_random: seed.with_offset(offset).into(),
         }
     }
 

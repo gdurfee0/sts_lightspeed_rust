@@ -5,9 +5,7 @@ use crate::random::StsRandom;
 
 use super::exit::ExitBits;
 use super::grid::NodeBuilderGrid;
-use super::{COLUMN_COUNT, PATH_DENSITY, ROW_COUNT};
-
-const COLUMN_MAX: usize = COLUMN_COUNT - 1;
+use super::{COLUMN_COUNT, COLUMN_MAX, PATH_DENSITY, ROW_COUNT};
 
 pub struct GraphBuilder<'a> {
     sts_random: &'a mut StsRandom,
@@ -48,8 +46,8 @@ impl<'a> GraphBuilder<'a> {
                 exits_to_keep |= ExitBits::Left;
                 row1_seen[col - 1] = true;
             }
-            if !row1_seen[col] && self.node_grid.has_exit(0, col, ExitBits::Straight) {
-                exits_to_keep |= ExitBits::Straight;
+            if !row1_seen[col] && self.node_grid.has_exit(0, col, ExitBits::Up) {
+                exits_to_keep |= ExitBits::Up;
                 row1_seen[col] = true;
             }
             if col < COLUMN_MAX
@@ -72,7 +70,7 @@ impl<'a> GraphBuilder<'a> {
             let (exit, next_col) = self.avoid_small_cycles(row, col, exit, next_col);
             let (exit, next_col) = self.prevent_crossed_paths(row, col, exit, next_col);
             self.node_grid.add_exit(row, col, exit);
-            self.node_grid.add_entrance(row + 1, next_col, col);
+            self.node_grid.record_parent_col(row + 1, next_col, col);
             col = next_col;
         }
         self.node_grid.add_exit(
@@ -80,7 +78,7 @@ impl<'a> GraphBuilder<'a> {
             col,
             match col.cmp(&(COLUMN_COUNT / 2)) {
                 Ordering::Less => ExitBits::Right,
-                Ordering::Equal => ExitBits::Straight,
+                Ordering::Equal => ExitBits::Up,
                 Ordering::Greater => ExitBits::Left,
             },
         );
@@ -90,16 +88,15 @@ impl<'a> GraphBuilder<'a> {
         match col {
             0 => *self
                 .sts_random
-                .choose(&[(ExitBits::Straight, 0), (ExitBits::Right, 1)]),
+                .choose(&[(ExitBits::Up, 0), (ExitBits::Right, 1)]),
             1..COLUMN_MAX => *self.sts_random.choose(&[
                 (ExitBits::Left, col - 1),
-                (ExitBits::Straight, col),
+                (ExitBits::Up, col),
                 (ExitBits::Right, col + 1),
             ]),
-            COLUMN_MAX => *self.sts_random.choose(&[
-                (ExitBits::Left, COLUMN_MAX - 1),
-                (ExitBits::Straight, COLUMN_MAX),
-            ]),
+            COLUMN_MAX => *self
+                .sts_random
+                .choose(&[(ExitBits::Left, COLUMN_MAX - 1), (ExitBits::Up, COLUMN_MAX)]),
             _ => unreachable!(),
         }
     }
@@ -122,7 +119,7 @@ impl<'a> GraphBuilder<'a> {
         // However, this loop is problematic for a few reasons:
         //   (1) While one iteration of the loop might avoid an unwanted cycle, the next
         //       iteration might reintroduce it.
-        //   (2) The loop over parent/entrance edge list depends on the order in which those
+        //   (2) The loop over parent edge list depends on the order in which those
         //       edges were introduced, and often continues unnecessarily after a new exit
         //       has been chosen.
         //   (3) The parent/edge list often contains duplicate entries for the same edge.
@@ -133,16 +130,19 @@ impl<'a> GraphBuilder<'a> {
         // exits. This would allow us to pick an exit that doesn't introduce a small cycle
         // (if such an edge exists). As it's implemented now, we might end up with a small
         // cycle even if we could have chosen an edge that avoided it.
-        for &other_col in self.node_grid.entrance_cols(row + 1, dest_col) {
+        for &other_col in self.node_grid.recorded_parent_cols_iter(row + 1, dest_col) {
             if other_col == my_col {
                 continue;
             }
-            if self.node_grid.entrances_collide(row, my_col, other_col) {
+            if self
+                .node_grid
+                .buggy_implementation_of_shares_parent_with(row, my_col, other_col)
+            {
                 (exit, next_col) = match next_col.cmp(&my_col) {
                     Ordering::Less => *self.sts_random.choose(&[
-                        (ExitBits::Straight, my_col),
+                        (ExitBits::Up, my_col),
                         match my_col {
-                            COLUMN_MAX => (ExitBits::Straight, COLUMN_MAX),
+                            COLUMN_MAX => (ExitBits::Up, COLUMN_MAX),
                             _ => (ExitBits::Right, my_col + 1),
                         },
                     ]),
@@ -151,7 +151,7 @@ impl<'a> GraphBuilder<'a> {
                             0 => (ExitBits::Right, 1),
                             _ => (ExitBits::Left, my_col - 1), // bounce instead of clamp; intended?
                         },
-                        (ExitBits::Straight, my_col),
+                        (ExitBits::Up, my_col),
                         match my_col {
                             COLUMN_MAX => (ExitBits::Left, COLUMN_MAX - 1),
                             _ => (ExitBits::Right, my_col + 1), // bounce not clamp; intended?
@@ -159,10 +159,10 @@ impl<'a> GraphBuilder<'a> {
                     ]),
                     Ordering::Greater => *self.sts_random.choose(&[
                         match my_col {
-                            0 => (ExitBits::Straight, 0),
+                            0 => (ExitBits::Up, 0),
                             _ => (ExitBits::Left, my_col - 1),
                         },
-                        (ExitBits::Straight, my_col),
+                        (ExitBits::Up, my_col),
                     ]),
                 };
             }
@@ -180,14 +180,14 @@ impl<'a> GraphBuilder<'a> {
         match exit {
             ExitBits::Left => {
                 if self.node_grid.has_exit(row, col - 1, ExitBits::Right) {
-                    (ExitBits::Straight, col)
+                    (ExitBits::Up, col)
                 } else {
                     (exit, next_col)
                 }
             }
             ExitBits::Right => {
                 if self.node_grid.has_exit(row, col + 1, ExitBits::Left) {
-                    (ExitBits::Straight, col)
+                    (ExitBits::Up, col)
                 } else {
                     (exit, next_col)
                 }

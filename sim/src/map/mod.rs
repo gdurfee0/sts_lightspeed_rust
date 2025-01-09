@@ -6,6 +6,7 @@ mod node;
 mod room;
 
 const COLUMN_COUNT: usize = 7;
+const COLUMN_MAX: usize = COLUMN_COUNT - 1;
 const ROW_COUNT: usize = 15;
 const PATH_DENSITY: usize = 6;
 

@@ -579,7 +579,6 @@ std::string Map::toString(bool showRoomSymbols) const {
                 if (node.edgeCount > 0 || node.room == Room::BOSS) {
                     node_symbol = showRoomSymbols ? node.getRoomSymbol() : '*';
                 }
-                /*
                 if (node.x == burningEliteX && node.y == burningEliteY) {
                     switch (burningEliteBuff) {
                         case 0:
@@ -598,7 +597,6 @@ std::string Map::toString(bool showRoomSymbols) const {
                             node_symbol = 'e';
                     }
                 }
-                */
             }
             str.append(" ").append(node_symbol).append(" ");
         }

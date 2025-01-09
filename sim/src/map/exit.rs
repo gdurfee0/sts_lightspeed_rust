@@ -5,9 +5,9 @@ use bitflags::bitflags;
 bitflags! {
     #[derive(Clone, Copy, Debug, Default, PartialEq)]
     pub struct ExitBits: u8 {
-        const Left     = 0b100;
-        const Straight = 0b010;
-        const Right    = 0b001;
+        const Left  = 0b100;
+        const Up    = 0b010;
+        const Right = 0b001;
     }
 }
 

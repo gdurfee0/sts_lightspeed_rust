@@ -9,7 +9,7 @@ use crate::seed::Seed;
 use super::graph::GraphBuilder;
 use super::grid::{NodeBuilderGrid, NodeGrid};
 use super::room::Room;
-use super::{COLUMN_COUNT, ROW_COUNT};
+use super::ROW_COUNT;
 
 const SHOP_ROOM_CHANCE: f32 = 0.05;
 const REST_ROOM_CHANCE: f32 = 0.12;
@@ -29,7 +29,6 @@ pub struct MapBuilder {
 
 pub struct RoomAssigner<'a> {
     ascension: Ascension,
-    rooms_to_assign: Vec<Option<Room>>,
     node_grid: NodeBuilderGrid,
     elite_rooms: Vec<(usize, usize)>,
     sts_random: &'a mut StsRandom,
@@ -42,7 +41,6 @@ impl<'a> RoomAssigner<'a> {
         sts_random: &'a mut StsRandom,
     ) -> Self {
         Self {
-            rooms_to_assign: vec![],
             ascension,
             node_grid,
             elite_rooms: vec![],
@@ -68,7 +66,7 @@ impl<'a> RoomAssigner<'a> {
             (ELITE_ROOM_CHANCE_A1 * room_total as f32).round() as usize
         };
         let event_room_count = (EVENT_ROOM_CHANCE * room_total as f32).round() as usize;
-        self.rooms_to_assign = repeat(Room::Shop)
+        let mut unassigned_rooms = repeat(Room::Shop)
             .take(shop_room_count)
             .chain(repeat(Room::Campfire).take(rest_room_count))
             .chain(repeat(Room::Treasure).take(treasure_room_count))
@@ -78,64 +76,57 @@ impl<'a> RoomAssigner<'a> {
             .take(unassigned_room_count)
             .map(Some)
             .collect::<Vec<Option<Room>>>();
-        self.sts_random.shuffle(&mut self.rooms_to_assign);
+        self.sts_random.shuffle(&mut unassigned_rooms);
+        let mut start_index = 0;
         for row in 0..(ROW_COUNT - 1) {
-            self.assign_rooms_to_row(row);
+            if row == MONSTER_ROW_INDEX || row == TREASURE_ROW_INDEX {
+                continue;
+            }
+            for col in self.node_grid.occupied_cols_for_row(row) {
+                let mut already_rejected: [bool; 10] = [false; 10];
+                let mut some_room_rejected = false;
+                for (i, entry) in unassigned_rooms[start_index..].iter_mut().enumerate() {
+                    if let Some(room) = entry {
+                        if already_rejected[*room as usize] {
+                            continue;
+                        }
+                        already_rejected[*room as usize] = true;
+                        let (reject_outright, parent_must_be_different) = match room {
+                            Room::Campfire => (row <= 4 || row >= 13, true),
+                            Room::Elite => (row <= 4, true),
+                            Room::Event => (false, false),
+                            Room::Monster => (false, false),
+                            Room::Shop => (false, true),
+                            _ => unreachable!(),
+                        };
+                        if reject_outright
+                            || (parent_must_be_different
+                                && self.node_grid.has_parent_room_of(row, col, *room))
+                            || (self.node_grid.has_left_sibling_room_of(row, col, *room))
+                        {
+                            some_room_rejected = true;
+                            continue;
+                        }
+                        // If we make it here, the room is valid for this node.
+                        self.node_grid.set_room(row, col, *room);
+                        if *room == Room::Elite {
+                            self.elite_rooms.push((row, col));
+                        }
+                        entry.take();
+                        if !some_room_rejected {
+                            start_index += i;
+                        }
+                        break;
+                    }
+                }
+            }
         }
-        //self.assign_burning_elite();
+        self.assign_burning_elite();
         self
     }
 
     pub fn finish(self) -> NodeGrid {
         self.node_grid.into()
-    }
-
-    fn assign_rooms_to_row(&mut self, row: usize) {
-        if row == MONSTER_ROW_INDEX || row == TREASURE_ROW_INDEX {
-            return;
-        }
-        for col in self.node_grid.occupied_cols_for_row(row) {
-            let mut already_rejected: [bool; 10] = [false; 10];
-            for entry in self.rooms_to_assign.iter_mut() {
-                if let Some(room) = entry {
-                    if already_rejected[*room as usize] {
-                        continue;
-                    }
-                    already_rejected[*room as usize] = true;
-                    let should_check_parent = match room {
-                        Room::Campfire => {
-                            if row <= 4 || row >= 13 {
-                                continue;
-                            }
-                            true
-                        }
-                        Room::Elite => {
-                            if row <= 4 {
-                                continue;
-                            }
-                            true
-                        }
-                        Room::Event => false,
-                        Room::Monster => false,
-                        Room::Shop => true,
-                        _ => unreachable!(),
-                    };
-                    if should_check_parent && self.node_grid.has_parent_room_of(row, col, *room) {
-                        continue;
-                    }
-                    if self.node_grid.has_sibling_room_of(row, col, *room) {
-                        continue;
-                    }
-                    // If we make it here, the room is valid for this node.
-                    self.node_grid.set_room(row, col, *room);
-                    if *room == Room::Elite {
-                        self.elite_rooms.push((row, col));
-                    }
-                    entry.take();
-                    break;
-                }
-            }
-        }
     }
 
     fn assign_burning_elite(&mut self) {
@@ -177,6 +168,9 @@ impl MapBuilder {
     }
 
     pub fn build(mut self) -> NodeGrid {
+        if self.act == Act(4) {
+            unimplemented!();
+        }
         let node_grid = GraphBuilder::new(&mut self.sts_random).build();
         RoomAssigner::new(node_grid, self.ascension, &mut self.sts_random)
             .assign_rooms()
@@ -192,7 +186,7 @@ mod tests {
 
     use super::*;
 
-    const TEST_VECTORS_RAW: &str = include_str!("/tmp/maps.txt");
+    const TEST_VECTORS_RAW: &str = include_str!("maps.txt");
 
     #[test]
     fn test_map_0slaythespire() {
@@ -208,8 +202,7 @@ mod tests {
                 r"   \  \|  |      /   ",
                 r"    ?  E  R     R    ",
                 r"  /  / |    \   |    ",
-                //r" 1  M  ?     M  ?    ",
-                r" E  M  ?     M  ?    ",
+                r" 1  M  ?     M  ?    ",
                 r" |  | \  \ /  /      ",
                 r" ?  M  R  ?  M       ",
                 r" |/    |/ |  |       ",
@@ -263,10 +256,11 @@ mod tests {
                 .collect::<Vec<String>>()
                 .join("\n")
         });
-        for (i, (node_grid, vector)) in test_vectors.zip(node_grids.iter()).enumerate().take(9999) {
+        for (i, (node_grid, vector)) in test_vectors.zip(node_grids.iter()).enumerate() {
             let seed_as_u64 = i as u64 + 2;
             if [842, 1820, 3724, 4100, 7459].contains(&seed_as_u64) {
-                // The C++ reference implementation produces incorrect maps for these seeds.
+                // The C++ reference implementation, which produced the test vector file,
+                // produces incorrect maps for these seeds.
                 continue;
             }
             let seed: Seed = seed_as_u64.into();

@@ -1,9 +1,31 @@
+/// The `NodeGrid` and `NodeBuilderGrid` structs represent a grid of nodes used in a map simulation.
+///
+/// # Layout
+/// The grid is a 2D array with dimensions `ROW_COUNT` x `COLUMN_COUNT`. Each cell in the grid can
+/// contain an `Option<Node>` or `Option<NodeBuilder>`, representing the presence or absence of a
+/// node at that position.
+///
+/// # NodeBuilder Elements
+/// - `NodeBuilder` elements in the grid can contain various attributes such as room type and exit
+///   bits.
+/// - The `NodeBuilder` can be used to construct a `Node` which is a finalized version of the node.
+///
+/// # Connections
+/// - Nodes in the grid are connected based on their exit bits. The exit bits determine the
+///   direction of connections between nodes (e.g., left, right, straight).
+/// - The `NodeBuilderGrid` provides methods to manipulate the grid, such as adding parents,
+///   exits, and setting rooms.
+/// - The `NodeGrid` provides methods to display the grid and check for connections between nodes.
+///
+/// # Display
+/// - The `fmt::Display` implementation for `NodeGrid` and `NodeBuilderGrid` provides a visual
+///   representation of the grid, showing the connections between nodes and the types of rooms.
 use std::fmt;
 
 use super::exit::ExitBits;
 use super::node::{Node, NodeBuilder};
 use super::room::Room;
-use super::{COLUMN_COUNT, ROW_COUNT};
+use super::{COLUMN_COUNT, COLUMN_MAX, ROW_COUNT};
 
 pub struct NodeGrid {
     grid: [[Option<Node>; COLUMN_COUNT]; ROW_COUNT],
@@ -83,10 +105,10 @@ impl NodeBuilderGrid {
         self.grid[row][col].get_or_insert_default().set_room(room);
     }
 
-    pub fn add_entrance(&mut self, row: usize, col: usize, entrance_col: usize) {
+    pub fn record_parent_col(&mut self, row: usize, col: usize, parent_col: usize) {
         self.grid[row][col]
             .get_or_insert_default()
-            .add_entrance_col(entrance_col);
+            .record_parent_col(parent_col);
     }
 
     pub fn add_exit(&mut self, row: usize, col: usize, exit: ExitBits) {
@@ -101,10 +123,62 @@ impl NodeBuilderGrid {
 
     pub fn has_parent_room_of(&self, row: usize, col: usize, room: Room) -> bool {
         row > 0
-            // TODO: direct inspection rather than walking the entrance_col list,
-            // which might have duplicates.
-            && self.entrance_cols(row, col).any(|&entrance_col| {
-                self.grid[row - 1][entrance_col]
+            && (self.maybe_down_left_parent(row, col).map_or(false, |node| {
+                node.room().map(|r| r == room).unwrap_or(false)
+            }) || self.maybe_down_parent(row, col).map_or(false, |node| {
+                node.room().map(|r| r == room).unwrap_or(false)
+            }) || self
+                .maybe_down_right_parent(row, col)
+                .map_or(false, |node| {
+                    node.room().map(|r| r == room).unwrap_or(false)
+                }))
+    }
+
+    fn maybe_down_left_parent(&self, row: usize, col: usize) -> Option<&NodeBuilder> {
+        if col > 0 {
+            self.grid[row - 1][col - 1]
+                .as_ref()
+                .filter(|node| node.has_exit(ExitBits::Right))
+        } else {
+            None
+        }
+    }
+
+    fn maybe_down_parent(&self, row: usize, col: usize) -> Option<&NodeBuilder> {
+        self.grid[row - 1][col]
+            .as_ref()
+            .filter(|node| node.has_exit(ExitBits::Up))
+    }
+
+    fn maybe_down_right_parent(&self, row: usize, col: usize) -> Option<&NodeBuilder> {
+        if col < COLUMN_MAX {
+            self.grid[row - 1][col + 1]
+                .as_ref()
+                .filter(|node| node.has_exit(ExitBits::Left))
+        } else {
+            None
+        }
+    }
+
+    pub fn has_left_sibling_room_of(&self, row: usize, col: usize, room: Room) -> bool {
+        self.maybe_down_left_parent(row, col)
+            .map_or(false, |_| self.has_child_room_of(row - 1, col - 1, room))
+            || self
+                .maybe_down_parent(row, col)
+                .map_or(false, |_| self.has_child_room_of(row - 1, col, room))
+    }
+
+    fn has_child_room_of(&self, row: usize, col: usize, room: Room) -> bool {
+        [ExitBits::Left, ExitBits::Up, ExitBits::Right]
+            .iter()
+            .any(|&exit| {
+                self.has_exit(row, col, exit)
+                    && self.grid[row + 1][match exit {
+                        ExitBits::Left => col - 1,
+                        ExitBits::Up => col,
+                        ExitBits::Right => col + 1,
+                        _ => unreachable!(),
+                    }]
                     .as_ref()
                     .map_or(false, |node| {
                         node.room().map(|r| r == room).unwrap_or(false)
@@ -112,43 +186,24 @@ impl NodeBuilderGrid {
             })
     }
 
-    pub fn has_sibling_room_of(&self, row: usize, col: usize, room: Room) -> bool {
-        row > 0
-            // TODO: direct inspection rather than walking the entrance_col list,
-            // which might have duplicates.
-            && self.entrance_cols(row, col).any(|&parent_col| {
-                self.has_child_room_of(row - 1, parent_col, room)
-            })
-    }
-
-    pub fn has_child_room_of(&self, row: usize, col: usize, room: Room) -> bool {
-        row < ROW_COUNT - 1
-            && [ExitBits::Left, ExitBits::Straight, ExitBits::Right]
-                .iter()
-                .any(|&exit| {
-                    self.has_exit(row, col, exit)
-                        && self.grid[row + 1][match exit {
-                            ExitBits::Left => col - 1,
-                            ExitBits::Straight => col,
-                            ExitBits::Right => col + 1,
-                            _ => unreachable!(),
-                        }]
-                        .as_ref()
-                        .map_or(false, |node| {
-                            node.room().map(|r| r == room).unwrap_or(false)
-                        })
-                })
-    }
-
-    pub fn entrance_cols(&self, row: usize, col: usize) -> impl Iterator<Item = &usize> {
+    pub fn recorded_parent_cols_iter(
+        &self,
+        row: usize,
+        col: usize,
+    ) -> impl Iterator<Item = &usize> {
         self.grid[row][col]
             .as_ref()
-            .map(|node| node.entrance_col_iter())
+            .map(|node| node.recorded_parent_cols_iter())
             .into_iter()
             .flatten()
     }
 
-    pub fn entrances_collide(&self, row: usize, my_col: usize, other_col: usize) -> bool {
+    pub fn buggy_implementation_of_shares_parent_with(
+        &self,
+        row: usize,
+        my_col: usize,
+        other_col: usize,
+    ) -> bool {
         if let (Some(my_node), Some(other_node)) = (
             &self.grid[row][my_col].as_ref(),
             &self.grid[row][other_col].as_ref(),
@@ -157,9 +212,9 @@ impl NodeBuilderGrid {
             // probably supposed to be "other_col >= my_col". This causes a lot of small
             // cycles to be missed because the wrong comparisons are being performed.
             if other_col >= row {
-                my_node.rightmost_entrance_col() == other_node.leftmost_entrance_col()
+                my_node.rightmost_recorded_parent_col() == other_node.leftmost_recorded_parent_col()
             } else {
-                other_node.rightmost_entrance_col() == my_node.leftmost_entrance_col()
+                other_node.rightmost_recorded_parent_col() == my_node.leftmost_recorded_parent_col()
             }
         } else {
             false
@@ -183,7 +238,7 @@ impl NodeBuilderGrid {
         self.grid
             .iter()
             .enumerate()
-            .filter(|&(row, _)| row != ROW_COUNT - 2) // Original code calls this "restRowBug"
+            .filter(|&(row, _)| row != ROW_COUNT - 2) // Reference code calls this "restRowBug"
             .flat_map(|(_, row)| row)
             .filter(|maybe_node| maybe_node.is_some())
             .count()
@@ -267,65 +322,53 @@ mod test {
     pub static MAP_0SLAYTHESPIRE: Lazy<NodeGrid> = Lazy::new(|| NodeGrid {
         grid: [
             [
-                Some(Node::new(Room::Monster, ExitBits::Straight)),
+                Some(Node::new(Room::Monster, ExitBits::Up)),
                 None,
-                Some(Node::new(Room::Monster, ExitBits::Straight)),
-                None,
-                None,
-                Some(Node::new(Room::Monster, ExitBits::Straight)),
-                None,
-            ],
-            [
-                Some(Node::new(
-                    Room::Monster,
-                    ExitBits::Straight | ExitBits::Right,
-                )),
-                None,
-                Some(Node::new(
-                    Room::Monster,
-                    ExitBits::Straight | ExitBits::Right,
-                )),
+                Some(Node::new(Room::Monster, ExitBits::Up)),
                 None,
                 None,
-                Some(Node::new(
-                    Room::Monster,
-                    ExitBits::Left | ExitBits::Straight,
-                )),
+                Some(Node::new(Room::Monster, ExitBits::Up)),
                 None,
             ],
             [
-                Some(Node::new(Room::Event, ExitBits::Straight)),
+                Some(Node::new(Room::Monster, ExitBits::Up | ExitBits::Right)),
+                None,
+                Some(Node::new(Room::Monster, ExitBits::Up | ExitBits::Right)),
+                None,
+                None,
+                Some(Node::new(Room::Monster, ExitBits::Left | ExitBits::Up)),
+                None,
+            ],
+            [
+                Some(Node::new(Room::Event, ExitBits::Up)),
                 Some(Node::new(Room::Monster, ExitBits::Right)),
-                Some(Node::new(Room::Monster, ExitBits::Straight)),
-                Some(Node::new(Room::Shop, ExitBits::Straight)),
+                Some(Node::new(Room::Monster, ExitBits::Up)),
+                Some(Node::new(Room::Shop, ExitBits::Up)),
                 Some(Node::new(Room::Event, ExitBits::Left)),
                 Some(Node::new(Room::Monster, ExitBits::Left)),
                 None,
             ],
             [
-                Some(Node::new(Room::Event, ExitBits::Straight)),
+                Some(Node::new(Room::Event, ExitBits::Up)),
                 None,
-                Some(Node::new(
-                    Room::Monster,
-                    ExitBits::Straight | ExitBits::Right,
-                )),
-                Some(Node::new(Room::Event, ExitBits::Straight)),
-                Some(Node::new(Room::Monster, ExitBits::Straight)),
+                Some(Node::new(Room::Monster, ExitBits::Up | ExitBits::Right)),
+                Some(Node::new(Room::Event, ExitBits::Up)),
+                Some(Node::new(Room::Monster, ExitBits::Up)),
                 None,
                 None,
             ],
             [
-                Some(Node::new(Room::Monster, ExitBits::Straight)),
+                Some(Node::new(Room::Monster, ExitBits::Up)),
                 None,
                 Some(Node::new(Room::Event, ExitBits::Left)),
                 Some(Node::new(Room::Monster, ExitBits::Left | ExitBits::Right)),
-                Some(Node::new(Room::Event, ExitBits::Straight)),
+                Some(Node::new(Room::Event, ExitBits::Up)),
                 None,
                 None,
             ],
             [
-                Some(Node::new(Room::Campfire, ExitBits::Straight)),
-                Some(Node::new(Room::Elite, ExitBits::Straight)),
+                Some(Node::new(Room::Campfire, ExitBits::Up)),
+                Some(Node::new(Room::Elite, ExitBits::Up)),
                 Some(Node::new(Room::Campfire, ExitBits::Left)),
                 None,
                 Some(Node::new(Room::Monster, ExitBits::Left | ExitBits::Right)),
@@ -333,11 +376,8 @@ mod test {
                 None,
             ],
             [
-                Some(Node::new(Room::Monster, ExitBits::Straight)),
-                Some(Node::new(
-                    Room::Monster,
-                    ExitBits::Straight | ExitBits::Right,
-                )),
+                Some(Node::new(Room::Monster, ExitBits::Up)),
+                Some(Node::new(Room::Monster, ExitBits::Up | ExitBits::Right)),
                 None,
                 Some(Node::new(Room::Event, ExitBits::Left)),
                 None,
@@ -345,19 +385,16 @@ mod test {
                 None,
             ],
             [
-                Some(Node::new(Room::Monster, ExitBits::Straight)),
-                Some(Node::new(Room::Shop, ExitBits::Straight)),
-                Some(Node::new(
-                    Room::Monster,
-                    ExitBits::Left | ExitBits::Straight,
-                )),
+                Some(Node::new(Room::Monster, ExitBits::Up)),
+                Some(Node::new(Room::Shop, ExitBits::Up)),
+                Some(Node::new(Room::Monster, ExitBits::Left | ExitBits::Up)),
                 None,
                 None,
                 None,
                 Some(Node::new(Room::Monster, ExitBits::Left)),
             ],
             [
-                Some(Node::new(Room::Treasure, ExitBits::Straight)),
+                Some(Node::new(Room::Treasure, ExitBits::Up)),
                 Some(Node::new(Room::Treasure, ExitBits::Left | ExitBits::Right)),
                 Some(Node::new(Room::Treasure, ExitBits::Right)),
                 None,
@@ -366,23 +403,17 @@ mod test {
                 None,
             ],
             [
-                Some(Node::new(
-                    Room::Campfire,
-                    ExitBits::Straight | ExitBits::Right,
-                )),
+                Some(Node::new(Room::Campfire, ExitBits::Up | ExitBits::Right)),
                 None,
-                Some(Node::new(
-                    Room::Monster,
-                    ExitBits::Straight | ExitBits::Right,
-                )),
-                Some(Node::new(Room::Event, ExitBits::Straight)),
-                Some(Node::new(Room::Campfire, ExitBits::Straight)),
+                Some(Node::new(Room::Monster, ExitBits::Up | ExitBits::Right)),
+                Some(Node::new(Room::Event, ExitBits::Up)),
+                Some(Node::new(Room::Campfire, ExitBits::Up)),
                 None,
                 None,
             ],
             [
-                Some(Node::new(Room::Event, ExitBits::Straight)),
-                Some(Node::new(Room::Monster, ExitBits::Straight)),
+                Some(Node::new(Room::Event, ExitBits::Up)),
+                Some(Node::new(Room::Monster, ExitBits::Up)),
                 Some(Node::new(Room::Campfire, ExitBits::Left)),
                 Some(Node::new(Room::Event, ExitBits::Left | ExitBits::Right)),
                 Some(Node::new(Room::Monster, ExitBits::Right)),
@@ -392,25 +423,25 @@ mod test {
             [
                 Some(Node::new(Room::BurningElite1, ExitBits::Right)),
                 Some(Node::new(Room::Monster, ExitBits::Right)),
-                Some(Node::new(Room::Event, ExitBits::Straight)),
+                Some(Node::new(Room::Event, ExitBits::Up)),
                 None,
                 Some(Node::new(Room::Monster, ExitBits::Left)),
-                Some(Node::new(Room::Event, ExitBits::Straight)),
+                Some(Node::new(Room::Event, ExitBits::Up)),
                 None,
             ],
             [
                 None,
                 Some(Node::new(Room::Event, ExitBits::Left)),
-                Some(Node::new(Room::Elite, ExitBits::Left | ExitBits::Straight)),
-                Some(Node::new(Room::Campfire, ExitBits::Straight)),
+                Some(Node::new(Room::Elite, ExitBits::Left | ExitBits::Up)),
+                Some(Node::new(Room::Campfire, ExitBits::Up)),
                 None,
                 Some(Node::new(Room::Campfire, ExitBits::Right)),
                 None,
             ],
             [
-                Some(Node::new(Room::Elite, ExitBits::Straight)),
+                Some(Node::new(Room::Elite, ExitBits::Up)),
                 Some(Node::new(Room::Monster, ExitBits::Left)),
-                Some(Node::new(Room::Shop, ExitBits::Straight)),
+                Some(Node::new(Room::Shop, ExitBits::Up)),
                 Some(Node::new(Room::Monster, ExitBits::Right)),
                 None,
                 None,
@@ -442,50 +473,47 @@ mod test {
             [
                 None,
                 None,
-                Some(Node::new(Room::Monster, ExitBits::Straight)),
+                Some(Node::new(Room::Monster, ExitBits::Up)),
                 None,
                 Some(Node::new(Room::Event, ExitBits::Left | ExitBits::Right)),
-                Some(Node::new(Room::Shop, ExitBits::Straight)),
-                Some(Node::new(Room::Shop, ExitBits::Left | ExitBits::Straight)),
+                Some(Node::new(Room::Shop, ExitBits::Up)),
+                Some(Node::new(Room::Shop, ExitBits::Left | ExitBits::Up)),
             ],
             [
                 None,
                 None,
                 Some(Node::new(Room::Event, ExitBits::Left)),
-                Some(Node::new(Room::Monster, ExitBits::Straight)),
+                Some(Node::new(Room::Monster, ExitBits::Up)),
                 None,
-                Some(Node::new(Room::Event, ExitBits::Left | ExitBits::Straight)),
-                Some(Node::new(Room::Monster, ExitBits::Straight)),
+                Some(Node::new(Room::Event, ExitBits::Left | ExitBits::Up)),
+                Some(Node::new(Room::Monster, ExitBits::Up)),
             ],
             [
                 None,
-                Some(Node::new(Room::Event, ExitBits::Straight)),
+                Some(Node::new(Room::Event, ExitBits::Up)),
                 None,
-                Some(Node::new(Room::Monster, ExitBits::Straight)),
-                Some(Node::new(
-                    Room::Monster,
-                    ExitBits::Left | ExitBits::Straight,
-                )),
+                Some(Node::new(Room::Monster, ExitBits::Up)),
+                Some(Node::new(Room::Monster, ExitBits::Left | ExitBits::Up)),
                 Some(Node::new(Room::Event, ExitBits::Left)),
                 Some(Node::new(Room::Monster, ExitBits::Left)),
             ],
             [
                 None,
-                Some(Node::new(Room::Monster, ExitBits::Straight)),
+                Some(Node::new(Room::Monster, ExitBits::Up)),
                 None,
                 Some(Node::new(Room::Monster, ExitBits::Left | ExitBits::Right)),
-                Some(Node::new(Room::Event, ExitBits::Straight)),
+                Some(Node::new(Room::Event, ExitBits::Up)),
                 Some(Node::new(Room::Monster, ExitBits::Left)),
                 None,
             ],
             [
                 None,
-                Some(Node::new(Room::Campfire, ExitBits::Straight)),
+                Some(Node::new(Room::Campfire, ExitBits::Up)),
                 Some(Node::new(Room::Elite, ExitBits::Right)),
                 None,
                 Some(Node::new(
                     Room::Campfire,
-                    ExitBits::Left | ExitBits::Straight | ExitBits::Right,
+                    ExitBits::Left | ExitBits::Up | ExitBits::Right,
                 )),
                 None,
                 None,
@@ -495,14 +523,14 @@ mod test {
                 Some(Node::new(Room::Elite, ExitBits::Right)),
                 None,
                 Some(Node::new(Room::Monster, ExitBits::Left)),
-                Some(Node::new(Room::Elite, ExitBits::Left | ExitBits::Straight)),
-                Some(Node::new(Room::Event, ExitBits::Straight)),
+                Some(Node::new(Room::Elite, ExitBits::Left | ExitBits::Up)),
+                Some(Node::new(Room::Event, ExitBits::Up)),
                 None,
             ],
             [
                 None,
                 None,
-                Some(Node::new(Room::Campfire, ExitBits::Straight)),
+                Some(Node::new(Room::Campfire, ExitBits::Up)),
                 Some(Node::new(Room::Monster, ExitBits::Left)),
                 Some(Node::new(Room::Campfire, ExitBits::Left)),
                 Some(Node::new(Room::Monster, ExitBits::Right)),
@@ -513,17 +541,17 @@ mod test {
                 None,
                 Some(Node::new(
                     Room::Treasure,
-                    ExitBits::Left | ExitBits::Straight | ExitBits::Right,
+                    ExitBits::Left | ExitBits::Up | ExitBits::Right,
                 )),
-                Some(Node::new(Room::Treasure, ExitBits::Straight)),
+                Some(Node::new(Room::Treasure, ExitBits::Up)),
                 None,
                 None,
-                Some(Node::new(Room::Treasure, ExitBits::Straight)),
+                Some(Node::new(Room::Treasure, ExitBits::Up)),
             ],
             [
                 None,
-                Some(Node::new(Room::Monster, ExitBits::Straight)),
-                Some(Node::new(Room::Campfire, ExitBits::Straight)),
+                Some(Node::new(Room::Monster, ExitBits::Up)),
+                Some(Node::new(Room::Campfire, ExitBits::Up)),
                 Some(Node::new(Room::Event, ExitBits::Left | ExitBits::Right)),
                 None,
                 None,
@@ -534,26 +562,26 @@ mod test {
                 Some(Node::new(Room::Monster, ExitBits::Left | ExitBits::Right)),
                 Some(Node::new(Room::Monster, ExitBits::Right)),
                 None,
-                Some(Node::new(Room::Event, ExitBits::Straight)),
-                Some(Node::new(Room::BurningElite4, ExitBits::Straight)),
+                Some(Node::new(Room::Event, ExitBits::Up)),
+                Some(Node::new(Room::BurningElite4, ExitBits::Up)),
                 None,
             ],
             [
                 Some(Node::new(Room::Monster, ExitBits::Right)),
                 None,
                 Some(Node::new(Room::Event, ExitBits::Right)),
-                Some(Node::new(Room::Monster, ExitBits::Straight)),
+                Some(Node::new(Room::Monster, ExitBits::Up)),
                 Some(Node::new(Room::Event, ExitBits::Left)),
-                Some(Node::new(Room::Monster, ExitBits::Straight)),
+                Some(Node::new(Room::Monster, ExitBits::Up)),
                 None,
             ],
             [
                 None,
-                Some(Node::new(Room::Monster, ExitBits::Straight)),
+                Some(Node::new(Room::Monster, ExitBits::Up)),
                 None,
                 Some(Node::new(
                     Room::Monster,
-                    ExitBits::Left | ExitBits::Straight | ExitBits::Right,
+                    ExitBits::Left | ExitBits::Up | ExitBits::Right,
                 )),
                 None,
                 Some(Node::new(Room::Monster, ExitBits::Right)),
@@ -561,13 +589,10 @@ mod test {
             ],
             [
                 None,
-                Some(Node::new(Room::Event, ExitBits::Straight)),
+                Some(Node::new(Room::Event, ExitBits::Up)),
                 Some(Node::new(Room::Shop, ExitBits::Right)),
                 Some(Node::new(Room::Monster, ExitBits::Right)),
-                Some(Node::new(
-                    Room::Monster,
-                    ExitBits::Straight | ExitBits::Right,
-                )),
+                Some(Node::new(Room::Monster, ExitBits::Up | ExitBits::Right)),
                 None,
                 Some(Node::new(Room::Monster, ExitBits::Left)),
             ],
@@ -575,7 +600,7 @@ mod test {
                 None,
                 Some(Node::new(Room::Campfire, ExitBits::Right)),
                 None,
-                Some(Node::new(Room::Campfire, ExitBits::Straight)),
+                Some(Node::new(Room::Campfire, ExitBits::Up)),
                 Some(Node::new(Room::Campfire, ExitBits::Left)),
                 Some(Node::new(Room::Campfire, ExitBits::Left)),
                 None,

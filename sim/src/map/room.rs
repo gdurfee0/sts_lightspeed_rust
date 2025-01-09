@@ -1,6 +1,6 @@
 use std::fmt;
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub enum Room {
     BurningElite1,
     BurningElite2,
@@ -20,16 +20,16 @@ impl fmt::Display for Room {
             f,
             "{}",
             match self {
-                Room::BurningElite1 => " 1 ",
-                Room::BurningElite2 => " 2 ",
-                Room::BurningElite3 => " 3 ",
-                Room::BurningElite4 => " 4 ",
-                Room::Campfire => " R ",
-                Room::Elite => " E ",
-                Room::Event => " ? ",
-                Room::Monster => " M ",
-                Room::Shop => " $ ",
-                Room::Treasure => " T ",
+                Room::BurningElite1 => "1",
+                Room::BurningElite2 => "2",
+                Room::BurningElite3 => "3",
+                Room::BurningElite4 => "4",
+                Room::Campfire => "R",
+                Room::Elite => "E",
+                Room::Event => "?",
+                Room::Monster => "M",
+                Room::Shop => "$",
+                Room::Treasure => "T",
             }
         )
     }

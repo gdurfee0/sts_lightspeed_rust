@@ -36,7 +36,7 @@ impl fmt::Display for NodeGrid {
             for maybe_node in row.iter() {
                 match maybe_node {
                     Some(node) => {
-                        write!(f, "{}", node.room())?;
+                        write!(f, " {} ", node.room())?;
                     }
                     None => {
                         write!(f, "   ")?;
@@ -63,37 +63,81 @@ impl NodeBuilderGrid {
         self.grid[row][col].take()
     }
 
+    pub fn occupied_cols_for_row(&self, row: usize) -> Vec<usize> {
+        self.grid[row]
+            .iter()
+            .enumerate()
+            .filter_map(|(col, maybe_node)| maybe_node.as_ref().map(|_| col))
+            .collect()
+    }
+
+    pub fn set_all_rooms_in_row(&mut self, row: usize, room: Room) {
+        for maybe_node in self.grid[row].iter_mut() {
+            if let Some(node) = maybe_node.as_mut() {
+                node.set_room(room);
+            }
+        }
+    }
+
     pub fn set_room(&mut self, row: usize, col: usize, room: Room) {
-        self.grid[row][col] = Some(
-            self.grid[row][col]
-                .take()
-                .expect("set_room called on an empty node")
-                .set_room(room),
-        );
+        self.grid[row][col].get_or_insert_default().set_room(room);
     }
 
     pub fn add_entrance(&mut self, row: usize, col: usize, entrance_col: usize) {
-        self.grid[row][col] = Some(
-            self.grid[row][col]
-                .take()
-                .unwrap_or_default()
-                .add_entrance_col(entrance_col),
-        );
+        self.grid[row][col]
+            .get_or_insert_default()
+            .add_entrance_col(entrance_col);
     }
 
     pub fn add_exit(&mut self, row: usize, col: usize, exit: ExitBits) {
-        self.grid[row][col] = Some(
-            self.grid[row][col]
-                .take()
-                .unwrap_or_default()
-                .add_exit(exit),
-        );
+        self.grid[row][col].get_or_insert_default().add_exit(exit);
     }
 
     pub fn has_exit(&self, row: usize, col: usize, exit: ExitBits) -> bool {
         self.grid[row][col]
             .as_ref()
             .map_or(false, |node| node.has_exit(exit))
+    }
+
+    pub fn has_parent_room_of(&self, row: usize, col: usize, room: Room) -> bool {
+        row > 0
+            // TODO: direct inspection rather than walking the entrance_col list,
+            // which might have duplicates.
+            && self.entrance_cols(row, col).any(|&entrance_col| {
+                self.grid[row - 1][entrance_col]
+                    .as_ref()
+                    .map_or(false, |node| {
+                        node.room().map(|r| r == room).unwrap_or(false)
+                    })
+            })
+    }
+
+    pub fn has_sibling_room_of(&self, row: usize, col: usize, room: Room) -> bool {
+        row > 0
+            // TODO: direct inspection rather than walking the entrance_col list,
+            // which might have duplicates.
+            && self.entrance_cols(row, col).any(|&parent_col| {
+                self.has_child_room_of(row - 1, parent_col, room)
+            })
+    }
+
+    pub fn has_child_room_of(&self, row: usize, col: usize, room: Room) -> bool {
+        row < ROW_COUNT - 1
+            && [ExitBits::Left, ExitBits::Straight, ExitBits::Right]
+                .iter()
+                .any(|&exit| {
+                    self.has_exit(row, col, exit)
+                        && self.grid[row + 1][match exit {
+                            ExitBits::Left => col - 1,
+                            ExitBits::Straight => col,
+                            ExitBits::Right => col + 1,
+                            _ => unreachable!(),
+                        }]
+                        .as_ref()
+                        .map_or(false, |node| {
+                            node.room().map(|r| r == room).unwrap_or(false)
+                        })
+                })
     }
 
     pub fn entrance_cols(&self, row: usize, col: usize) -> impl Iterator<Item = &usize> {

@@ -71,30 +71,6 @@ uint64_t to_big_endian(uint64_t value) {
 }
 
 void Map::writeExitData(std::ostream &os) const {
-    /*
-    std::vector<char> exitData;
-    for (int y = 0; y < MAP_HEIGHT; y++) {
-        for (int x = 0; x < MAP_WIDTH; x++) {
-            auto &node = nodes.at(y).at(x);
-            int left = x - 1;
-            int straight = x;
-            int right = x + 1;
-            char edgesVal = 0;
-            for (int i = 0; i < node.edgeCount; i++) {
-                if (node.edges[i] == left) {
-                    edgesVal |= 4;
-                } else if (node.edges[i] == straight) {
-                    edgesVal |= 2;
-                } else if (node.edges[i] == right) {
-                    edgesVal |= 1;
-                }
-            }
-            exitData.push_back(edgesVal);
-        }
-    }
-    // Base 64 encode the result
-    os << base64_encode(reinterpret_cast<const unsigned char*>(exitData.data()), exitData.size());
-    */
     std::vector<char> exitData;   
     for (int y = 0; y < MAP_HEIGHT - 1; y++) {
         for (int x = 0; x < MAP_WIDTH; x++) {
@@ -130,7 +106,6 @@ void Map::writeExitData(std::ostream &os) const {
         reinterpret_cast<const unsigned char*>(flattened.data()), flattened.size()*8
     ) << std::endl;
 }
-
 
 Map Map::fromSeed(std::uint64_t seed, int ascension, int act, bool setBurning) {
     Map map;
@@ -560,7 +535,8 @@ std::string Map::toString(bool showRoomSymbols) const {
             }
         }
 
-        str.append("\n ").append(paddingGenerator(left_padding_size));
+        str.append("\n");
+        //str.append("\n ").append(paddingGenerator(left_padding_size));
         for (int x = 0; x < 7; ++x) {
             auto node = getNode(x, y);
             std::string right = " ";
@@ -583,9 +559,9 @@ std::string Map::toString(bool showRoomSymbols) const {
             }
             str.append(node_symbol).append(mid).append(right);
         }
-
-        str.append("\n").append(std::to_string(y)).append(" ");
-        str.append(paddingGenerator(left_padding_size - (int)std::to_string(y).length()));
+        str.append("\n");
+        //str.append("\n").append(std::to_string(y)).append(" ");
+        //str.append(paddingGenerator(left_padding_size - (int)std::to_string(y).length()));
 
         for (int x = 0; x < 7; ++x) {
             auto node = getNode(x, y);
@@ -603,6 +579,26 @@ std::string Map::toString(bool showRoomSymbols) const {
                 if (node.edgeCount > 0 || node.room == Room::BOSS) {
                     node_symbol = showRoomSymbols ? node.getRoomSymbol() : '*';
                 }
+                /*
+                if (node.x == burningEliteX && node.y == burningEliteY) {
+                    switch (burningEliteBuff) {
+                        case 0:
+                            node_symbol = '1';
+                            break;
+                        case 1:
+                            node_symbol = '2';
+                            break;
+                        case 2:
+                            node_symbol = '3';
+                            break;
+                        case 3:
+                            node_symbol = '4';
+                            break;
+                        default:
+                            node_symbol = 'e';
+                    }
+                }
+                */
             }
             str.append(" ").append(node_symbol).append(" ");
         }
@@ -895,21 +891,22 @@ void assignRooms(Map &map, Random &rng, int ascensionLevel) {
     RoomCounts counts = getRoomCountsAndAssignFixed(map);
 
     Room rooms[counts.unassigned];
+    //std::cout << "Room counts: " << counts.total << " " << counts.unassigned << std::endl;
     fillRoomArray(rooms, counts, ascensionLevel > 0 ? ELITE_ROOM_CHANCE_A1 : ELITE_ROOM_CHANCE_A0);
-    std::cout << "Initial room array: ";
-    for (int i = 0; i < counts.unassigned; i++) {
-        std::cout << getRoomSymbol(rooms[i]);
-    }
-    std::cout << std::endl;
+    //std::cout << "Initial room array:  ";
+    //for (int i = 0; i < counts.unassigned; i++) {
+    //    std::cout << getRoomSymbol(rooms[i]);
+    //}
+    //std::cout << std::endl;
 
     for (int i=counts.unassigned; i>1; i--) {
         std::swap(rooms[i-1], rooms[rng.nextInt(i)]);
     }
-    std::cout << "Permuted room array: ";
-    for (int i = 0; i < counts.unassigned; i++) {
-        std::cout << getRoomSymbol(rooms[i]);
-    }
-    std::cout << std::endl;
+    //std::cout << "Permuted room array: ";
+    //for (int i = 0; i < counts.unassigned; i++) {
+    //    std::cout << getRoomSymbol(rooms[i]);
+    //}
+    //std::cout << std::endl;
 
     assignRoomsToNodes(map, rooms, counts.unassigned);
 }

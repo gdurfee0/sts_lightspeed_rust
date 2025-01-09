@@ -53,22 +53,22 @@ impl NodeBuilder {
         self.entrance_cols.iter()
     }
 
-    pub fn set_room(mut self, room: Room) -> Self {
+    pub fn set_room(&mut self, room: Room) -> &mut Self {
         self.room = Some(room);
         self
     }
 
-    pub fn add_exit(mut self, exit: ExitBits) -> Self {
+    pub fn add_exit(&mut self, exit: ExitBits) -> &mut Self {
         self.exit_bits |= exit;
         self
     }
 
-    pub fn add_entrance_col(mut self, entrance_col: usize) -> Self {
+    pub fn add_entrance_col(&mut self, entrance_col: usize) -> &mut Self {
         self.entrance_cols.push(entrance_col);
         self
     }
 
-    pub fn build(self) -> Node {
+    pub fn build(&self) -> Node {
         Node::new(self.room.unwrap_or(Room::Monster), self.exit_bits)
     }
 }

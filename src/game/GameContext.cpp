@@ -71,20 +71,20 @@ GameContext::GameContext(CharacterClass cc, std::uint64_t seed, int ascension)
     curEvent = Event::NEOW;
     info.neowRewards = Neow::getOptions(neowRng);
     screenState = ScreenState::EVENT_SCREEN;
-    /*
     auto start = std::chrono::high_resolution_clock::now();    
     std::vector<Map> maps;
-    for (int i = 1; i < 1000001; i++) {
+    for (int i = 1; i < 10001; i++) {
         maps.push_back(Map::fromSeed(i, 0, 1, true));
     }
     auto end = std::chrono::high_resolution_clock::now();
     auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
-    std::cout << "Time taken to generate 1M maps: " << duration.count() << "ms\n";
-    std::ofstream os("/tmp/map-exit-data.txt");
-    for (int i = 0; i < 1000000; i++) {
-        maps[i].writeExitData(os);
+    std::cout << "Time taken to generate " << maps.size() << " maps: " << duration.count() << "ms\n";
+    std::ofstream os("/tmp/maps.txt");
+    for (int i = 1; i < 10001; i++) {
+        //maps[i].writeExitData(os);
+        os << "seed = " << i;
+        os << maps[i].toString() << std::endl;
     }
-    */
 }
 
 void GameContext::initFromSave(const SaveFile &s) {

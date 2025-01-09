@@ -1,7 +1,6 @@
-use std::{
-    fmt::{self, Debug},
-    ops::Range,
-};
+use std::fmt;
+use std::ops::Bound::{Excluded, Included};
+use std::ops::RangeBounds;
 
 use crate::{game_context::GAME_CONTEXT, seed::Seed};
 
@@ -62,6 +61,45 @@ impl From<Seed> for JavaRandom {
     }
 }
 
+/// A pseudo-random number generator that leverages a global game context seed to produce
+/// deterministic-yet-customizable random values, shuffling, and range generation.
+///
+/// This struct provides extensive capabilities, including:
+/// - Offset-based instantiation for unique sequences derived from a shared global seed.
+/// - Fine-grained generation of 32-bit and 64-bit integers, floats, and bool.
+/// - Support for generating random values within specified ranges (both inclusive and exclusive).
+/// - In-place shuffling (Fisher-Yates) for slice randomization.
+/// - Element selection from slices for quick sampling.
+///
+/// # Basic Usage
+///
+/// ```
+/// // Create a new random generator with a specified offset from the global seed.
+/// let mut rng = StsRandom::with_offset(100);
+///
+/// // Generate a random number from 1 to 6 (inclusive), akin to a dice roll.
+/// let dice_roll = rng.gen_range(1..=6);
+///
+/// // Shuffle the contents of an array.
+/// let mut arr = [1, 2, 3, 4, 5];
+/// rng.shuffle(&mut arr);
+///
+/// // Choose a random element from the array.
+/// let random_element = rng.choose(&arr);
+/// ```
+///
+/// # Implementation Details
+///
+/// This class uses a variant of the Xorshift128+ algorithm for pseudorandom number
+/// generation.
+///
+/// Some methods will panic if invalid ranges are provided (e.g., a start bound
+/// that is greater than or equal to the end bound). Casting logic is enforced
+/// when converting between `u64` and target types, and will panic on failure.
+///
+/// Overall, this generator is designed for scenarios requiring fast,
+/// deterministic random sequences—particularly useful for simulations,
+/// testing, and gaming environments.
 impl StsRandom {
     pub fn with_offset(offset: u64) -> Self {
         GAME_CONTEXT.seed.with_offset(offset).into()
@@ -71,7 +109,7 @@ impl StsRandom {
         self.counter
     }
 
-    pub fn next_u64(&mut self) -> u64 {
+    fn next_u64(&mut self) -> u64 {
         let mut s1 = self.state0;
         let s0 = self.state1;
         self.state0 = s0;
@@ -88,7 +126,8 @@ impl StsRandom {
         self.state1.wrapping_add(s0)
     }
 
-    pub fn next_u64_bounded(&mut self, bound: u64) -> u64 {
+    /// Generates a random value of type `u64` within [0, bound) using rejection sampling.
+    fn next_u64_bounded(&mut self, bound: u64) -> u64 {
         loop {
             let bits = self.next_u64() >> 1;
             let value = bits % bound;
@@ -99,20 +138,50 @@ impl StsRandom {
         }
     }
 
-    pub fn gen_range<T>(&mut self, range: Range<T>) -> T
+    /// Generates a random value of type `T` within the specified range.
+    ///
+    /// The range can be either:
+    /// - `start..end`, which is lower-bound inclusive and upper-bound exclusive, or
+    /// - `start..=end`, which is lower-bound inclusive and upper-bound inclusive.
+    ///
+    /// # Panics
+    ///
+    /// Panics if:
+    /// - The provided range is invalid (lower bound >= upper bound).
+    /// - Any conversions from `u64` to `T` fail due to type constraints.
+    /// - The provided range type is not supported (only `[Included, Excluded]` and
+    ///   `[Included, Included]` are supported).
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// // Generates a random number between 1 and 9 (inclusive).
+    /// let random_number = rng.gen_range(1..=9);
+    /// ```
+    pub fn gen_range<R, T>(&mut self, range: R) -> T
     where
+        R: RangeBounds<T>,
         T: Copy + TryFrom<u64> + TryInto<u64>,
-        <T as TryInto<u64>>::Error: Debug,
-        <T as TryFrom<u64>>::Error: Debug,
+        <T as TryInto<u64>>::Error: fmt::Debug,
+        <T as TryFrom<u64>>::Error: fmt::Debug,
     {
-        let start_u64 = range
-            .start
-            .try_into()
-            .expect("Conversion failed for range start");
-        let end_u64 = range
-            .end
-            .try_into()
-            .expect("Conversion failed for range end");
+        let (start_u64, end_u64) = match (range.start_bound(), range.end_bound()) {
+            (Included(start), Excluded(end)) => {
+                let s: u64 = (*start)
+                    .try_into()
+                    .expect("Conversion failed for range start");
+                let e: u64 = (*end).try_into().expect("Conversion failed for range end");
+                (s, e)
+            }
+            (Included(start), Included(end)) => {
+                let s: u64 = (*start)
+                    .try_into()
+                    .expect("Conversion failed for range start");
+                let e: u64 = (*end).try_into().expect("Conversion failed for range end");
+                (s, e + 1)
+            }
+            _ => unimplemented!("Only a..b and a..=b are supported"),
+        };
         assert!(
             start_u64 < end_u64,
             "Invalid range: range.end must be greater than range.start"
@@ -121,65 +190,73 @@ impl StsRandom {
             .expect("Conversion failed for random number")
     }
 
+    /// Shuffles the given slice in place using the Fisher-Yates algorithm.
+    pub fn shuffle<T>(&mut self, slice: &mut [T]) {
+        for i in (1..slice.len()).rev() {
+            slice.swap(i, self.gen_range(0..=i));
+        }
+    }
+
+    /// Chooses a random element from the given slice.
     pub fn choose<'a, T>(&mut self, slice: &'a [T]) -> &'a T
     where
         T: fmt::Debug,
     {
-        //println!("rng choose: {:?}", result);
         &slice[self.gen_range(0..slice.len())]
     }
 
     // TODO: Review which of these are actually needed and cull the rest.
-    pub fn next_i32(&mut self) -> i32 {
+    fn next_i32(&mut self) -> i32 {
         self.next_u64() as i32
     }
 
-    pub fn next_i32_bounded(&mut self, bound: i32) -> i32 {
+    fn next_i32_bounded(&mut self, bound: i32) -> i32 {
         // WTF is this + 1 all about?
         self.next_u64_bounded(bound as u64 + 1) as i32
     }
 
-    pub fn next_i32_range(&mut self, lbound: i32, ubound: i32) -> i32 {
+    fn next_i32_range(&mut self, lbound: i32, ubound: i32) -> i32 {
         lbound + self.next_i32_bounded(ubound - lbound)
     }
 
-    pub fn next_i64(&mut self) -> i64 {
+    fn next_i64(&mut self) -> i64 {
         self.next_u64() as i64
     }
 
-    pub fn next_i64_bounded(&mut self, bound: i64) -> i64 {
+    fn next_i64_bounded(&mut self, bound: i64) -> i64 {
         (self.next_f64() * (bound as f64)) as i64
     }
 
-    pub fn next_i64_range(&mut self, lbound: i64, ubound: i64) -> i64 {
+    fn next_i64_range(&mut self, lbound: i64, ubound: i64) -> i64 {
         (self.next_f64() * (ubound - lbound) as f64 + lbound as f64).floor() as i64
     }
 
-    pub fn next_f64(&mut self) -> f64 {
+    fn next_f64(&mut self) -> f64 {
         (self.next_u64() >> 11) as f64 * 1.1102230246251565e-16
     }
 
-    pub fn next_f32(&mut self) -> f32 {
+    fn next_f32(&mut self) -> f32 {
         (self.next_u64() >> 40) as f32 * 5.9604645e-8
     }
 
-    pub fn next_f32_bounded(&mut self, bound: f32) -> f32 {
+    fn next_f32_bounded(&mut self, bound: f32) -> f32 {
         self.next_f32() * bound
     }
 
-    pub fn next_f32_range(&mut self, lbound: f32, ubound: f32) -> f32 {
+    fn next_f32_range(&mut self, lbound: f32, ubound: f32) -> f32 {
         lbound + self.next_f32() * (ubound - lbound)
     }
 
-    pub fn next_bool(&mut self) -> bool {
+    fn next_bool(&mut self) -> bool {
         self.next_u64() & 1 == 1
     }
 
-    pub fn gen_bool(&mut self, p: f32) -> bool {
+    fn gen_bool(&mut self, p: f32) -> bool {
         self.next_f32() < p
     }
 
-    pub fn murmur_hash_3(mut x: u64) -> u64 {
+    /// MurmurHash3 implementation for generating a 64-bit hash from a 64-bit seed.
+    fn murmur_hash_3(mut x: u64) -> u64 {
         x ^= x >> 33;
         x = x.wrapping_mul(0xff51afd7ed558ccd);
         x ^= x >> 33;

@@ -2,7 +2,7 @@ use std::fmt;
 use std::ops::Bound::{Excluded, Included};
 use std::ops::RangeBounds;
 
-use crate::{game_context::GAME_CONTEXT, seed::Seed};
+use crate::seed::Seed;
 
 #[derive(Clone)]
 pub struct JavaRandom {
@@ -101,10 +101,7 @@ impl From<Seed> for JavaRandom {
 /// deterministic random sequences—particularly useful for simulations,
 /// testing, and gaming environments.
 impl StsRandom {
-    pub fn with_offset(offset: u64) -> Self {
-        GAME_CONTEXT.seed.with_offset(offset).into()
-    }
-
+    // For debugging only
     pub fn get_counter(&self) -> usize {
         self.counter
     }

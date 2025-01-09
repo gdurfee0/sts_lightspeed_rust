@@ -15,7 +15,7 @@ pub struct Node {
 pub struct NodeBuilder {
     room: Option<Room>,
     exit_bits: ExitBits,
-    // The columns of the parent nodes that this node is connected to, un sorted. May contain
+    // The columns of the parent nodes that this node is connected to, unsorted. May contain
     // duplicates. Needed only to replicate quirks of the game's path generation algorithm.
     recorded_parent_cols: Vec<usize>,
 }

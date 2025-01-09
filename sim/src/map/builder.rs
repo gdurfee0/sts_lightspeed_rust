@@ -240,8 +240,9 @@ mod tests {
             })
             .collect::<Vec<NodeGrid>>();
         println!(
-            "Time taken to generate {} graphs: {:?}",
+            "Time taken to generate {} graph{}: {:?}",
             node_grids.len(),
+            if node_grids.len() == 1 { "" } else { "s" },
             now.elapsed()
         );
         let test_vector_lines = TEST_VECTORS_RAW

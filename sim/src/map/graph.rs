@@ -125,10 +125,10 @@ impl<'a> GraphBuilder<'a> {
         //   (2) The loop over parent edge list depends on the order in which those
         //       edges were introduced, and often continues unnecessarily after a new exit
         //       has been chosen.
-        //   (3) The parent/edge list often contains duplicate entries for the same edge.
+        //   (3) The parent edge list often contains duplicate entries for the same parent.
         //   (4) Iterations of the loop, although they change next_col, do not change the
         //       dest_col from which the parent information was originally sourced, so ancestor
-        //       detection doesn't reflect newly-proposed new_col generated inside the loop.
+        //       detection doesn't reflect the newly-proposed new_col generated inside the loop.
         //
         // Checking for small cycles could be done much more easily by just checking neighbors'
         // exits. This would allow us to pick an exit that doesn't introduce a small cycle

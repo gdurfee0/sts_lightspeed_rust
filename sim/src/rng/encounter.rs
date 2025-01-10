@@ -172,11 +172,7 @@ impl EnemyEncounterGenerator {
     // TODO: Make this two bosses for higher Ascensions.
     fn sample_boss_encounters(&mut self) {
         let mut bosses = self.act.boss_pool().to_vec();
-        // I'm guessing that the generator is forked into a java random so no more than
-        // one tick is consumed of the original rng, maybe for backward compatibility with
-        // save files or something. Or perhaps they didn't yet have Fisher-Yates implemented
-        // for StsRandom at the point this was written.
-        self.sts_random.fork_java_random().shuffle(bosses.as_mut());
+        self.sts_random.java_compat_shuffle(bosses.as_mut());
         self.boss_queue.push_back(bosses[0]);
     }
 }

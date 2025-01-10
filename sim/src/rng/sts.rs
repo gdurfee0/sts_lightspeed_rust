@@ -151,6 +151,17 @@ impl StsRandom {
         }
     }
 
+    /// Shuffles the given slice in place using the Fisher-Yates algorithm, but via a detour
+    /// through a JavaRandom instance seeded with the next u64 from this generator.
+    ///
+    /// I'm guessing that the generator is forked into a JavaRandom so no more than
+    /// one tick is consumed of the original rng, maybe for backward compatibility with
+    /// save files or something. Or perhaps they didn't yet have Fisher-Yates implemented
+    /// for StsRandom at the point this was written.
+    pub fn java_compat_shuffle<T>(&mut self, slice: &mut [T]) {
+        JavaRandom::from(self.next_u64()).shuffle(slice);
+    }
+
     /// Chooses an element from the given slice unfiformly at random.
     pub fn choose<'a, T>(&mut self, slice: &'a [T]) -> &'a T
     where
@@ -174,13 +185,8 @@ impl StsRandom {
         &choices.last().unwrap().0
     }
 
-    // TODO: reconsider exposing this
-    pub fn next_f32(&mut self) -> f32 {
+    fn next_f32(&mut self) -> f32 {
         (self.next_u64() >> 40) as f32 * 5.9604645e-8
-    }
-
-    pub fn fork_java_random(&mut self) -> JavaRandom {
-        JavaRandom::from(self.next_u64())
     }
 
     /// MurmurHash3 implementation for generating a 64-bit hash from a 64-bit seed.

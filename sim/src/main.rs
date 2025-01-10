@@ -24,8 +24,12 @@ fn main() {
             Ok(SimulatorOutput::Map(map)) => println!("{}", map),
             Ok(SimulatorOutput::AwaitingInput(state)) => {
                 println!("{:?}", state);
-                let mut user_input = String::new();
+                let mut user_input = SimulatorInput::new();
                 match stdin().read_line(&mut user_input) {
+                    Ok(0) => {
+                        println!("User closed the input stream");
+                        break;
+                    }
                     Ok(_) => {
                         if let Err(e) = input_tx.send(user_input) {
                             panic!("Error sending input: {}", e);

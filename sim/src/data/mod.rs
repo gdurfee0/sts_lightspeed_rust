@@ -1,5 +1,6 @@
 mod act;
 mod ascension;
+mod card;
 mod character;
 mod encounter;
 mod relic;

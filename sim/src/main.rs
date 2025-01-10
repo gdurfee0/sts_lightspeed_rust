@@ -10,7 +10,7 @@ use crate::rng::EnemyEncounterGenerator;
 
 fn main() {
     let seed = &GAME_PARAMS.seed;
-    let character = GAME_PARAMS.character;
+    let character = &GAME_PARAMS.character;
     let ascension = GAME_PARAMS.ascension;
     println!(
         "Seed: {:?}, Character: {:?}, Ascension: {:?}",

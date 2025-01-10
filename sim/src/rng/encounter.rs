@@ -10,7 +10,7 @@ use super::{Seed, StsRandom};
 /// The generator is stateful and resets with each new Act as the run progresses.
 ///
 /// Side note: Ideally we would use an Iterator pattern here, with an Iterator type for each
-/// encounter class (Monster, Elite, and Boss).  But for rng fidelity to the original game,
+/// encounter class (Monster, Elite, and Boss). But for rng fidelity to the original game,
 /// we need to share the same StsRandom generator across all encounter classes. This means that
 /// the different Iterator types would need to hold mutable references to the same underlying
 /// StsGenerator. This is an antipattern in Rust and would require use of RefCell or Mutex

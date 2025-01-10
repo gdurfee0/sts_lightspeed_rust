@@ -2,6 +2,7 @@ mod act;
 mod ascension;
 mod character;
 mod encounter;
+mod relic;
 
 pub use act::Act;
 pub use ascension::Ascension;

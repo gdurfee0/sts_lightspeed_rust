@@ -4,12 +4,23 @@ use super::encounter::Encounter;
 
 #[derive(Debug, PartialEq)]
 pub struct Act {
-    map_seed_offset: u64,
-    weak_monster_encounter_count: usize,
-    weak_monster_encounters_and_probs: &'static [(Encounter, f32)],
-    strong_monster_encounters_and_probs: &'static [(Encounter, f32)],
-    elite_encounters: &'static [(Encounter, f32)],
-    boss_encounters: &'static [Encounter],
+    /// Offset used in the random number generator seed used in map generation.
+    pub map_seed_offset: u64,
+
+    /// How many "weak" monster encounters might occur in the Act (i.e. in the first few rooms).
+    pub weak_monster_encounter_count: usize,
+
+    /// Pool of possible "weak" monster encounters and their associated probabilities.
+    pub weak_monster_encounter_pool: &'static [(Encounter, f32)],
+
+    /// Pool of possible "strong" monster encounters and their associated probabilities.
+    pub strong_monster_encounter_pool: &'static [(Encounter, f32)],
+
+    /// Pool of elite encounters and their associated probabilities.
+    pub elite_encounter_pool: &'static [(Encounter, f32)],
+
+    /// Pool of boss encounters for the Act.
+    pub boss_encounter_pool: &'static [Encounter],
 }
 
 impl Act {
@@ -22,36 +33,6 @@ impl Act {
     /// not a valid number or if the number is out of bounds.
     pub fn from_str(s: &str) -> Result<&'static Act, anyhow::Error> {
         <&'static Act>::try_from(s)
-    }
-
-    /// Offset used in the random number generator seed used in map generation.
-    pub fn map_seed_offset(&self) -> u64 {
-        self.map_seed_offset
-    }
-
-    /// How many "weak" monster encounters might occur in the Act (i.e. in the first few rooms).
-    pub fn weak_monster_encounter_count(&self) -> usize {
-        self.weak_monster_encounter_count
-    }
-
-    /// Pool of possible "weak" monster encounters and their associated probabilities.
-    pub fn weak_monster_pool_with_probs(&self) -> &'static [(Encounter, f32)] {
-        self.weak_monster_encounters_and_probs
-    }
-
-    /// Pool of possible "strong" monster encounters and their associated probabilities.
-    pub fn strong_monster_pool_with_probs(&self) -> &'static [(Encounter, f32)] {
-        self.strong_monster_encounters_and_probs
-    }
-
-    /// Pool of elite encounters and their associated probabilities.
-    pub fn elite_pool_with_probs(&self) -> &'static [(Encounter, f32)] {
-        self.elite_encounters
-    }
-
-    /// Pool of boss encounters for the Act.
-    pub fn boss_pool(&self) -> &'static [Encounter] {
-        self.boss_encounters
     }
 
     /// Returns the Act that follows this one. Panics if this is Act 4.
@@ -92,13 +73,13 @@ pub static ACTS: &[Act] = &[
     Act {
         map_seed_offset: 1,
         weak_monster_encounter_count: 3,
-        weak_monster_encounters_and_probs: &[
+        weak_monster_encounter_pool: &[
             (Encounter::Cultist, 1. / 4.),
             (Encounter::JawWorm, 1. / 4.),
             (Encounter::TwoLice, 1. / 4.),
             (Encounter::SmallSlimes, 1. / 4.),
         ],
-        strong_monster_encounters_and_probs: &[
+        strong_monster_encounter_pool: &[
             (Encounter::GremlinGang, 1. / 16.),
             (Encounter::LotsOfSlimes, 1. / 16.),
             (Encounter::RedSlaver, 1. / 16.),
@@ -110,12 +91,12 @@ pub static ACTS: &[Act] = &[
             (Encounter::ThreeLice, 2. / 16.),
             (Encounter::TwoFungiBeasts, 2. / 16.),
         ],
-        elite_encounters: &[
+        elite_encounter_pool: &[
             (Encounter::GremlinNob, 1. / 3.),
             (Encounter::Lagavulin, 1. / 3.),
             (Encounter::ThreeSentries, 1. / 3.),
         ],
-        boss_encounters: &[
+        boss_encounter_pool: &[
             Encounter::TheGuardian,
             Encounter::Hexaghost,
             Encounter::SlimeBoss,
@@ -125,14 +106,14 @@ pub static ACTS: &[Act] = &[
     Act {
         map_seed_offset: 200,
         weak_monster_encounter_count: 2,
-        weak_monster_encounters_and_probs: &[
+        weak_monster_encounter_pool: &[
             (Encounter::SphericGuardian, 1. / 5.),
             (Encounter::Chosen, 1. / 5.),
             (Encounter::ShelledParasite, 1. / 5.),
             (Encounter::ThreeByrds, 1. / 5.),
             (Encounter::TwoThieves, 1. / 5.),
         ],
-        strong_monster_encounters_and_probs: &[
+        strong_monster_encounter_pool: &[
             (Encounter::ChosenAndByrd, 2. / 29.),
             (Encounter::SentryAndSphericGuardian, 2. / 29.),
             (Encounter::CultistAndChosen, 3. / 29.),
@@ -142,12 +123,12 @@ pub static ACTS: &[Act] = &[
             (Encounter::SnakePlant, 6. / 29.),
             (Encounter::CenturionAndMystic, 6. / 29.),
         ],
-        elite_encounters: &[
+        elite_encounter_pool: &[
             (Encounter::GremlinLeader, 1. / 3.),
             (Encounter::Taskmaster, 1. / 3.),
             (Encounter::BookOfStabbing, 1. / 3.),
         ],
-        boss_encounters: &[
+        boss_encounter_pool: &[
             Encounter::BronzeAutomaton,
             Encounter::TheCollector,
             Encounter::TheChamp,
@@ -157,12 +138,12 @@ pub static ACTS: &[Act] = &[
     Act {
         map_seed_offset: 600,
         weak_monster_encounter_count: 2,
-        weak_monster_encounters_and_probs: &[
+        weak_monster_encounter_pool: &[
             (Encounter::ThreeDarklings, 1. / 3.),
             (Encounter::OrbWalker, 1. / 3.),
             (Encounter::ThreeShapes, 1. / 3.),
         ],
-        strong_monster_encounters_and_probs: &[
+        strong_monster_encounter_pool: &[
             (Encounter::SpireGrowth, 1. / 8.),
             (Encounter::Transient, 1. / 8.),
             (Encounter::FourShapes, 1. / 8.),
@@ -172,12 +153,12 @@ pub static ACTS: &[Act] = &[
             (Encounter::ThreeDarklings, 1. / 8.),
             (Encounter::WrithingMass, 1. / 8.),
         ],
-        elite_encounters: &[
+        elite_encounter_pool: &[
             (Encounter::GiantHead, 1. / 3.),
             (Encounter::Nemesis, 1. / 3.),
             (Encounter::Reptomancer, 1. / 3.),
         ],
-        boss_encounters: &[
+        boss_encounter_pool: &[
             Encounter::AwakenedOne,
             Encounter::TimeEater,
             Encounter::DonuAndDeca,
@@ -187,10 +168,10 @@ pub static ACTS: &[Act] = &[
     Act {
         map_seed_offset: 1200,
         weak_monster_encounter_count: 0,
-        weak_monster_encounters_and_probs: &[],
-        strong_monster_encounters_and_probs: &[],
-        elite_encounters: &[(Encounter::SpireShieldAndSpireSpear, 1.)],
-        boss_encounters: &[Encounter::CorruptHeart],
+        weak_monster_encounter_pool: &[],
+        strong_monster_encounter_pool: &[],
+        elite_encounter_pool: &[(Encounter::SpireShieldAndSpireSpear, 1.)],
+        boss_encounter_pool: &[Encounter::CorruptHeart],
     },
 ];
 

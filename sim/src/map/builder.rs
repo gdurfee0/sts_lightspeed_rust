@@ -26,7 +26,7 @@ pub struct MapBuilder {
 
 impl MapBuilder {
     pub fn from(seed: &Seed, ascension: Ascension, act: &'static Act) -> Self {
-        let offset = act.map_seed_offset();
+        let offset = act.map_seed_offset;
         Self {
             act,
             ascension,

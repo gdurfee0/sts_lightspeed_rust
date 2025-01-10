@@ -87,8 +87,8 @@ impl EncounterGenerator {
     // Adds an Act-dependent number of weak monster encounters to the monster encounter queue.
     fn sample_weak_monster_encounters(&mut self) {
         self.sample_monster_encounters(
-            self.act.weak_monster_encounter_count(),
-            self.act.weak_monster_pool_with_probs(),
+            self.act.weak_monster_encounter_count,
+            self.act.weak_monster_encounter_pool,
         );
     }
 
@@ -97,7 +97,7 @@ impl EncounterGenerator {
     fn sample_first_strong_monster_encounter(&mut self) {
         let mut proposed_encounter = *self
             .sts_random
-            .weighted_choose(self.act.strong_monster_pool_with_probs());
+            .weighted_choose(self.act.strong_monster_encounter_pool);
         while match self.monster_queue.back() {
             Some(prev_encounter) => matches!(
                 (*prev_encounter, proposed_encounter),
@@ -109,14 +109,14 @@ impl EncounterGenerator {
         } {
             proposed_encounter = *self
                 .sts_random
-                .weighted_choose(self.act.strong_monster_pool_with_probs());
+                .weighted_choose(self.act.strong_monster_encounter_pool);
         }
         self.monster_queue.push_back(proposed_encounter);
     }
 
     // Adds twelve strong monster encounters to the monster encounter queue.
     fn sample_strong_monster_encounters(&mut self) {
-        self.sample_monster_encounters(12, self.act.strong_monster_pool_with_probs());
+        self.sample_monster_encounters(12, self.act.strong_monster_encounter_pool);
     }
 
     // Helper method that samples the specified number of encounters from the provided pool
@@ -151,14 +151,14 @@ impl EncounterGenerator {
         for _ in 0..10 {
             let mut proposed_encounter = *self
                 .sts_random
-                .weighted_choose(self.act.elite_pool_with_probs());
+                .weighted_choose(self.act.elite_encounter_pool);
             while match self.elite_queue.back() {
                 Some(prev_encounter) => proposed_encounter == *prev_encounter,
                 None => false,
             } {
                 proposed_encounter = *self
                     .sts_random
-                    .weighted_choose(self.act.elite_pool_with_probs());
+                    .weighted_choose(self.act.elite_encounter_pool);
             }
             self.elite_queue.push_back(proposed_encounter);
         }
@@ -167,7 +167,7 @@ impl EncounterGenerator {
     // Adds one boss encounter to the boss encounter queue.
     // TODO: Make this two bosses for higher Ascensions.
     fn sample_boss_encounters(&mut self) {
-        let mut bosses = self.act.boss_pool().to_vec();
+        let mut bosses = self.act.boss_encounter_pool.to_vec();
         self.sts_random.java_compat_shuffle(bosses.as_mut());
         self.boss_queue.push_back(bosses[0]);
     }

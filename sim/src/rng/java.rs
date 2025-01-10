@@ -15,11 +15,13 @@ impl JavaRandom {
         }
     }
 
+    /// Pulls 32 bits from the RNG using the srand48 algorithm.
     fn next(&mut self, bits: usize) -> i32 {
         self.state = (self.state.wrapping_mul(0x5DEECE66D).wrapping_add(0xB)) & ((1 << 48) - 1);
         (self.state >> (48 - bits)) as i32
     }
 
+    /// Uses rejection sampling to pull a bounded integer from the RNG.
     fn next_i32_bounded(&mut self, bound: i32) -> i32 {
         let mut r = self.next(31);
         let m = bound - 1;

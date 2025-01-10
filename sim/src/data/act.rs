@@ -1,15 +1,15 @@
 use anyhow::anyhow;
 
-use super::encounter::{BossEncounter, EliteEncounter, MonsterEncounter};
+use super::encounter::Encounter;
 
 #[derive(Debug, PartialEq)]
 pub struct Act {
     map_seed_offset: u64,
     weak_monster_encounter_count: usize,
-    weak_monster_encounters_and_probs: &'static [(MonsterEncounter, f32)],
-    strong_monster_encounters_and_probs: &'static [(MonsterEncounter, f32)],
-    elite_encounters: &'static [(EliteEncounter, f32)],
-    boss_encounters: &'static [BossEncounter],
+    weak_monster_encounters_and_probs: &'static [(Encounter, f32)],
+    strong_monster_encounters_and_probs: &'static [(Encounter, f32)],
+    elite_encounters: &'static [(Encounter, f32)],
+    boss_encounters: &'static [Encounter],
 }
 
 impl Act {
@@ -35,22 +35,22 @@ impl Act {
     }
 
     /// Pool of possible "weak" monster encounters and their associated probabilities.
-    pub fn weak_monster_pool_with_probs(&self) -> &'static [(MonsterEncounter, f32)] {
+    pub fn weak_monster_pool_with_probs(&self) -> &'static [(Encounter, f32)] {
         self.weak_monster_encounters_and_probs
     }
 
     /// Pool of possible "strong" monster encounters and their associated probabilities.
-    pub fn strong_monster_pool_with_probs(&self) -> &'static [(MonsterEncounter, f32)] {
+    pub fn strong_monster_pool_with_probs(&self) -> &'static [(Encounter, f32)] {
         self.strong_monster_encounters_and_probs
     }
 
     /// Pool of elite encounters and their associated probabilities.
-    pub fn elite_pool_with_probs(&self) -> &'static [(EliteEncounter, f32)] {
+    pub fn elite_pool_with_probs(&self) -> &'static [(Encounter, f32)] {
         self.elite_encounters
     }
 
     /// Pool of boss encounters for the Act.
-    pub fn boss_pool(&self) -> &'static [BossEncounter] {
+    pub fn boss_pool(&self) -> &'static [Encounter] {
         self.boss_encounters
     }
 
@@ -93,32 +93,32 @@ pub static ACTS: &[Act] = &[
         map_seed_offset: 1,
         weak_monster_encounter_count: 3,
         weak_monster_encounters_and_probs: &[
-            (MonsterEncounter::Cultist, 1. / 4.),
-            (MonsterEncounter::JawWorm, 1. / 4.),
-            (MonsterEncounter::TwoLice, 1. / 4.),
-            (MonsterEncounter::SmallSlimes, 1. / 4.),
+            (Encounter::Cultist, 1. / 4.),
+            (Encounter::JawWorm, 1. / 4.),
+            (Encounter::TwoLice, 1. / 4.),
+            (Encounter::SmallSlimes, 1. / 4.),
         ],
         strong_monster_encounters_and_probs: &[
-            (MonsterEncounter::GremlinGang, 1. / 16.),
-            (MonsterEncounter::LotsOfSlimes, 1. / 16.),
-            (MonsterEncounter::RedSlaver, 1. / 16.),
-            (MonsterEncounter::ExordiumThugs, 1.5 / 16.),
-            (MonsterEncounter::ExordiumWildlife, 1.5 / 16.),
-            (MonsterEncounter::BlueSlaver, 2. / 16.),
-            (MonsterEncounter::Looter, 2. / 16.),
-            (MonsterEncounter::LargeSlime, 2. / 16.),
-            (MonsterEncounter::ThreeLice, 2. / 16.),
-            (MonsterEncounter::TwoFungiBeasts, 2. / 16.),
+            (Encounter::GremlinGang, 1. / 16.),
+            (Encounter::LotsOfSlimes, 1. / 16.),
+            (Encounter::RedSlaver, 1. / 16.),
+            (Encounter::ExordiumThugs, 1.5 / 16.),
+            (Encounter::ExordiumWildlife, 1.5 / 16.),
+            (Encounter::BlueSlaver, 2. / 16.),
+            (Encounter::Looter, 2. / 16.),
+            (Encounter::LargeSlime, 2. / 16.),
+            (Encounter::ThreeLice, 2. / 16.),
+            (Encounter::TwoFungiBeasts, 2. / 16.),
         ],
         elite_encounters: &[
-            (EliteEncounter::GremlinNob, 1. / 3.),
-            (EliteEncounter::Lagavulin, 1. / 3.),
-            (EliteEncounter::ThreeSentries, 1. / 3.),
+            (Encounter::GremlinNob, 1. / 3.),
+            (Encounter::Lagavulin, 1. / 3.),
+            (Encounter::ThreeSentries, 1. / 3.),
         ],
         boss_encounters: &[
-            BossEncounter::TheGuardian,
-            BossEncounter::Hexaghost,
-            BossEncounter::SlimeBoss,
+            Encounter::TheGuardian,
+            Encounter::Hexaghost,
+            Encounter::SlimeBoss,
         ],
     },
     // ACT 2
@@ -126,31 +126,31 @@ pub static ACTS: &[Act] = &[
         map_seed_offset: 200,
         weak_monster_encounter_count: 2,
         weak_monster_encounters_and_probs: &[
-            (MonsterEncounter::SphericGuardian, 1. / 5.),
-            (MonsterEncounter::Chosen, 1. / 5.),
-            (MonsterEncounter::ShelledParasite, 1. / 5.),
-            (MonsterEncounter::ThreeByrds, 1. / 5.),
-            (MonsterEncounter::TwoThieves, 1. / 5.),
+            (Encounter::SphericGuardian, 1. / 5.),
+            (Encounter::Chosen, 1. / 5.),
+            (Encounter::ShelledParasite, 1. / 5.),
+            (Encounter::ThreeByrds, 1. / 5.),
+            (Encounter::TwoThieves, 1. / 5.),
         ],
         strong_monster_encounters_and_probs: &[
-            (MonsterEncounter::ChosenAndByrd, 2. / 29.),
-            (MonsterEncounter::SentryAndSphericGuardian, 2. / 29.),
-            (MonsterEncounter::CultistAndChosen, 3. / 29.),
-            (MonsterEncounter::ThreeCultists, 3. / 29.),
-            (MonsterEncounter::ShelledParasiteAndFungiBeast, 3. / 29.),
-            (MonsterEncounter::Snecko, 4. / 29.),
-            (MonsterEncounter::SnakePlant, 6. / 29.),
-            (MonsterEncounter::CenturionAndMystic, 6. / 29.),
+            (Encounter::ChosenAndByrd, 2. / 29.),
+            (Encounter::SentryAndSphericGuardian, 2. / 29.),
+            (Encounter::CultistAndChosen, 3. / 29.),
+            (Encounter::ThreeCultists, 3. / 29.),
+            (Encounter::ShelledParasiteAndFungiBeast, 3. / 29.),
+            (Encounter::Snecko, 4. / 29.),
+            (Encounter::SnakePlant, 6. / 29.),
+            (Encounter::CenturionAndMystic, 6. / 29.),
         ],
         elite_encounters: &[
-            (EliteEncounter::GremlinLeader, 1. / 3.),
-            (EliteEncounter::Taskmaster, 1. / 3.),
-            (EliteEncounter::BookOfStabbing, 1. / 3.),
+            (Encounter::GremlinLeader, 1. / 3.),
+            (Encounter::Taskmaster, 1. / 3.),
+            (Encounter::BookOfStabbing, 1. / 3.),
         ],
         boss_encounters: &[
-            BossEncounter::BronzeAutomaton,
-            BossEncounter::TheCollector,
-            BossEncounter::TheChamp,
+            Encounter::BronzeAutomaton,
+            Encounter::TheCollector,
+            Encounter::TheChamp,
         ],
     },
     // ACT 3
@@ -158,29 +158,29 @@ pub static ACTS: &[Act] = &[
         map_seed_offset: 600,
         weak_monster_encounter_count: 2,
         weak_monster_encounters_and_probs: &[
-            (MonsterEncounter::ThreeDarklings, 1. / 3.),
-            (MonsterEncounter::OrbWalker, 1. / 3.),
-            (MonsterEncounter::ThreeShapes, 1. / 3.),
+            (Encounter::ThreeDarklings, 1. / 3.),
+            (Encounter::OrbWalker, 1. / 3.),
+            (Encounter::ThreeShapes, 1. / 3.),
         ],
         strong_monster_encounters_and_probs: &[
-            (MonsterEncounter::SpireGrowth, 1. / 8.),
-            (MonsterEncounter::Transient, 1. / 8.),
-            (MonsterEncounter::FourShapes, 1. / 8.),
-            (MonsterEncounter::Maw, 1. / 8.),
-            (MonsterEncounter::SphericGuardianAndTwoShapes, 1. / 8.),
-            (MonsterEncounter::JawWormHorde, 1. / 8.),
-            (MonsterEncounter::ThreeDarklings, 1. / 8.),
-            (MonsterEncounter::WrithingMass, 1. / 8.),
+            (Encounter::SpireGrowth, 1. / 8.),
+            (Encounter::Transient, 1. / 8.),
+            (Encounter::FourShapes, 1. / 8.),
+            (Encounter::Maw, 1. / 8.),
+            (Encounter::SphericGuardianAndTwoShapes, 1. / 8.),
+            (Encounter::JawWormHorde, 1. / 8.),
+            (Encounter::ThreeDarklings, 1. / 8.),
+            (Encounter::WrithingMass, 1. / 8.),
         ],
         elite_encounters: &[
-            (EliteEncounter::GiantHead, 1. / 3.),
-            (EliteEncounter::Nemesis, 1. / 3.),
-            (EliteEncounter::Reptomancer, 1. / 3.),
+            (Encounter::GiantHead, 1. / 3.),
+            (Encounter::Nemesis, 1. / 3.),
+            (Encounter::Reptomancer, 1. / 3.),
         ],
         boss_encounters: &[
-            BossEncounter::AwakenedOne,
-            BossEncounter::TimeEater,
-            BossEncounter::DonuAndDeca,
+            Encounter::AwakenedOne,
+            Encounter::TimeEater,
+            Encounter::DonuAndDeca,
         ],
     },
     // ACT 4
@@ -189,8 +189,8 @@ pub static ACTS: &[Act] = &[
         weak_monster_encounter_count: 0,
         weak_monster_encounters_and_probs: &[],
         strong_monster_encounters_and_probs: &[],
-        elite_encounters: &[(EliteEncounter::SpireShieldAndSpireSpear, 1.)],
-        boss_encounters: &[BossEncounter::CorruptHeart],
+        elite_encounters: &[(Encounter::SpireShieldAndSpireSpear, 1.)],
+        boss_encounters: &[Encounter::CorruptHeart],
     },
 ];
 

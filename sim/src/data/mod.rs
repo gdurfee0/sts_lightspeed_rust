@@ -8,4 +8,4 @@ mod relic;
 pub use act::Act;
 pub use ascension::Ascension;
 pub use character::Character;
-pub use encounter::{BossEncounter, EliteEncounter, MonsterEncounter};
+pub use encounter::Encounter;

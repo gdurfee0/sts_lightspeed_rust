@@ -1,12 +1,12 @@
 use std::collections::VecDeque;
 
-use crate::data::{Act, BossEncounter, EliteEncounter, MonsterEncounter};
+use crate::data::{Act, Encounter};
 
 use super::{Seed, StsRandom};
 
-/// A struct that generates the encounters for a run based on the provided seed.
+/// A struct that generates the enemy encounters for a run based on the provided seed.
 ///
-/// The encounters are generated in advance and stored in queues for easy retrieval.
+/// Enemy encounters are generated in advance and stored in queues for easy retrieval.
 /// The generator is stateful and resets with each new Act as the run progresses.
 ///
 /// Side note: Ideally we would use an Iterator pattern here, with an Iterator type for each
@@ -15,15 +15,15 @@ use super::{Seed, StsRandom};
 /// the different Iterator types would need to hold mutable references to the same underlying
 /// StsGenerator. This is an antipattern in Rust and would require use of RefCell or Mutex
 /// to work around. So we're using a more manual approach here.
-pub struct EnemyEncounterGenerator {
+pub struct EncounterGenerator {
     act: &'static Act,
     sts_random: StsRandom,
-    monster_queue: VecDeque<MonsterEncounter>,
-    elite_queue: VecDeque<EliteEncounter>,
-    boss_queue: VecDeque<BossEncounter>,
+    monster_queue: VecDeque<Encounter>,
+    elite_queue: VecDeque<Encounter>,
+    boss_queue: VecDeque<Encounter>,
 }
 
-impl EnemyEncounterGenerator {
+impl EncounterGenerator {
     pub fn new(seed: &Seed) -> Self {
         let act = Act::get(1);
         let sts_random: StsRandom = seed.into();
@@ -39,7 +39,7 @@ impl EnemyEncounterGenerator {
     }
 
     /// Returns the next monster encounter in the queue, sampling more if necessary.
-    pub fn next_monster_encounter(&mut self) -> MonsterEncounter {
+    pub fn next_monster_encounter(&mut self) -> Encounter {
         if let Some(encounter) = self.monster_queue.pop_front() {
             encounter
         } else {
@@ -49,7 +49,7 @@ impl EnemyEncounterGenerator {
     }
 
     /// Returns the next elite encounter in the queue, sampling more if necessary.
-    pub fn next_elite_encounter(&mut self) -> EliteEncounter {
+    pub fn next_elite_encounter(&mut self) -> Encounter {
         if let Some(encounter) = self.elite_queue.pop_front() {
             encounter
         } else {
@@ -59,7 +59,7 @@ impl EnemyEncounterGenerator {
     }
 
     /// Returns the next boss encounter in the queue.
-    pub fn next_boss_encounter(&mut self) -> BossEncounter {
+    pub fn next_boss_encounter(&mut self) -> Encounter {
         if let Some(encounter) = self.boss_queue.pop_front() {
             encounter
         } else {
@@ -99,11 +99,9 @@ impl EnemyEncounterGenerator {
         while match self.monster_queue.back() {
             Some(prev_encounter) => matches!(
                 (*prev_encounter, proposed_encounter),
-                (
-                    MonsterEncounter::SmallSlimes,
-                    MonsterEncounter::LotsOfSlimes
-                ) | (MonsterEncounter::SmallSlimes, MonsterEncounter::LargeSlime)
-                    | (MonsterEncounter::TwoLice, MonsterEncounter::ThreeLice)
+                (Encounter::SmallSlimes, Encounter::LotsOfSlimes)
+                    | (Encounter::SmallSlimes, Encounter::LargeSlime)
+                    | (Encounter::TwoLice, Encounter::ThreeLice)
             ),
             None => false,
         } {
@@ -124,11 +122,7 @@ impl EnemyEncounterGenerator {
     //
     // Avoids repetition by examining the previous and doubly-previous encounters and avoiding
     // duplicates.
-    fn sample_monster_encounters(
-        &mut self,
-        count: usize,
-        pool: &'static [(MonsterEncounter, f32)],
-    ) {
+    fn sample_monster_encounters(&mut self, count: usize, pool: &'static [(Encounter, f32)]) {
         for _ in 0..count {
             let mut proposed_encounter = *self.sts_random.weighted_choose(pool);
             while match self.monster_queue.back() {
@@ -185,28 +179,28 @@ mod test {
 
     #[test]
     fn test_monster_encounters() {
-        let mut generator = EnemyEncounterGenerator::new(&Seed::from(1u64));
+        let mut generator = EncounterGenerator::new(&Seed::from(1u64));
         assert_eq!(
             (0..16)
                 .map(|_| generator.next_monster_encounter())
                 .collect::<Vec<_>>(),
             [
-                MonsterEncounter::Cultist,
-                MonsterEncounter::JawWorm,
-                MonsterEncounter::SmallSlimes,
-                MonsterEncounter::ExordiumWildlife,
-                MonsterEncounter::TwoFungiBeasts,
-                MonsterEncounter::ThreeLice,
-                MonsterEncounter::Looter,
-                MonsterEncounter::ExordiumThugs,
-                MonsterEncounter::LotsOfSlimes,
-                MonsterEncounter::ThreeLice,
-                MonsterEncounter::BlueSlaver,
-                MonsterEncounter::RedSlaver,
-                MonsterEncounter::TwoFungiBeasts,
-                MonsterEncounter::Looter,
-                MonsterEncounter::ExordiumWildlife,
-                MonsterEncounter::BlueSlaver
+                Encounter::Cultist,
+                Encounter::JawWorm,
+                Encounter::SmallSlimes,
+                Encounter::ExordiumWildlife,
+                Encounter::TwoFungiBeasts,
+                Encounter::ThreeLice,
+                Encounter::Looter,
+                Encounter::ExordiumThugs,
+                Encounter::LotsOfSlimes,
+                Encounter::ThreeLice,
+                Encounter::BlueSlaver,
+                Encounter::RedSlaver,
+                Encounter::TwoFungiBeasts,
+                Encounter::Looter,
+                Encounter::ExordiumWildlife,
+                Encounter::BlueSlaver
             ]
         );
         generator.advance_act();
@@ -215,21 +209,21 @@ mod test {
                 .map(|_| generator.next_monster_encounter())
                 .collect::<Vec<_>>(),
             [
-                MonsterEncounter::Chosen,
-                MonsterEncounter::ShelledParasite,
-                MonsterEncounter::CenturionAndMystic,
-                MonsterEncounter::SnakePlant,
-                MonsterEncounter::CultistAndChosen,
-                MonsterEncounter::Snecko,
-                MonsterEncounter::SnakePlant,
-                MonsterEncounter::ChosenAndByrd,
-                MonsterEncounter::CultistAndChosen,
-                MonsterEncounter::CenturionAndMystic,
-                MonsterEncounter::ChosenAndByrd,
-                MonsterEncounter::SnakePlant,
-                MonsterEncounter::Snecko,
-                MonsterEncounter::ShelledParasiteAndFungiBeast,
-                MonsterEncounter::ChosenAndByrd
+                Encounter::Chosen,
+                Encounter::ShelledParasite,
+                Encounter::CenturionAndMystic,
+                Encounter::SnakePlant,
+                Encounter::CultistAndChosen,
+                Encounter::Snecko,
+                Encounter::SnakePlant,
+                Encounter::ChosenAndByrd,
+                Encounter::CultistAndChosen,
+                Encounter::CenturionAndMystic,
+                Encounter::ChosenAndByrd,
+                Encounter::SnakePlant,
+                Encounter::Snecko,
+                Encounter::ShelledParasiteAndFungiBeast,
+                Encounter::ChosenAndByrd
             ]
         );
         generator.advance_act();
@@ -238,117 +232,117 @@ mod test {
                 .map(|_| generator.next_monster_encounter())
                 .collect::<Vec<_>>(),
             [
-                MonsterEncounter::ThreeShapes,
-                MonsterEncounter::OrbWalker,
-                MonsterEncounter::Transient,
-                MonsterEncounter::FourShapes,
-                MonsterEncounter::JawWormHorde,
-                MonsterEncounter::SpireGrowth,
-                MonsterEncounter::SphericGuardianAndTwoShapes,
-                MonsterEncounter::Maw,
-                MonsterEncounter::FourShapes,
-                MonsterEncounter::ThreeDarklings,
-                MonsterEncounter::Transient,
-                MonsterEncounter::WrithingMass,
-                MonsterEncounter::JawWormHorde,
-                MonsterEncounter::Maw,
-                MonsterEncounter::ThreeDarklings
+                Encounter::ThreeShapes,
+                Encounter::OrbWalker,
+                Encounter::Transient,
+                Encounter::FourShapes,
+                Encounter::JawWormHorde,
+                Encounter::SpireGrowth,
+                Encounter::SphericGuardianAndTwoShapes,
+                Encounter::Maw,
+                Encounter::FourShapes,
+                Encounter::ThreeDarklings,
+                Encounter::Transient,
+                Encounter::WrithingMass,
+                Encounter::JawWormHorde,
+                Encounter::Maw,
+                Encounter::ThreeDarklings
             ]
         );
-        let mut generator = EnemyEncounterGenerator::new(&Seed::from(2u64));
+        let mut generator = EncounterGenerator::new(&Seed::from(2u64));
         assert_eq!(
             (0..16)
                 .map(|_| generator.next_monster_encounter())
                 .collect::<Vec<_>>(),
             [
-                MonsterEncounter::Cultist,
-                MonsterEncounter::JawWorm,
-                MonsterEncounter::SmallSlimes,
-                MonsterEncounter::BlueSlaver,
-                MonsterEncounter::LargeSlime,
-                MonsterEncounter::Looter,
-                MonsterEncounter::LotsOfSlimes,
-                MonsterEncounter::ThreeLice,
-                MonsterEncounter::GremlinGang,
-                MonsterEncounter::LargeSlime,
-                MonsterEncounter::ExordiumThugs,
-                MonsterEncounter::Looter,
-                MonsterEncounter::ThreeLice,
-                MonsterEncounter::GremlinGang,
-                MonsterEncounter::RedSlaver,
-                MonsterEncounter::ExordiumThugs
+                Encounter::Cultist,
+                Encounter::JawWorm,
+                Encounter::SmallSlimes,
+                Encounter::BlueSlaver,
+                Encounter::LargeSlime,
+                Encounter::Looter,
+                Encounter::LotsOfSlimes,
+                Encounter::ThreeLice,
+                Encounter::GremlinGang,
+                Encounter::LargeSlime,
+                Encounter::ExordiumThugs,
+                Encounter::Looter,
+                Encounter::ThreeLice,
+                Encounter::GremlinGang,
+                Encounter::RedSlaver,
+                Encounter::ExordiumThugs
             ]
         );
-        let mut generator = EnemyEncounterGenerator::new(&Seed::from(3u64));
+        let mut generator = EncounterGenerator::new(&Seed::from(3u64));
         assert_eq!(
             (0..16)
                 .map(|_| generator.next_monster_encounter())
                 .collect::<Vec<_>>(),
             [
-                MonsterEncounter::SmallSlimes,
-                MonsterEncounter::Cultist,
-                MonsterEncounter::TwoLice,
-                MonsterEncounter::RedSlaver,
-                MonsterEncounter::ExordiumThugs,
-                MonsterEncounter::Looter,
-                MonsterEncounter::LotsOfSlimes,
-                MonsterEncounter::ThreeLice,
-                MonsterEncounter::Looter,
-                MonsterEncounter::LargeSlime,
-                MonsterEncounter::RedSlaver,
-                MonsterEncounter::LotsOfSlimes,
-                MonsterEncounter::TwoFungiBeasts,
-                MonsterEncounter::RedSlaver,
-                MonsterEncounter::ThreeLice,
-                MonsterEncounter::ExordiumThugs
+                Encounter::SmallSlimes,
+                Encounter::Cultist,
+                Encounter::TwoLice,
+                Encounter::RedSlaver,
+                Encounter::ExordiumThugs,
+                Encounter::Looter,
+                Encounter::LotsOfSlimes,
+                Encounter::ThreeLice,
+                Encounter::Looter,
+                Encounter::LargeSlime,
+                Encounter::RedSlaver,
+                Encounter::LotsOfSlimes,
+                Encounter::TwoFungiBeasts,
+                Encounter::RedSlaver,
+                Encounter::ThreeLice,
+                Encounter::ExordiumThugs
             ]
         );
-        let mut generator = EnemyEncounterGenerator::new(&Seed::from(4u64));
+        let mut generator = EncounterGenerator::new(&Seed::from(4u64));
         assert_eq!(
             (0..16)
                 .map(|_| generator.next_monster_encounter())
                 .collect::<Vec<_>>(),
             [
-                MonsterEncounter::JawWorm,
-                MonsterEncounter::Cultist,
-                MonsterEncounter::TwoLice,
-                MonsterEncounter::ExordiumWildlife,
-                MonsterEncounter::TwoFungiBeasts,
-                MonsterEncounter::ThreeLice,
-                MonsterEncounter::RedSlaver,
-                MonsterEncounter::TwoFungiBeasts,
-                MonsterEncounter::ThreeLice,
-                MonsterEncounter::LotsOfSlimes,
-                MonsterEncounter::ExordiumThugs,
-                MonsterEncounter::Looter,
-                MonsterEncounter::BlueSlaver,
-                MonsterEncounter::ExordiumThugs,
-                MonsterEncounter::ThreeLice,
-                MonsterEncounter::GremlinGang
+                Encounter::JawWorm,
+                Encounter::Cultist,
+                Encounter::TwoLice,
+                Encounter::ExordiumWildlife,
+                Encounter::TwoFungiBeasts,
+                Encounter::ThreeLice,
+                Encounter::RedSlaver,
+                Encounter::TwoFungiBeasts,
+                Encounter::ThreeLice,
+                Encounter::LotsOfSlimes,
+                Encounter::ExordiumThugs,
+                Encounter::Looter,
+                Encounter::BlueSlaver,
+                Encounter::ExordiumThugs,
+                Encounter::ThreeLice,
+                Encounter::GremlinGang
             ]
         );
-        let mut generator = EnemyEncounterGenerator::new(&Seed::from(5u64));
+        let mut generator = EncounterGenerator::new(&Seed::from(5u64));
         assert_eq!(
             (0..16)
                 .map(|_| generator.next_monster_encounter())
                 .collect::<Vec<_>>(),
             [
-                MonsterEncounter::JawWorm,
-                MonsterEncounter::Cultist,
-                MonsterEncounter::SmallSlimes,
-                MonsterEncounter::GremlinGang,
-                MonsterEncounter::Looter,
-                MonsterEncounter::TwoFungiBeasts,
-                MonsterEncounter::RedSlaver,
-                MonsterEncounter::ExordiumThugs,
-                MonsterEncounter::Looter,
-                MonsterEncounter::GremlinGang,
-                MonsterEncounter::LargeSlime,
-                MonsterEncounter::BlueSlaver,
-                MonsterEncounter::ExordiumWildlife,
-                MonsterEncounter::Looter,
-                MonsterEncounter::RedSlaver,
-                MonsterEncounter::ThreeLice
+                Encounter::JawWorm,
+                Encounter::Cultist,
+                Encounter::SmallSlimes,
+                Encounter::GremlinGang,
+                Encounter::Looter,
+                Encounter::TwoFungiBeasts,
+                Encounter::RedSlaver,
+                Encounter::ExordiumThugs,
+                Encounter::Looter,
+                Encounter::GremlinGang,
+                Encounter::LargeSlime,
+                Encounter::BlueSlaver,
+                Encounter::ExordiumWildlife,
+                Encounter::Looter,
+                Encounter::RedSlaver,
+                Encounter::ThreeLice
             ]
         );
         generator.advance_act();
@@ -357,21 +351,21 @@ mod test {
                 .map(|_| generator.next_monster_encounter())
                 .collect::<Vec<_>>(),
             [
-                MonsterEncounter::TwoThieves,
-                MonsterEncounter::ThreeByrds,
-                MonsterEncounter::SnakePlant,
-                MonsterEncounter::Snecko,
-                MonsterEncounter::CenturionAndMystic,
-                MonsterEncounter::ShelledParasiteAndFungiBeast,
-                MonsterEncounter::ChosenAndByrd,
-                MonsterEncounter::SnakePlant,
-                MonsterEncounter::CenturionAndMystic,
-                MonsterEncounter::ChosenAndByrd,
-                MonsterEncounter::Snecko,
-                MonsterEncounter::SnakePlant,
-                MonsterEncounter::CenturionAndMystic,
-                MonsterEncounter::CultistAndChosen,
-                MonsterEncounter::ThreeCultists
+                Encounter::TwoThieves,
+                Encounter::ThreeByrds,
+                Encounter::SnakePlant,
+                Encounter::Snecko,
+                Encounter::CenturionAndMystic,
+                Encounter::ShelledParasiteAndFungiBeast,
+                Encounter::ChosenAndByrd,
+                Encounter::SnakePlant,
+                Encounter::CenturionAndMystic,
+                Encounter::ChosenAndByrd,
+                Encounter::Snecko,
+                Encounter::SnakePlant,
+                Encounter::CenturionAndMystic,
+                Encounter::CultistAndChosen,
+                Encounter::ThreeCultists
             ]
         );
         generator.advance_act();
@@ -380,43 +374,43 @@ mod test {
                 .map(|_| generator.next_monster_encounter())
                 .collect::<Vec<_>>(),
             [
-                MonsterEncounter::OrbWalker,
-                MonsterEncounter::ThreeShapes,
-                MonsterEncounter::Transient,
-                MonsterEncounter::ThreeDarklings,
-                MonsterEncounter::Maw,
-                MonsterEncounter::JawWormHorde,
-                MonsterEncounter::ThreeDarklings,
-                MonsterEncounter::SphericGuardianAndTwoShapes,
-                MonsterEncounter::Transient,
-                MonsterEncounter::WrithingMass,
-                MonsterEncounter::JawWormHorde,
-                MonsterEncounter::Transient,
-                MonsterEncounter::SphericGuardianAndTwoShapes,
-                MonsterEncounter::Maw,
-                MonsterEncounter::JawWormHorde
+                Encounter::OrbWalker,
+                Encounter::ThreeShapes,
+                Encounter::Transient,
+                Encounter::ThreeDarklings,
+                Encounter::Maw,
+                Encounter::JawWormHorde,
+                Encounter::ThreeDarklings,
+                Encounter::SphericGuardianAndTwoShapes,
+                Encounter::Transient,
+                Encounter::WrithingMass,
+                Encounter::JawWormHorde,
+                Encounter::Transient,
+                Encounter::SphericGuardianAndTwoShapes,
+                Encounter::Maw,
+                Encounter::JawWormHorde
             ]
         );
     }
 
     #[test]
     fn test_elite_encounters() {
-        let mut generator = EnemyEncounterGenerator::new(&Seed::from(1u64));
+        let mut generator = EncounterGenerator::new(&Seed::from(1u64));
         assert_eq!(
             (0..10)
                 .map(|_| generator.next_elite_encounter())
                 .collect::<Vec<_>>(),
             [
-                EliteEncounter::GremlinNob,
-                EliteEncounter::ThreeSentries,
-                EliteEncounter::Lagavulin,
-                EliteEncounter::ThreeSentries,
-                EliteEncounter::GremlinNob,
-                EliteEncounter::Lagavulin,
-                EliteEncounter::GremlinNob,
-                EliteEncounter::Lagavulin,
-                EliteEncounter::GremlinNob,
-                EliteEncounter::ThreeSentries
+                Encounter::GremlinNob,
+                Encounter::ThreeSentries,
+                Encounter::Lagavulin,
+                Encounter::ThreeSentries,
+                Encounter::GremlinNob,
+                Encounter::Lagavulin,
+                Encounter::GremlinNob,
+                Encounter::Lagavulin,
+                Encounter::GremlinNob,
+                Encounter::ThreeSentries
             ]
         );
         generator.advance_act();
@@ -425,16 +419,16 @@ mod test {
                 .map(|_| generator.next_elite_encounter())
                 .collect::<Vec<_>>(),
             [
-                EliteEncounter::Taskmaster,
-                EliteEncounter::GremlinLeader,
-                EliteEncounter::Taskmaster,
-                EliteEncounter::BookOfStabbing,
-                EliteEncounter::Taskmaster,
-                EliteEncounter::GremlinLeader,
-                EliteEncounter::BookOfStabbing,
-                EliteEncounter::GremlinLeader,
-                EliteEncounter::BookOfStabbing,
-                EliteEncounter::GremlinLeader
+                Encounter::Taskmaster,
+                Encounter::GremlinLeader,
+                Encounter::Taskmaster,
+                Encounter::BookOfStabbing,
+                Encounter::Taskmaster,
+                Encounter::GremlinLeader,
+                Encounter::BookOfStabbing,
+                Encounter::GremlinLeader,
+                Encounter::BookOfStabbing,
+                Encounter::GremlinLeader
             ]
         );
         generator.advance_act();
@@ -443,106 +437,88 @@ mod test {
                 .map(|_| generator.next_elite_encounter())
                 .collect::<Vec<_>>(),
             [
-                EliteEncounter::GiantHead,
-                EliteEncounter::Nemesis,
-                EliteEncounter::Reptomancer,
-                EliteEncounter::Nemesis,
-                EliteEncounter::Reptomancer,
-                EliteEncounter::GiantHead,
-                EliteEncounter::Nemesis,
-                EliteEncounter::Reptomancer,
-                EliteEncounter::Nemesis,
-                EliteEncounter::GiantHead
+                Encounter::GiantHead,
+                Encounter::Nemesis,
+                Encounter::Reptomancer,
+                Encounter::Nemesis,
+                Encounter::Reptomancer,
+                Encounter::GiantHead,
+                Encounter::Nemesis,
+                Encounter::Reptomancer,
+                Encounter::Nemesis,
+                Encounter::GiantHead
             ]
         );
-        let mut generator = EnemyEncounterGenerator::new(&Seed::from(2u64));
+        let mut generator = EncounterGenerator::new(&Seed::from(2u64));
         assert_eq!(
             (0..10)
                 .map(|_| generator.next_elite_encounter())
                 .collect::<Vec<_>>(),
             [
-                EliteEncounter::Lagavulin,
-                EliteEncounter::GremlinNob,
-                EliteEncounter::ThreeSentries,
-                EliteEncounter::Lagavulin,
-                EliteEncounter::ThreeSentries,
-                EliteEncounter::GremlinNob,
-                EliteEncounter::ThreeSentries,
-                EliteEncounter::GremlinNob,
-                EliteEncounter::ThreeSentries,
-                EliteEncounter::Lagavulin
+                Encounter::Lagavulin,
+                Encounter::GremlinNob,
+                Encounter::ThreeSentries,
+                Encounter::Lagavulin,
+                Encounter::ThreeSentries,
+                Encounter::GremlinNob,
+                Encounter::ThreeSentries,
+                Encounter::GremlinNob,
+                Encounter::ThreeSentries,
+                Encounter::Lagavulin
             ]
         );
-        let mut generator = EnemyEncounterGenerator::new(&Seed::from(3u64));
+        let mut generator = EncounterGenerator::new(&Seed::from(3u64));
         assert_eq!(
             (0..10)
                 .map(|_| generator.next_elite_encounter())
                 .collect::<Vec<_>>(),
             [
-                EliteEncounter::GremlinNob,
-                EliteEncounter::Lagavulin,
-                EliteEncounter::GremlinNob,
-                EliteEncounter::ThreeSentries,
-                EliteEncounter::GremlinNob,
-                EliteEncounter::ThreeSentries,
-                EliteEncounter::GremlinNob,
-                EliteEncounter::Lagavulin,
-                EliteEncounter::ThreeSentries,
-                EliteEncounter::Lagavulin
+                Encounter::GremlinNob,
+                Encounter::Lagavulin,
+                Encounter::GremlinNob,
+                Encounter::ThreeSentries,
+                Encounter::GremlinNob,
+                Encounter::ThreeSentries,
+                Encounter::GremlinNob,
+                Encounter::Lagavulin,
+                Encounter::ThreeSentries,
+                Encounter::Lagavulin
             ]
         );
-        let mut generator = EnemyEncounterGenerator::new(&Seed::from(4u64));
+        let mut generator = EncounterGenerator::new(&Seed::from(4u64));
         assert_eq!(
             (0..10)
                 .map(|_| generator.next_elite_encounter())
                 .collect::<Vec<_>>(),
             [
-                EliteEncounter::Lagavulin,
-                EliteEncounter::ThreeSentries,
-                EliteEncounter::Lagavulin,
-                EliteEncounter::GremlinNob,
-                EliteEncounter::Lagavulin,
-                EliteEncounter::ThreeSentries,
-                EliteEncounter::Lagavulin,
-                EliteEncounter::ThreeSentries,
-                EliteEncounter::GremlinNob,
-                EliteEncounter::ThreeSentries
+                Encounter::Lagavulin,
+                Encounter::ThreeSentries,
+                Encounter::Lagavulin,
+                Encounter::GremlinNob,
+                Encounter::Lagavulin,
+                Encounter::ThreeSentries,
+                Encounter::Lagavulin,
+                Encounter::ThreeSentries,
+                Encounter::GremlinNob,
+                Encounter::ThreeSentries
             ]
         );
-        let mut generator = EnemyEncounterGenerator::new(&Seed::from(5u64));
+        let mut generator = EncounterGenerator::new(&Seed::from(5u64));
         assert_eq!(
             (0..10)
                 .map(|_| generator.next_elite_encounter())
                 .collect::<Vec<_>>(),
             [
-                EliteEncounter::GremlinNob,
-                EliteEncounter::Lagavulin,
-                EliteEncounter::ThreeSentries,
-                EliteEncounter::Lagavulin,
-                EliteEncounter::ThreeSentries,
-                EliteEncounter::GremlinNob,
-                EliteEncounter::Lagavulin,
-                EliteEncounter::ThreeSentries,
-                EliteEncounter::GremlinNob,
-                EliteEncounter::Lagavulin
-            ]
-        );
-        generator.advance_act();
-        assert_eq!(
-            (0..10)
-                .map(|_| generator.next_elite_encounter())
-                .collect::<Vec<_>>(),
-            [
-                EliteEncounter::Taskmaster,
-                EliteEncounter::GremlinLeader,
-                EliteEncounter::BookOfStabbing,
-                EliteEncounter::Taskmaster,
-                EliteEncounter::BookOfStabbing,
-                EliteEncounter::Taskmaster,
-                EliteEncounter::BookOfStabbing,
-                EliteEncounter::Taskmaster,
-                EliteEncounter::GremlinLeader,
-                EliteEncounter::BookOfStabbing
+                Encounter::GremlinNob,
+                Encounter::Lagavulin,
+                Encounter::ThreeSentries,
+                Encounter::Lagavulin,
+                Encounter::ThreeSentries,
+                Encounter::GremlinNob,
+                Encounter::Lagavulin,
+                Encounter::ThreeSentries,
+                Encounter::GremlinNob,
+                Encounter::Lagavulin
             ]
         );
         generator.advance_act();
@@ -551,42 +527,57 @@ mod test {
                 .map(|_| generator.next_elite_encounter())
                 .collect::<Vec<_>>(),
             [
-                EliteEncounter::GiantHead,
-                EliteEncounter::Reptomancer,
-                EliteEncounter::Nemesis,
-                EliteEncounter::GiantHead,
-                EliteEncounter::Nemesis,
-                EliteEncounter::GiantHead,
-                EliteEncounter::Nemesis,
-                EliteEncounter::GiantHead,
-                EliteEncounter::Reptomancer,
-                EliteEncounter::Nemesis
+                Encounter::Taskmaster,
+                Encounter::GremlinLeader,
+                Encounter::BookOfStabbing,
+                Encounter::Taskmaster,
+                Encounter::BookOfStabbing,
+                Encounter::Taskmaster,
+                Encounter::BookOfStabbing,
+                Encounter::Taskmaster,
+                Encounter::GremlinLeader,
+                Encounter::BookOfStabbing
+            ]
+        );
+        generator.advance_act();
+        assert_eq!(
+            (0..10)
+                .map(|_| generator.next_elite_encounter())
+                .collect::<Vec<_>>(),
+            [
+                Encounter::GiantHead,
+                Encounter::Reptomancer,
+                Encounter::Nemesis,
+                Encounter::GiantHead,
+                Encounter::Nemesis,
+                Encounter::GiantHead,
+                Encounter::Nemesis,
+                Encounter::GiantHead,
+                Encounter::Reptomancer,
+                Encounter::Nemesis
             ]
         );
     }
 
     #[test]
     fn test_boss_encounters() {
-        let mut generator = EnemyEncounterGenerator::new(&Seed::from(1u64));
-        assert_eq!(generator.next_boss_encounter(), BossEncounter::SlimeBoss);
+        let mut generator = EncounterGenerator::new(&Seed::from(1u64));
+        assert_eq!(generator.next_boss_encounter(), Encounter::SlimeBoss);
         generator.advance_act();
-        assert_eq!(
-            generator.next_boss_encounter(),
-            BossEncounter::BronzeAutomaton
-        );
+        assert_eq!(generator.next_boss_encounter(), Encounter::BronzeAutomaton);
         generator.advance_act();
-        assert_eq!(generator.next_boss_encounter(), BossEncounter::AwakenedOne);
-        let mut generator = EnemyEncounterGenerator::new(&Seed::from(2u64));
-        assert_eq!(generator.next_boss_encounter(), BossEncounter::SlimeBoss);
-        let mut generator = EnemyEncounterGenerator::new(&Seed::from(3u64));
-        assert_eq!(generator.next_boss_encounter(), BossEncounter::TheGuardian);
-        let mut generator = EnemyEncounterGenerator::new(&Seed::from(4u64));
-        assert_eq!(generator.next_boss_encounter(), BossEncounter::Hexaghost);
-        let mut generator = EnemyEncounterGenerator::new(&Seed::from(5u64));
-        assert_eq!(generator.next_boss_encounter(), BossEncounter::Hexaghost);
+        assert_eq!(generator.next_boss_encounter(), Encounter::AwakenedOne);
+        let mut generator = EncounterGenerator::new(&Seed::from(2u64));
+        assert_eq!(generator.next_boss_encounter(), Encounter::SlimeBoss);
+        let mut generator = EncounterGenerator::new(&Seed::from(3u64));
+        assert_eq!(generator.next_boss_encounter(), Encounter::TheGuardian);
+        let mut generator = EncounterGenerator::new(&Seed::from(4u64));
+        assert_eq!(generator.next_boss_encounter(), Encounter::Hexaghost);
+        let mut generator = EncounterGenerator::new(&Seed::from(5u64));
+        assert_eq!(generator.next_boss_encounter(), Encounter::Hexaghost);
         generator.advance_act();
-        assert_eq!(generator.next_boss_encounter(), BossEncounter::TheChamp);
+        assert_eq!(generator.next_boss_encounter(), Encounter::TheChamp);
         generator.advance_act();
-        assert_eq!(generator.next_boss_encounter(), BossEncounter::DonuAndDeca);
+        assert_eq!(generator.next_boss_encounter(), Encounter::DonuAndDeca);
     }
 }

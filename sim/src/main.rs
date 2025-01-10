@@ -6,7 +6,7 @@ mod rng;
 use crate::data::Act;
 use crate::map::MapBuilder;
 use crate::params::GAME_PARAMS;
-use crate::rng::EnemyEncounterGenerator;
+use crate::rng::EncounterGenerator;
 
 fn main() {
     let seed = &GAME_PARAMS.seed;
@@ -18,7 +18,7 @@ fn main() {
     );
     let node_grid = MapBuilder::from(seed, ascension, Act::get(1)).build();
     println!("{}", node_grid);
-    let mut enemy_encounter_generator = EnemyEncounterGenerator::new(seed);
+    let mut enemy_encounter_generator = EncounterGenerator::new(seed);
     println!(
         "First monster: {:?}",
         enemy_encounter_generator.next_monster_encounter()

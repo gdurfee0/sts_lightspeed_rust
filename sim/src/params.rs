@@ -1,21 +1,12 @@
 use std::env;
 
-use once_cell::sync::Lazy;
-
 use crate::data::{Ascension, Character};
 use crate::rng::Seed;
 
-pub static GAME_PARAMS: Lazy<GameParameters> = Lazy::new(GameParameters::from_args);
-
-#[derive(Debug)]
-pub struct GameParameters {
-    pub seed: Seed,
-    pub character: Character,
-    pub ascension: Ascension,
-}
+pub struct GameParameters;
 
 impl GameParameters {
-    fn from_args() -> Self {
+    pub fn from_command_line() -> (Seed, Character, Ascension) {
         let mut args = env::args();
         args.next(); // Skip the program name
         let seed = args
@@ -36,14 +27,6 @@ impl GameParameters {
             .as_str()
             .try_into()
             .unwrap_or_else(|e| panic!("Invalid ascension: {}", e));
-        Self::from(seed, character, ascension)
-    }
-
-    pub fn from(seed: Seed, character: Character, ascension: Ascension) -> Self {
-        Self {
-            seed,
-            character,
-            ascension,
-        }
+        (seed, character, ascension)
     }
 }

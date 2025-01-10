@@ -1,4 +1,6 @@
-use crate::data::{Act, Ascension, Character};
+use std::io::stdin;
+
+use crate::data::{Act, Ascension, Character, Event};
 use crate::map::{MapBuilder, NodeGrid};
 use crate::rng::{EncounterGenerator, Seed};
 
@@ -8,47 +10,50 @@ pub struct Simulator {
     ascension: Ascension,
     map: NodeGrid,
     encounter_generator: EncounterGenerator,
+    state: State,
+}
+
+#[derive(Debug)]
+enum State {
+    Event(Event),
 }
 
 impl Simulator {
     pub fn new(seed: Seed, character: Character, ascension: Ascension) -> Self {
         let map = MapBuilder::from(&seed, ascension, Act::get(1)).build();
         let encounter_generator = EncounterGenerator::new(&seed);
+        let state = State::Event(Event::Neow);
         Self {
             seed,
             character,
             ascension,
             map,
             encounter_generator,
+            state,
         }
     }
 
     pub fn run(mut self) {
-        println!(
-            "Seed: {:?}, Character: {:?}, Ascension: {:?}",
-            self.seed, self.character, self.ascension,
-        );
-        println!("{}", self.map);
-        println!(
-            "First monster: {:?}",
-            self.encounter_generator.next_monster_encounter()
-        );
-        println!(
-            "Second monster: {:?}",
-            self.encounter_generator.next_monster_encounter()
-        );
-        println!(
-            "First elite: {:?}",
-            self.encounter_generator.next_elite_encounter()
-        );
-        println!(
-            "Act 1 Boss: {:?}",
-            self.encounter_generator.next_boss_encounter()
-        );
-        self.encounter_generator.advance_act();
-        println!(
-            "Act 2 Boss: {:?}",
-            self.encounter_generator.next_boss_encounter()
-        );
+        let mut user_input = String::new();
+        loop {
+            self.display_state();
+            match stdin().read_line(&mut user_input) {
+                Ok(0) | Err(_) => {
+                    break;
+                }
+                Ok(_) => {
+                    self.evolve_state(user_input.trim());
+                }
+            }
+            user_input.clear();
+        }
+    }
+
+    fn display_state(&self) {
+        println!("Current state: {:?}", self.state);
+    }
+
+    fn evolve_state(&mut self, user_input: &str) {
+        println!("Got {}", user_input);
     }
 }

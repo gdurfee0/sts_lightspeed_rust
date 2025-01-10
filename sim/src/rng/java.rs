@@ -11,10 +11,6 @@ impl JavaRandom {
         (self.state >> (48 - bits)) as i32
     }
 
-    fn next_i32(&mut self) -> i32 {
-        self.next(32)
-    }
-
     fn next_i32_bounded(&mut self, bound: i32) -> i32 {
         let mut r = self.next(31);
         let m = bound - 1;
@@ -55,6 +51,13 @@ impl From<Seed> for JavaRandom {
 #[cfg(test)]
 mod test {
     use super::*;
+
+    // TODO: Move this method out of cfg(test) if it's actually needed, or just delete it.
+    impl JavaRandom {
+        fn next_i32(&mut self) -> i32 {
+            self.next(32)
+        }
+    }
 
     fn to_string(slice: &[i32]) -> String {
         slice

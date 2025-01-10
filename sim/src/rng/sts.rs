@@ -58,6 +58,7 @@ pub struct StsRandom {
 
 impl StsRandom {
     // For debugging only
+    #[allow(dead_code)]
     pub fn get_counter(&self) -> usize {
         self.counter
     }
@@ -220,8 +221,8 @@ impl From<Seed> for StsRandom {
 mod test {
     use super::*;
 
+    // TODO: Move these methods out of cfg(test) if they're actually needed, or just delete them.
     impl StsRandom {
-        // TODO: Move these methods out of cfg(test) if they're actually needed.
         fn next_i32(&mut self) -> i32 {
             self.next_u64() as i32
         }

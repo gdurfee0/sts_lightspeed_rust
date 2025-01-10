@@ -3,6 +3,7 @@ mod ascension;
 mod card;
 mod character;
 mod encounter;
+mod event;
 mod relic;
 
 pub use act::Act;

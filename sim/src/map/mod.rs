@@ -11,3 +11,4 @@ const ROW_COUNT: usize = 15;
 const PATH_DENSITY: usize = 6;
 
 pub use builder::MapBuilder;
+pub use grid::NodeGrid;

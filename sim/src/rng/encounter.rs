@@ -24,6 +24,8 @@ pub struct EncounterGenerator {
 }
 
 impl EncounterGenerator {
+    /// Constructs a new EncounterGenerator with the provided seed, prepopulating encounter
+    /// queues for Act 1.
     pub fn new(seed: &Seed) -> Self {
         let act = Act::get(1);
         let sts_random: StsRandom = seed.into();

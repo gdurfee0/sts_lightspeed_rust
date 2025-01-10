@@ -71,7 +71,7 @@ GameContext::GameContext(CharacterClass cc, std::uint64_t seed, int ascension)
     curEvent = Event::NEOW;
     info.neowRewards = Neow::getOptions(neowRng);
     screenState = ScreenState::EVENT_SCREEN;
-    std::cout << *this << std::endl;
+    //std::cout << *this << std::endl;
 
     /*
     auto start = std::chrono::high_resolution_clock::now();    
@@ -543,11 +543,11 @@ void GameContext::initPlayer() {
 }
 
 void GameContext::generateMonsters() {
-    std::cout << "before weak monster generation monsterRng: " << monsterRng.counter << std::endl;
+    //std::cout << "before weak monster generation monsterRng: " << monsterRng.counter << std::endl;
     generateWeakMonsters();
-    std::cout << "after weak monster generation monsterRng: " << monsterRng.counter << std::endl;
+    //std::cout << "after weak monster generation monsterRng: " << monsterRng.counter << std::endl;
     generateStrongMonsters();
-    std::cout << "after strong monster generation monsterRng: " << monsterRng.counter << std::endl;
+    //std::cout << "after strong monster generation monsterRng: " << monsterRng.counter << std::endl;
     generateElites();
     generateBoss();
 }

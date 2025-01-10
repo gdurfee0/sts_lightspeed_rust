@@ -7,95 +7,83 @@ mod map;
 mod rng;
 
 use crate::act::Act;
-use crate::encounter::MonsterEncounter;
-use crate::game_context::GAME_CONTEXT;
-use crate::map::MapBuilder;
-use crate::rng::StsRandom;
-
-// TODO: This could probably be optimized by maintaining `prev` and `prev_prev` Option<Monster>s.
-fn sample_monsters(
-    sts_random: &mut StsRandom,
-    choices: &[(MonsterEncounter, f32)],
-    count: usize,
-    output_vec: &mut Vec<MonsterEncounter>,
-) {
-    let initial_len = output_vec.len();
-    let mut i = initial_len;
-    while i < initial_len + count {
-        // Don't use this monster if it's the previous or previous previous in the list
-        let monster = *sts_random.weighted_choose(choices);
-        //println!("Iteration {}: {:?}", i, monster);
-        match i {
-            0 => {
-                output_vec.push(monster);
-                i += 1;
-            }
-            1 => {
-                if output_vec[0] != monster {
-                    output_vec.push(monster);
-                    i += 1;
-                }
-            }
-            _ => {
-                if output_vec[i - 1] != monster && output_vec[i - 2] != monster {
-                    output_vec.push(monster);
-                    i += 1;
-                }
-            }
-        }
-    }
-}
-
-fn generate_monster_list(mut sts_random: StsRandom, act: Act) -> Vec<MonsterEncounter> {
-    let details = act.get_details();
-    let mut result = Vec::new();
-    sample_monsters(
-        &mut sts_random,
-        details.weak_monster_encounters_and_probs,
-        details.weak_monster_encounter_count,
-        &mut result,
-    );
-    println!(
-        "Counter after weak monster assignment: {}",
-        sts_random.get_counter()
-    );
-    let last_weak_monster = result.last().copied().expect("No weak monsters");
-    loop {
-        let first_strong_monster =
-            *sts_random.weighted_choose(details.strong_monster_encounters_and_probs);
-        match (last_weak_monster, first_strong_monster) {
-            (MonsterEncounter::SmallSlimes, MonsterEncounter::LargeSlime) => continue,
-            (MonsterEncounter::TwoLice, MonsterEncounter::ThreeLice) => continue,
-            _ => {
-                result.push(first_strong_monster);
-                break;
-            }
-        }
-    }
-    println!(
-        "Counter after first strong monster assignment: {}",
-        sts_random.get_counter()
-    );
-    sample_monsters(
-        &mut sts_random,
-        details.strong_monster_encounters_and_probs,
-        12,
-        &mut result,
-    );
-    println!(
-        "Counter after strong monster assignment: {}",
-        sts_random.get_counter()
-    );
-    result
-}
+use crate::ascension::Ascension;
+use crate::character::Character;
+use crate::game_context::GameContext;
 
 fn main() {
-    println!("Seed: {:?}", GAME_CONTEXT.seed);
-    println!("Map for act 1:");
-    println!("{}", MapBuilder::for_act(Act(1)).build());
-    println!("Monster list for act 1:");
-    println!(
-        "{:?}",
-        generate_monster_list(GAME_CONTEXT.seed.clone().into(), Act(1))
-    );
+    for seed in 1u64..=10000u64 {
+        let mut game_context = GameContext::from(seed.into(), Character::Ironclad, Ascension(0));
+        println!(
+            "seed: {} act: 1 rng: {} monsterList: {} eliteList: {} bossList: {}",
+            seed,
+            game_context.monster_rng.get_counter(),
+            game_context
+                .monster_encounters
+                .iter()
+                .map(|monster| format!("{:?}", monster))
+                .collect::<Vec<String>>()
+                .join(","),
+            game_context
+                .elite_encounters
+                .iter()
+                .map(|elite| format!("{:?}", elite))
+                .collect::<Vec<String>>()
+                .join(","),
+            game_context
+                .boss_encounters
+                .iter()
+                .map(|elite| format!("{:?}", elite))
+                .collect::<Vec<String>>()
+                .join(",")
+        );
+        game_context.transition_to_act(Act(2));
+        println!(
+            "seed: {} act: 2 rng: {} monsterList: {} eliteList: {} bossList: {}",
+            seed,
+            game_context.monster_rng.get_counter(),
+            game_context
+                .monster_encounters
+                .iter()
+                .map(|monster| format!("{:?}", monster))
+                .collect::<Vec<String>>()
+                .join(","),
+            game_context
+                .elite_encounters
+                .iter()
+                .map(|elite| format!("{:?}", elite))
+                .collect::<Vec<String>>()
+                .join(","),
+            game_context
+                .boss_encounters
+                .iter()
+                .map(|elite| format!("{:?}", elite))
+                .collect::<Vec<String>>()
+                .join(",")
+        );
+        game_context.transition_to_act(Act(3));
+        println!(
+            "seed: {} act: 3 rng: {} monsterList: {} eliteList: {} bossList: {}",
+            seed,
+            game_context.monster_rng.get_counter(),
+            game_context
+                .monster_encounters
+                .iter()
+                .map(|monster| format!("{:?}", monster))
+                .collect::<Vec<String>>()
+                .join(","),
+            game_context
+                .elite_encounters
+                .iter()
+                .map(|elite| format!("{:?}", elite))
+                .collect::<Vec<String>>()
+                .join(","),
+            game_context
+                .boss_encounters
+                .iter()
+                .map(|elite| format!("{:?}", elite))
+                .collect::<Vec<String>>()
+                .join(",")
+        );
+    }
 }

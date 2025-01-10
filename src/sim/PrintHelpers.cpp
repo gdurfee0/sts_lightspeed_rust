@@ -121,6 +121,28 @@ namespace sts {
 
 
     void printMonsterLists(std::ostream &os, const GameContext &gc) {
+        os << "seed: " << gc.seed << " act: " << gc.act << " rng: " << gc.monsterRng.counter << " monsterList: ";
+        bool first = true;
+        for (auto m : gc.monsterList) {
+            if (!first) {
+                os << ",";
+            }
+            first = false;
+            os << "MonsterEncounter::" << monsterEncounterStrings[static_cast<int>(m)];
+        }
+        os << " eliteList: ";
+        first = true;
+        for (auto m : gc.eliteMonsterList) {
+            if (!first) {
+                os << ",";
+            }
+            first = false;
+            os << "EliteEncounter::" << monsterEncounterStrings[static_cast<int>(m)];
+        }
+        os << " bossList: BossEncounter::" << monsterEncounterStrings[static_cast<int>(gc.boss)];
+        // TODO: << " " << monsterEncounterStrings[static_cast<int>(gc.secondBoss)];
+        os << "\n";
+
         os << "\tmonsterList: offset(" << gc.monsterListOffset << ") {";
         for (auto m : gc.monsterList) {
             os << monsterEncounterStrings[static_cast<int>(m)] << ", ";

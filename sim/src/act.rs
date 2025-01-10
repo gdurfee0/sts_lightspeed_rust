@@ -2,7 +2,7 @@ use anyhow::anyhow;
 
 use crate::encounter::{BossEncounter, EliteEncounter, MonsterEncounter};
 
-#[derive(Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Act(pub u8);
 
 impl Act {
@@ -29,7 +29,7 @@ pub struct ActDetails {
     pub weak_monster_encounter_count: usize,
     pub weak_monster_encounters_and_probs: &'static [(MonsterEncounter, f32)],
     pub strong_monster_encounters_and_probs: &'static [(MonsterEncounter, f32)],
-    pub elite_encounters: &'static [EliteEncounter],
+    pub elite_encounters: &'static [(EliteEncounter, f32)],
     pub boss_encounters: &'static [BossEncounter],
 }
 
@@ -57,9 +57,9 @@ pub static ACT_DETAILS: &[ActDetails] = &[
             (MonsterEncounter::TwoFungiBeasts, 2. / 16.),
         ],
         elite_encounters: &[
-            EliteEncounter::GremlinNob,
-            EliteEncounter::Lagavulin,
-            EliteEncounter::ThreeSentries,
+            (EliteEncounter::GremlinNob, 1. / 3.),
+            (EliteEncounter::Lagavulin, 1. / 3.),
+            (EliteEncounter::ThreeSentries, 1. / 3.),
         ],
         boss_encounters: &[
             BossEncounter::TheGuardian,
@@ -89,9 +89,9 @@ pub static ACT_DETAILS: &[ActDetails] = &[
             (MonsterEncounter::CenturionAndMystic, 6. / 29.),
         ],
         elite_encounters: &[
-            EliteEncounter::BookOfStabbing,
-            EliteEncounter::GremlinLeader,
-            EliteEncounter::Taskmaster,
+            (EliteEncounter::GremlinLeader, 1. / 3.),
+            (EliteEncounter::Taskmaster, 1. / 3.),
+            (EliteEncounter::BookOfStabbing, 1. / 3.),
         ],
         boss_encounters: &[
             BossEncounter::BronzeAutomaton,
@@ -119,9 +119,9 @@ pub static ACT_DETAILS: &[ActDetails] = &[
             (MonsterEncounter::WrithingMass, 1. / 8.),
         ],
         elite_encounters: &[
-            EliteEncounter::GiantHead,
-            EliteEncounter::Nemesis,
-            EliteEncounter::Reptomancer,
+            (EliteEncounter::GiantHead, 1. / 3.),
+            (EliteEncounter::Nemesis, 1. / 3.),
+            (EliteEncounter::Reptomancer, 1. / 3.),
         ],
         boss_encounters: &[
             BossEncounter::AwakenedOne,
@@ -135,7 +135,7 @@ pub static ACT_DETAILS: &[ActDetails] = &[
         weak_monster_encounter_count: 0,
         weak_monster_encounters_and_probs: &[],
         strong_monster_encounters_and_probs: &[],
-        elite_encounters: &[EliteEncounter::SpireShieldAndSpireSpear],
+        elite_encounters: &[(EliteEncounter::SpireShieldAndSpireSpear, 1.)],
         boss_encounters: &[BossEncounter::CorruptHeart],
     },
 ];

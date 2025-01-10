@@ -3,6 +3,7 @@ use std::ops::Bound::{Excluded, Included};
 use std::ops::RangeBounds;
 
 use super::seed::Seed;
+use super::JavaRandom;
 
 /// A pseudo-random number generator that leverages a global game context seed to produce
 /// deterministic-yet-customizable random values, shuffling, and range generation.
@@ -48,6 +49,7 @@ use super::seed::Seed;
 /// Overall, this generator is designed for scenarios requiring fast,
 /// deterministic random sequences—particularly useful for simulations,
 /// testing, and gaming environments.
+#[derive(Debug)]
 pub struct StsRandom {
     state0: u64,
     state1: u64,
@@ -171,8 +173,13 @@ impl StsRandom {
         &choices.last().unwrap().0
     }
 
-    fn next_f32(&mut self) -> f32 {
+    // TODO: reconsider exposing this
+    pub fn next_f32(&mut self) -> f32 {
         (self.next_u64() >> 40) as f32 * 5.9604645e-8
+    }
+
+    pub fn fork_java_random(&mut self) -> JavaRandom {
+        JavaRandom::from(self.next_u64())
     }
 
     /// MurmurHash3 implementation for generating a 64-bit hash from a 64-bit seed.
@@ -197,9 +204,15 @@ impl From<u64> for StsRandom {
     }
 }
 
+impl From<&Seed> for StsRandom {
+    fn from(seed: &Seed) -> Self {
+        Self::from(u64::from(seed))
+    }
+}
+
 impl From<Seed> for StsRandom {
     fn from(seed: Seed) -> Self {
-        Self::from(u64::from(&seed))
+        Self::from(&seed)
     }
 }
 

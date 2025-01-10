@@ -34,3 +34,8 @@ target_link_directories(small-test PRIVATE json::nlohmann_json)
 target_include_directories(small-test PUBLIC include)
 target_include_directories(small-test PUBLIC json/include)
 target_include_directories(small-test PUBLIC bindings)
+
+add_executable(gen-test-vecs apps/gen-test-vecs.cpp ${sts_lightspeed_SOURCES})
+target_link_directories(gen-test-vecs PRIVATE json::nlohmann_json)
+target_include_directories(gen-test-vecs PUBLIC include)
+target_include_directories(gen-test-vecs PUBLIC json/include)

@@ -179,6 +179,7 @@ impl StsRandom {
         &choices.last().unwrap().0
     }
 
+    /// Pulls a value of type `f32` uniformly at random from [0, 1) by scaling a u64.
     fn next_f32(&mut self) -> f32 {
         (self.next_u64() >> 40) as f32 * 5.9604645e-8
     }

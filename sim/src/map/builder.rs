@@ -27,7 +27,32 @@ pub struct MapBuilder {
     sts_random: StsRandom,
 }
 
-pub struct RoomAssigner<'a> {
+impl MapBuilder {
+    pub fn for_act(act: Act) -> Self {
+        Self::from(&GAME_CONTEXT.seed, GAME_CONTEXT.ascension, act)
+    }
+
+    fn from(seed: &Seed, ascension: Ascension, act: Act) -> Self {
+        let offset = act.get_details().map_seed_offset;
+        Self {
+            act,
+            ascension,
+            sts_random: seed.with_offset(offset).into(),
+        }
+    }
+
+    pub fn build(mut self) -> NodeGrid {
+        if self.act == Act(4) {
+            unimplemented!();
+        }
+        let node_grid = GraphBuilder::new(&mut self.sts_random).build();
+        RoomAssigner::new(node_grid, self.ascension, &mut self.sts_random)
+            .assign_rooms()
+            .finish()
+    }
+}
+
+struct RoomAssigner<'a> {
     ascension: Ascension,
     node_grid: NodeBuilderGrid,
     elite_rooms: Vec<(usize, usize)>,
@@ -83,19 +108,18 @@ impl<'a> RoomAssigner<'a> {
                 continue;
             }
             for col in self.node_grid.occupied_cols_for_row(row) {
-                let mut already_rejected: [bool; 10] = [false; 10];
-                let mut some_room_rejected = false;
+                let mut rooms_already_considered: [bool; 10] = [false; 10];
+                let mut some_room_already_rejected = false;
                 for (i, entry) in unassigned_rooms[start_index..].iter_mut().enumerate() {
                     if let Some(room) = entry {
-                        if already_rejected[*room as usize] {
+                        if rooms_already_considered[*room as usize] {
                             continue;
                         }
-                        already_rejected[*room as usize] = true;
+                        rooms_already_considered[*room as usize] = true;
                         let (reject_outright, parent_must_be_different) = match room {
-                            Room::Campfire => (row <= 4 || row >= 13, true),
+                            Room::Campfire => (!(5..13).contains(&row), true),
                             Room::Elite => (row <= 4, true),
-                            Room::Event => (false, false),
-                            Room::Monster => (false, false),
+                            Room::Event | Room::Monster => (false, false),
                             Room::Shop => (false, true),
                             _ => unreachable!(),
                         };
@@ -104,7 +128,7 @@ impl<'a> RoomAssigner<'a> {
                                 && self.node_grid.has_parent_room_of(row, col, *room))
                             || (self.node_grid.has_left_sibling_room_of(row, col, *room))
                         {
-                            some_room_rejected = true;
+                            some_room_already_rejected = true;
                             continue;
                         }
                         // If we make it here, the room is valid for this node.
@@ -113,7 +137,7 @@ impl<'a> RoomAssigner<'a> {
                             self.elite_rooms.push((row, col));
                         }
                         entry.take();
-                        if !some_room_rejected {
+                        if !some_room_already_rejected {
                             start_index += i;
                         }
                         break;
@@ -146,31 +170,6 @@ impl<'a> RoomAssigner<'a> {
                 _ => unreachable!(),
             },
         );
-    }
-}
-
-impl MapBuilder {
-    pub fn for_act(act: Act) -> Self {
-        Self::from(&GAME_CONTEXT.seed, GAME_CONTEXT.ascension, act)
-    }
-
-    fn from(seed: &Seed, ascension: Ascension, act: Act) -> Self {
-        let offset = act.get_details().map_seed_offset;
-        Self {
-            act,
-            ascension,
-            sts_random: seed.with_offset(offset).into(),
-        }
-    }
-
-    pub fn build(mut self) -> NodeGrid {
-        if self.act == Act(4) {
-            unimplemented!();
-        }
-        let node_grid = GraphBuilder::new(&mut self.sts_random).build();
-        RoomAssigner::new(node_grid, self.ascension, &mut self.sts_random)
-            .assign_rooms()
-            .finish()
     }
 }
 

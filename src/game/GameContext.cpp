@@ -71,6 +71,9 @@ GameContext::GameContext(CharacterClass cc, std::uint64_t seed, int ascension)
     curEvent = Event::NEOW;
     info.neowRewards = Neow::getOptions(neowRng);
     screenState = ScreenState::EVENT_SCREEN;
+    std::cout << *this << std::endl;
+
+    /*
     auto start = std::chrono::high_resolution_clock::now();    
     std::vector<Map> maps;
     for (int i = 1; i < 10001; i++) {
@@ -85,6 +88,7 @@ GameContext::GameContext(CharacterClass cc, std::uint64_t seed, int ascension)
         os << "seed = " << i;
         os << maps[i].toString() << std::endl;
     }
+    */
 }
 
 void GameContext::initFromSave(const SaveFile &s) {
@@ -539,8 +543,11 @@ void GameContext::initPlayer() {
 }
 
 void GameContext::generateMonsters() {
+    std::cout << "before weak monster generation monsterRng: " << monsterRng.counter << std::endl;
     generateWeakMonsters();
+    std::cout << "after weak monster generation monsterRng: " << monsterRng.counter << std::endl;
     generateStrongMonsters();
+    std::cout << "after strong monster generation monsterRng: " << monsterRng.counter << std::endl;
     generateElites();
     generateBoss();
 }

@@ -4,7 +4,7 @@ use std::result::Result;
 
 use anyhow::anyhow;
 
-#[derive(PartialEq)]
+#[derive(Clone, PartialEq)]
 pub struct Seed(u64);
 
 impl Seed {

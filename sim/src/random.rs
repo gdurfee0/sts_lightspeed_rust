@@ -194,12 +194,27 @@ impl StsRandom {
         }
     }
 
-    /// Chooses a random element from the given slice.
+    /// Chooses an element from the given slice unfiformly at random.
     pub fn choose<'a, T>(&mut self, slice: &'a [T]) -> &'a T
     where
         T: fmt::Debug,
     {
         &slice[self.gen_range(0..slice.len())]
+    }
+
+    /// Chooses an element from the given slice randomly using weighted probabilities.
+    pub fn weighted_choose<'a, T, N>(&mut self, choices: &'a [(T, N)]) -> &'a T
+    where
+        N: Copy + Into<f32>,
+    {
+        let mut choice = self.next_f32();
+        for (item, weight) in choices {
+            choice -= (*weight).into();
+            if choice <= 0.0f32 {
+                return item;
+            }
+        }
+        &choices.last().unwrap().0
     }
 
     // TODO: Review which of these are actually needed and cull the rest.
@@ -232,7 +247,7 @@ impl StsRandom {
         (self.next_u64() >> 11) as f64 * 1.1102230246251565e-16
     }
 
-    fn next_f32(&mut self) -> f32 {
+    pub fn next_f32(&mut self) -> f32 {
         (self.next_u64() >> 40) as f32 * 5.9604645e-8
     }
 

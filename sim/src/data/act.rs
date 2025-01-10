@@ -13,36 +13,58 @@ pub struct Act {
 }
 
 impl Act {
+    /// Obtains an Act by its number (1-4). Panics if the number is out of bounds.
     pub fn get(n: i8) -> &'static Act {
         <&'static Act>::try_from(n).unwrap()
     }
 
+    /// Obtains an Act from a string representation of its number. Returns an error if the string is
+    /// not a valid number or if the number is out of bounds.
     pub fn from_str(s: &str) -> Result<&'static Act, anyhow::Error> {
         <&'static Act>::try_from(s)
     }
 
+    /// Offset used in the random number generator seed used in map generation.
     pub fn map_seed_offset(&self) -> u64 {
         self.map_seed_offset
     }
 
+    /// How many "weak" monster encounters might occur in the Act (i.e. in the first few rooms).
     pub fn weak_monster_encounter_count(&self) -> usize {
         self.weak_monster_encounter_count
     }
 
-    pub fn weak_monster_encounters_and_probs(&self) -> &'static [(MonsterEncounter, f32)] {
+    /// Pool of possible "weak" monster encounters and their associated probabilities.
+    pub fn weak_monster_pool_with_probs(&self) -> &'static [(MonsterEncounter, f32)] {
         self.weak_monster_encounters_and_probs
     }
 
-    pub fn strong_monster_encounters_and_probs(&self) -> &'static [(MonsterEncounter, f32)] {
+    /// Pool of possible "strong" monster encounters and their associated probabilities.
+    pub fn strong_monster_pool_with_probs(&self) -> &'static [(MonsterEncounter, f32)] {
         self.strong_monster_encounters_and_probs
     }
 
-    pub fn elite_encounters_and_probs(&self) -> &'static [(EliteEncounter, f32)] {
+    /// Pool of elite encounters and their associated probabilities.
+    pub fn elite_pool_with_probs(&self) -> &'static [(EliteEncounter, f32)] {
         self.elite_encounters
     }
 
-    pub fn boss_encounters(&self) -> &'static [BossEncounter] {
+    /// Pool of boss encounters for the Act.
+    pub fn boss_pool(&self) -> &'static [BossEncounter] {
         self.boss_encounters
+    }
+
+    /// Returns the Act that follows this one. Panics if this is Act 4.
+    pub fn next_act(&self) -> &'static Act {
+        if self == &ACTS[0] {
+            &ACTS[1]
+        } else if self == &ACTS[1] {
+            &ACTS[2]
+        } else if self == &ACTS[2] {
+            &ACTS[3]
+        } else {
+            panic!("No act after Act 4");
+        }
     }
 }
 

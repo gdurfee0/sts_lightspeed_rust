@@ -18,6 +18,9 @@ impl TryFrom<&str> for Seed {
 
     fn try_from(value: &str) -> Result<Self, Self::Error> {
         let mut seed: u64 = 0;
+        if value.is_empty() {
+            return Err(anyhow!("Seed must not be empty"));
+        }
         for c in value.to_uppercase().chars() {
             // check for overflow
             seed = seed
@@ -89,17 +92,16 @@ mod test {
 
     #[test]
     fn test_seed_try_from() {
-        assert_eq!(Seed::try_from("0000000000000").unwrap(), Seed(0));
-        assert_eq!(Seed::try_from("0000000000001").unwrap(), Seed(1));
+        assert_eq!(Seed::try_from("0").unwrap(), Seed(0));
+        assert_eq!(Seed::try_from("1").unwrap(), Seed(1));
         assert_eq!(
             Seed::try_from("0SLAYTHESPIRE").unwrap(),
             Seed(2665621045298406349)
         );
         assert!(Seed::try_from("").is_err());
-        assert!(Seed::try_from("0").is_err());
         assert!(Seed::try_from("ZSLAYTHESPIRE").is_err()); // * overflow
         assert!(Seed::try_from("5G24A25UXKXFG").is_err()); // + overflow
-        assert!(Seed::try_from("00SLAYTHESPIRE").is_err());
+        assert!(Seed::try_from("10SLAYTHESPIRE").is_err());
     }
 
     #[test]

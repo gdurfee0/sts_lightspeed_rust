@@ -1,6 +1,6 @@
 use anyhow::anyhow;
 
-#[derive(Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub enum Character {
     Ironclad,
     Silent,

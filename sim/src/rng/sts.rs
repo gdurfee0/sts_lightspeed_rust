@@ -2,8 +2,8 @@ use std::fmt;
 use std::ops::Bound::{Excluded, Included};
 use std::ops::RangeBounds;
 
+use super::java::JavaRandom;
 use super::seed::Seed;
-use super::JavaRandom;
 
 /// A pseudo-random number generator that leverages a global game context seed to produce
 /// deterministic-yet-customizable random values, shuffling, and range generation.

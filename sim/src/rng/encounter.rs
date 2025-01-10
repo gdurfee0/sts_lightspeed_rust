@@ -1,182 +1,186 @@
-use std::env;
+use std::collections::VecDeque;
 
-use once_cell::sync::Lazy;
+use crate::data::{Act, BossEncounter, EliteEncounter, MonsterEncounter};
 
-use crate::data::{Ascension, Character};
-use crate::rng::Seed;
+use super::{Seed, StsRandom};
 
-pub static GAME_CONTEXT: Lazy<GameContext> = Lazy::new(GameContext::from_args);
-
-#[derive(Debug)]
-pub struct GameContext {
-    pub seed: Seed,
-    pub character: Character,
-    pub ascension: Ascension,
-    /*
-    pub monster_rng: StsRandom,
-
-    pub monster_encounters: Vec<MonsterEncounter>,
-    pub elite_encounters: Vec<EliteEncounter>,
-    pub boss_encounters: Vec<BossEncounter>,
-    */
+/// A struct that generates the encounters for a run based on the provided seed.
+///
+/// The encounters are generated in advance and stored in queues for easy retrieval.
+/// The generator is stateful and resets with each new Act as the run progresses.
+///
+/// Side note: Ideally we would use an Iterator pattern here, with an Iterator type for each
+/// encounter class (Monster, Elite, and Boss).  But for rng fidelity to the original game,
+/// we need to share the same StsRandom generator across all encounter classes. This means that
+/// the different Iterator types would need to hold mutable references to the same underlying
+/// StsGenerator. This is an antipattern in Rust and would require use of RefCell or Mutex
+/// to work around. So we're using a more manual approach here.
+pub struct EnemyEncounterGenerator {
+    act: &'static Act,
+    sts_random: StsRandom,
+    monster_queue: VecDeque<MonsterEncounter>,
+    elite_queue: VecDeque<EliteEncounter>,
+    boss_queue: VecDeque<BossEncounter>,
 }
 
-impl GameContext {
-    fn from_args() -> Self {
-        let mut args = env::args();
-        args.next(); // Skip the program name
-        let seed = args
-            .next()
-            .unwrap_or_else(|| panic!("No seed provided"))
-            .as_str()
-            .try_into()
-            .unwrap_or_else(|e| panic!("Invalid seed: {}", e));
-        let character = args
-            .next()
-            .unwrap_or_else(|| panic!("No character provided"))
-            .as_str()
-            .try_into()
-            .unwrap_or_else(|e| panic!("Invalid character: {}", e));
-        let ascension = args
-            .next()
-            .unwrap_or_else(|| panic!("No ascension level provided"))
-            .as_str()
-            .try_into()
-            .unwrap_or_else(|e| panic!("Invalid ascension: {}", e));
-        Self::from(seed, character, ascension)
+impl EnemyEncounterGenerator {
+    pub fn new(seed: &Seed) -> Self {
+        let act = Act::get(1);
+        let sts_random: StsRandom = seed.into();
+        let mut result = Self {
+            act,
+            sts_random,
+            monster_queue: VecDeque::new(),
+            elite_queue: VecDeque::new(),
+            boss_queue: VecDeque::new(),
+        };
+        result.sample_all();
+        result
     }
 
-    pub fn from(seed: Seed, character: Character, ascension: Ascension) -> Self {
-        /*
-        let mut monster_rng = (&seed).into();
-        let monster_encounters = Self::generate_monster_encounters(&mut monster_rng, Act(1));
-        let elite_encounters = Self::generate_elite_encounters(&mut monster_rng, Act(1));
-        let boss_encounters = Self::generate_boss_encounters(&mut monster_rng, Act(1));
-        */
-        Self {
-            seed,
-            character,
-            ascension,
-            /*
-            monster_rng,
-            monster_encounters,
-            elite_encounters,
-            boss_encounters,
-            */
+    /// Returns the next monster encounter in the queue, sampling more if necessary.
+    pub fn next_monster_encounter(&mut self) -> MonsterEncounter {
+        if let Some(encounter) = self.monster_queue.pop_front() {
+            encounter
+        } else {
+            self.sample_strong_monster_encounters();
+            self.next_monster_encounter()
         }
     }
 
-    /*
-    pub fn transition_to_act(&mut self, act: Act) {
-        self.monster_encounters = Self::generate_monster_encounters(&mut self.monster_rng, act);
-        self.elite_encounters = Self::generate_elite_encounters(&mut self.monster_rng, act);
-        self.boss_encounters = Self::generate_boss_encounters(&mut self.monster_rng, act);
+    /// Returns the next elite encounter in the queue, sampling more if necessary.
+    pub fn next_elite_encounter(&mut self) -> EliteEncounter {
+        if let Some(encounter) = self.elite_queue.pop_front() {
+            encounter
+        } else {
+            self.sample_elite_encounters();
+            self.next_elite_encounter()
+        }
     }
 
-    // TODO: This could probably be optimized by maintaining `prev` and `prev_prev` Option<Monster>s.
-    fn sample_monsters(
-        sts_random: &mut StsRandom,
-        choices: &[(MonsterEncounter, f32)],
+    /// Returns the next boss encounter in the queue.
+    pub fn next_boss_encounter(&mut self) -> BossEncounter {
+        if let Some(encounter) = self.boss_queue.pop_front() {
+            encounter
+        } else {
+            panic!("It shouldn't be possible to run out of bosses in a run.");
+        }
+    }
+
+    /// Advances the Act and samples new encounters for the queues.
+    pub fn advance_act(&mut self) {
+        self.act = self.act.next_act();
+        self.sample_all();
+    }
+
+    // Samples all classes of encounters for the Act and adds them to the respective queues.
+    fn sample_all(&mut self) {
+        self.sample_weak_monster_encounters();
+        self.sample_first_strong_monster_encounter();
+        self.sample_strong_monster_encounters();
+        self.sample_elite_encounters();
+        self.sample_boss_encounters();
+    }
+
+    // Adds an Act-dependent number of weak monster encounters to the monster encounter queue.
+    fn sample_weak_monster_encounters(&mut self) {
+        self.sample_monster_encounters(
+            self.act.weak_monster_encounter_count(),
+            self.act.weak_monster_pool_with_probs(),
+        );
+    }
+
+    // Adds the first strong monster encounter to the monster encounter queue, avoiding some
+    // embarassing repetition.
+    fn sample_first_strong_monster_encounter(&mut self) {
+        let mut proposed_encounter = *self
+            .sts_random
+            .weighted_choose(self.act.strong_monster_pool_with_probs());
+        while match self.monster_queue.back() {
+            Some(prev_encounter) => matches!(
+                (*prev_encounter, proposed_encounter),
+                (
+                    MonsterEncounter::SmallSlimes,
+                    MonsterEncounter::LotsOfSlimes
+                ) | (MonsterEncounter::SmallSlimes, MonsterEncounter::LargeSlime)
+                    | (MonsterEncounter::TwoLice, MonsterEncounter::ThreeLice)
+            ),
+            None => false,
+        } {
+            proposed_encounter = *self
+                .sts_random
+                .weighted_choose(self.act.strong_monster_pool_with_probs());
+        }
+        self.monster_queue.push_back(proposed_encounter);
+    }
+
+    // Adds twelve strong monster encounters to the monster encounter queue.
+    fn sample_strong_monster_encounters(&mut self) {
+        self.sample_monster_encounters(12, self.act.strong_monster_pool_with_probs());
+    }
+
+    // Helper method that samples the specified number of encounters from the provided pool
+    // and adds them to the monster encounter queue.
+    //
+    // Avoids repetition by examining the previous and doubly-previous encounters and avoiding
+    // duplicates.
+    fn sample_monster_encounters(
+        &mut self,
         count: usize,
-        output_vec: &mut Vec<MonsterEncounter>,
+        pool: &'static [(MonsterEncounter, f32)],
     ) {
-        let initial_len = output_vec.len();
-        let mut i = initial_len;
-        while i < initial_len + count {
-            // Don't use this monster if it's the previous or previous previous in the list
-            let monster = *sts_random.weighted_choose(choices);
-            //println!("Iteration {}: {:?}", i, monster);
-            match i {
-                0 => {
-                    output_vec.push(monster);
-                    i += 1;
+        for _ in 0..count {
+            let mut proposed_encounter = *self.sts_random.weighted_choose(pool);
+            while match self.monster_queue.back() {
+                Some(prev_encounter) if self.monster_queue.len() >= 2 => {
+                    proposed_encounter == *prev_encounter
+                        || self
+                            .monster_queue
+                            .get(self.monster_queue.len() - 2)
+                            .map_or(false, |prev_prev_encounter| {
+                                proposed_encounter == *prev_prev_encounter
+                            })
                 }
-                1 => {
-                    if output_vec[0] != monster {
-                        output_vec.push(monster);
-                        i += 1;
-                    }
-                }
-                _ => {
-                    if output_vec[i - 1] != monster && output_vec[i - 2] != monster {
-                        output_vec.push(monster);
-                        i += 1;
-                    }
-                }
+                Some(prev_encounter) => proposed_encounter == *prev_encounter,
+                None => false,
+            } {
+                proposed_encounter = *self.sts_random.weighted_choose(pool);
             }
+            self.monster_queue.push_back(proposed_encounter);
         }
     }
 
-    fn generate_monster_encounters(sts_random: &mut StsRandom, act: Act) -> Vec<MonsterEncounter> {
-        let details = act.get_details();
-        let mut result = Vec::new(); // TODO: with_capacity
-        Self::sample_monsters(
-            sts_random,
-            details.weak_monster_encounters_and_probs,
-            details.weak_monster_encounter_count,
-            &mut result,
-        );
-        let last_weak_monster = result.last().copied().expect("No weak monsters");
-        loop {
-            let first_strong_monster =
-                *sts_random.weighted_choose(details.strong_monster_encounters_and_probs);
-            match (last_weak_monster, first_strong_monster) {
-                (MonsterEncounter::SmallSlimes, MonsterEncounter::LotsOfSlimes) => continue,
-                (MonsterEncounter::SmallSlimes, MonsterEncounter::LargeSlime) => continue,
-                (MonsterEncounter::TwoLice, MonsterEncounter::ThreeLice) => continue,
-                _ => {
-                    result.push(first_strong_monster);
-                    break;
-                }
+    // Adds ten elite encounters to the elite encounter queue.
+    fn sample_elite_encounters(&mut self) {
+        for _ in 0..10 {
+            let mut proposed_encounter = *self
+                .sts_random
+                .weighted_choose(self.act.elite_pool_with_probs());
+            while match self.elite_queue.back() {
+                Some(prev_encounter) => proposed_encounter == *prev_encounter,
+                None => false,
+            } {
+                proposed_encounter = *self
+                    .sts_random
+                    .weighted_choose(self.act.elite_pool_with_probs());
             }
+            self.elite_queue.push_back(proposed_encounter);
         }
-        Self::sample_monsters(
-            sts_random,
-            details.strong_monster_encounters_and_probs,
-            12,
-            &mut result,
-        );
-        result
     }
 
-    fn generate_elite_encounters(sts_random: &mut StsRandom, act: Act) -> Vec<EliteEncounter> {
-        let details = act.get_details();
-        let mut result = Vec::with_capacity(10);
-        let mut i = 0;
-        while i < 10 {
-            let elite = *sts_random.weighted_choose(details.elite_encounters);
-            match i {
-                0 => {
-                    result.push(elite);
-                    i += 1;
-                }
-                _ => {
-                    if result[i - 1] != elite {
-                        result.push(elite);
-                        i += 1;
-                    }
-                }
-            }
-        }
-        result
-    }
-
-    fn generate_boss_encounters(sts_random: &mut StsRandom, act: Act) -> Vec<BossEncounter> {
-        let details = act.get_details();
-        let mut result = Vec::new();
-        let mut bosses = details.boss_encounters.to_vec();
+    // Adds one boss encounter to the boss encounter queue.
+    // TODO: Make this two bosses for higher Ascensions.
+    fn sample_boss_encounters(&mut self) {
+        let mut bosses = self.act.boss_pool().to_vec();
         // I'm guessing that the generator is forked into a java random so no more than
         // one tick is consumed of the original rng, maybe for backward compatibility with
-        // save files or something. Or maybe they didn't yet have Fisher-Yates implemented
+        // save files or something. Or perhaps they didn't yet have Fisher-Yates implemented
         // for StsRandom at the point this was written.
-        sts_random.fork_java_random().shuffle(bosses.as_mut());
-        result.push(bosses[0]);
-        result
+        self.sts_random.fork_java_random().shuffle(bosses.as_mut());
+        self.boss_queue.push_back(bosses[0]);
     }
-    */
 }
 
-/*
 #[cfg(test)]
 mod test {
     use pretty_assertions::assert_eq;
@@ -185,9 +189,11 @@ mod test {
 
     #[test]
     fn test_monster_encounters() {
-        let mut game_context = GameContext::from(1u64.into(), Character::Ironclad, Ascension(0));
+        let mut generator = EnemyEncounterGenerator::new(&Seed::from(1u64));
         assert_eq!(
-            game_context.monster_encounters,
+            (0..16)
+                .map(|_| generator.next_monster_encounter())
+                .collect::<Vec<_>>(),
             [
                 MonsterEncounter::Cultist,
                 MonsterEncounter::JawWorm,
@@ -207,9 +213,11 @@ mod test {
                 MonsterEncounter::BlueSlaver
             ]
         );
-        game_context.transition_to_act(Act(2));
+        generator.advance_act();
         assert_eq!(
-            game_context.monster_encounters,
+            (0..15)
+                .map(|_| generator.next_monster_encounter())
+                .collect::<Vec<_>>(),
             [
                 MonsterEncounter::Chosen,
                 MonsterEncounter::ShelledParasite,
@@ -228,9 +236,11 @@ mod test {
                 MonsterEncounter::ChosenAndByrd
             ]
         );
-        game_context.transition_to_act(Act(3));
+        generator.advance_act();
         assert_eq!(
-            game_context.monster_encounters,
+            (0..15)
+                .map(|_| generator.next_monster_encounter())
+                .collect::<Vec<_>>(),
             [
                 MonsterEncounter::ThreeShapes,
                 MonsterEncounter::OrbWalker,
@@ -249,9 +259,11 @@ mod test {
                 MonsterEncounter::ThreeDarklings
             ]
         );
-        let game_context = GameContext::from(2u64.into(), Character::Ironclad, Ascension(0));
+        let mut generator = EnemyEncounterGenerator::new(&Seed::from(2u64));
         assert_eq!(
-            game_context.monster_encounters,
+            (0..16)
+                .map(|_| generator.next_monster_encounter())
+                .collect::<Vec<_>>(),
             [
                 MonsterEncounter::Cultist,
                 MonsterEncounter::JawWorm,
@@ -271,9 +283,11 @@ mod test {
                 MonsterEncounter::ExordiumThugs
             ]
         );
-        let game_context = GameContext::from(3u64.into(), Character::Ironclad, Ascension(0));
+        let mut generator = EnemyEncounterGenerator::new(&Seed::from(3u64));
         assert_eq!(
-            game_context.monster_encounters,
+            (0..16)
+                .map(|_| generator.next_monster_encounter())
+                .collect::<Vec<_>>(),
             [
                 MonsterEncounter::SmallSlimes,
                 MonsterEncounter::Cultist,
@@ -293,9 +307,11 @@ mod test {
                 MonsterEncounter::ExordiumThugs
             ]
         );
-        let game_context = GameContext::from(4u64.into(), Character::Ironclad, Ascension(0));
+        let mut generator = EnemyEncounterGenerator::new(&Seed::from(4u64));
         assert_eq!(
-            game_context.monster_encounters,
+            (0..16)
+                .map(|_| generator.next_monster_encounter())
+                .collect::<Vec<_>>(),
             [
                 MonsterEncounter::JawWorm,
                 MonsterEncounter::Cultist,
@@ -315,9 +331,11 @@ mod test {
                 MonsterEncounter::GremlinGang
             ]
         );
-        let mut game_context = GameContext::from(5u64.into(), Character::Ironclad, Ascension(0));
+        let mut generator = EnemyEncounterGenerator::new(&Seed::from(5u64));
         assert_eq!(
-            game_context.monster_encounters,
+            (0..16)
+                .map(|_| generator.next_monster_encounter())
+                .collect::<Vec<_>>(),
             [
                 MonsterEncounter::JawWorm,
                 MonsterEncounter::Cultist,
@@ -337,9 +355,11 @@ mod test {
                 MonsterEncounter::ThreeLice
             ]
         );
-        game_context.transition_to_act(Act(2));
+        generator.advance_act();
         assert_eq!(
-            game_context.monster_encounters,
+            (0..15)
+                .map(|_| generator.next_monster_encounter())
+                .collect::<Vec<_>>(),
             [
                 MonsterEncounter::TwoThieves,
                 MonsterEncounter::ThreeByrds,
@@ -358,9 +378,11 @@ mod test {
                 MonsterEncounter::ThreeCultists
             ]
         );
-        game_context.transition_to_act(Act(3));
+        generator.advance_act();
         assert_eq!(
-            game_context.monster_encounters,
+            (0..15)
+                .map(|_| generator.next_monster_encounter())
+                .collect::<Vec<_>>(),
             [
                 MonsterEncounter::OrbWalker,
                 MonsterEncounter::ThreeShapes,
@@ -383,9 +405,11 @@ mod test {
 
     #[test]
     fn test_elite_encounters() {
-        let mut game_context = GameContext::from(1u64.into(), Character::Ironclad, Ascension(0));
+        let mut generator = EnemyEncounterGenerator::new(&Seed::from(1u64));
         assert_eq!(
-            game_context.elite_encounters,
+            (0..10)
+                .map(|_| generator.next_elite_encounter())
+                .collect::<Vec<_>>(),
             [
                 EliteEncounter::GremlinNob,
                 EliteEncounter::ThreeSentries,
@@ -399,9 +423,11 @@ mod test {
                 EliteEncounter::ThreeSentries
             ]
         );
-        game_context.transition_to_act(Act(2));
+        generator.advance_act();
         assert_eq!(
-            game_context.elite_encounters,
+            (0..10)
+                .map(|_| generator.next_elite_encounter())
+                .collect::<Vec<_>>(),
             [
                 EliteEncounter::Taskmaster,
                 EliteEncounter::GremlinLeader,
@@ -415,9 +441,11 @@ mod test {
                 EliteEncounter::GremlinLeader
             ]
         );
-        game_context.transition_to_act(Act(3));
+        generator.advance_act();
         assert_eq!(
-            game_context.elite_encounters,
+            (0..10)
+                .map(|_| generator.next_elite_encounter())
+                .collect::<Vec<_>>(),
             [
                 EliteEncounter::GiantHead,
                 EliteEncounter::Nemesis,
@@ -431,9 +459,11 @@ mod test {
                 EliteEncounter::GiantHead
             ]
         );
-        let game_context = GameContext::from(2u64.into(), Character::Ironclad, Ascension(0));
+        let mut generator = EnemyEncounterGenerator::new(&Seed::from(2u64));
         assert_eq!(
-            game_context.elite_encounters,
+            (0..10)
+                .map(|_| generator.next_elite_encounter())
+                .collect::<Vec<_>>(),
             [
                 EliteEncounter::Lagavulin,
                 EliteEncounter::GremlinNob,
@@ -447,9 +477,11 @@ mod test {
                 EliteEncounter::Lagavulin
             ]
         );
-        let game_context = GameContext::from(3u64.into(), Character::Ironclad, Ascension(0));
+        let mut generator = EnemyEncounterGenerator::new(&Seed::from(3u64));
         assert_eq!(
-            game_context.elite_encounters,
+            (0..10)
+                .map(|_| generator.next_elite_encounter())
+                .collect::<Vec<_>>(),
             [
                 EliteEncounter::GremlinNob,
                 EliteEncounter::Lagavulin,
@@ -463,9 +495,11 @@ mod test {
                 EliteEncounter::Lagavulin
             ]
         );
-        let game_context = GameContext::from(4u64.into(), Character::Ironclad, Ascension(0));
+        let mut generator = EnemyEncounterGenerator::new(&Seed::from(4u64));
         assert_eq!(
-            game_context.elite_encounters,
+            (0..10)
+                .map(|_| generator.next_elite_encounter())
+                .collect::<Vec<_>>(),
             [
                 EliteEncounter::Lagavulin,
                 EliteEncounter::ThreeSentries,
@@ -479,9 +513,11 @@ mod test {
                 EliteEncounter::ThreeSentries
             ]
         );
-        let mut game_context = GameContext::from(5u64.into(), Character::Ironclad, Ascension(0));
+        let mut generator = EnemyEncounterGenerator::new(&Seed::from(5u64));
         assert_eq!(
-            game_context.elite_encounters,
+            (0..10)
+                .map(|_| generator.next_elite_encounter())
+                .collect::<Vec<_>>(),
             [
                 EliteEncounter::GremlinNob,
                 EliteEncounter::Lagavulin,
@@ -495,9 +531,11 @@ mod test {
                 EliteEncounter::Lagavulin
             ]
         );
-        game_context.transition_to_act(Act(2));
+        generator.advance_act();
         assert_eq!(
-            game_context.elite_encounters,
+            (0..10)
+                .map(|_| generator.next_elite_encounter())
+                .collect::<Vec<_>>(),
             [
                 EliteEncounter::Taskmaster,
                 EliteEncounter::GremlinLeader,
@@ -511,9 +549,11 @@ mod test {
                 EliteEncounter::BookOfStabbing
             ]
         );
-        game_context.transition_to_act(Act(3));
+        generator.advance_act();
         assert_eq!(
-            game_context.elite_encounters,
+            (0..10)
+                .map(|_| generator.next_elite_encounter())
+                .collect::<Vec<_>>(),
             [
                 EliteEncounter::GiantHead,
                 EliteEncounter::Reptomancer,
@@ -531,27 +571,26 @@ mod test {
 
     #[test]
     fn test_boss_encounters() {
-        let mut game_context = GameContext::from(1u64.into(), Character::Ironclad, Ascension(0));
-        assert_eq!(game_context.boss_encounters, [BossEncounter::SlimeBoss]);
-        game_context.transition_to_act(Act(2));
+        let mut generator = EnemyEncounterGenerator::new(&Seed::from(1u64));
+        assert_eq!(generator.next_boss_encounter(), BossEncounter::SlimeBoss);
+        generator.advance_act();
         assert_eq!(
-            game_context.boss_encounters,
-            [BossEncounter::BronzeAutomaton]
+            generator.next_boss_encounter(),
+            BossEncounter::BronzeAutomaton
         );
-        game_context.transition_to_act(Act(3));
-        assert_eq!(game_context.boss_encounters, [BossEncounter::AwakenedOne]);
-        let game_context = GameContext::from(2u64.into(), Character::Ironclad, Ascension(0));
-        assert_eq!(game_context.boss_encounters, [BossEncounter::SlimeBoss]);
-        let game_context = GameContext::from(3u64.into(), Character::Ironclad, Ascension(0));
-        assert_eq!(game_context.boss_encounters, [BossEncounter::TheGuardian]);
-        let game_context = GameContext::from(4u64.into(), Character::Ironclad, Ascension(0));
-        assert_eq!(game_context.boss_encounters, [BossEncounter::Hexaghost]);
-        let mut game_context = GameContext::from(5u64.into(), Character::Ironclad, Ascension(0));
-        assert_eq!(game_context.boss_encounters, [BossEncounter::Hexaghost]);
-        game_context.transition_to_act(Act(2));
-        assert_eq!(game_context.boss_encounters, [BossEncounter::TheChamp]);
-        game_context.transition_to_act(Act(3));
-        assert_eq!(game_context.boss_encounters, [BossEncounter::DonuAndDeca]);
+        generator.advance_act();
+        assert_eq!(generator.next_boss_encounter(), BossEncounter::AwakenedOne);
+        let mut generator = EnemyEncounterGenerator::new(&Seed::from(2u64));
+        assert_eq!(generator.next_boss_encounter(), BossEncounter::SlimeBoss);
+        let mut generator = EnemyEncounterGenerator::new(&Seed::from(3u64));
+        assert_eq!(generator.next_boss_encounter(), BossEncounter::TheGuardian);
+        let mut generator = EnemyEncounterGenerator::new(&Seed::from(4u64));
+        assert_eq!(generator.next_boss_encounter(), BossEncounter::Hexaghost);
+        let mut generator = EnemyEncounterGenerator::new(&Seed::from(5u64));
+        assert_eq!(generator.next_boss_encounter(), BossEncounter::Hexaghost);
+        generator.advance_act();
+        assert_eq!(generator.next_boss_encounter(), BossEncounter::TheChamp);
+        generator.advance_act();
+        assert_eq!(generator.next_boss_encounter(), BossEncounter::DonuAndDeca);
     }
 }
-*/

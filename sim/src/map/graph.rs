@@ -113,8 +113,11 @@ impl<'a> GraphBuilder<'a> {
         }
         let dest_col = next_col;
         // The use of a for loop here is almost certainly a bug in the original code. The
-        // intent seems to be to avoid small cycles like tiny parallelograms, isosceles
-        // triangles, and diamonds with areas of 1 or 2 units.
+        // intent seems to be to avoid small cycles* like tiny parallelograms, isosceles
+        // triangles, and diamonds.
+        //
+        // *Cycles in the sense that they would be cycles if the graph were not directed,
+        // and small in the sense that they would encompass areas of 1 or 2 units.
         //
         // However, this loop is problematic for a few reasons:
         //   (1) While one iteration of the loop might avoid an unwanted cycle, the next
@@ -124,12 +127,17 @@ impl<'a> GraphBuilder<'a> {
         //       has been chosen.
         //   (3) The parent/edge list often contains duplicate entries for the same edge.
         //   (4) Iterations of the loop, although they change next_col, do not change the
-        //       dest_col from which the parent information was originally sourced.
+        //       dest_col from which the parent information was originally sourced, so ancestor
+        //       detection doesn't reflect newly-proposed new_col generated inside the loop.
         //
         // Checking for small cycles could be done much more easily by just checking neighbors'
         // exits. This would allow us to pick an exit that doesn't introduce a small cycle
-        // (if such an edge exists). As it's implemented now, we might end up with a small
-        // cycle even if we could have chosen an edge that avoided it.
+        // (if such an edge exists).
+        //
+        // As it's implemented now (and we keep this implementation for fidelity with the
+        // original game), as a result of these issues, along with the buggy implementation of
+        // shares_parent_with, this is basically an rng that *occasionally* avoids small cycles,
+        // but usually doesn't.
         for &other_col in self.node_grid.recorded_parent_cols_iter(row + 1, dest_col) {
             if other_col == my_col {
                 continue;

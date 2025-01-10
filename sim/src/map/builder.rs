@@ -250,6 +250,8 @@ mod tests {
             if [842, 1820, 3724, 4100, 7459].contains(&seed_as_u64) {
                 // The C++ reference implementation, which produced the test vector file,
                 // produces incorrect maps for these seeds.
+                //
+                // TODO: Offer a fix for the C++ implementation and remove this check.
                 continue;
             }
             let seed: Seed = seed_as_u64.into();

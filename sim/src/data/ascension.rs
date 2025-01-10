@@ -23,6 +23,8 @@ impl TryFrom<u8> for Ascension {
     }
 }
 
+// TODO: Set this up in the same way as the Act struct using a static array
+
 #[cfg(test)]
 mod tests {
     use super::*;

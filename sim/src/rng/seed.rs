@@ -17,9 +17,6 @@ impl TryFrom<&str> for Seed {
     type Error = anyhow::Error;
 
     fn try_from(value: &str) -> Result<Self, Self::Error> {
-        if value.len() != 13 {
-            return Err(anyhow!("Seed must be exactly 13 characters long"));
-        }
         let mut seed: u64 = 0;
         for c in value.to_uppercase().chars() {
             // check for overflow

@@ -1,7 +1,6 @@
 use std::iter::repeat;
 
-use crate::act::Act;
-use crate::ascension::Ascension;
+use crate::data::{Act, Ascension};
 use crate::game_context::GAME_CONTEXT;
 use crate::rng::{Seed, StsRandom};
 
@@ -21,18 +20,18 @@ const REST_ROW_INDEX: usize = ROW_COUNT - 1;
 const MONSTER_ROW_INDEX: usize = 0;
 
 pub struct MapBuilder {
-    act: Act,
+    act: &'static Act,
     ascension: Ascension,
     sts_random: StsRandom,
 }
 
 impl MapBuilder {
-    pub fn for_act(act: Act) -> Self {
-        Self::from(&GAME_CONTEXT.seed, GAME_CONTEXT.ascension, act)
+    pub fn for_act(act: i8) -> Self {
+        Self::from(&GAME_CONTEXT.seed, GAME_CONTEXT.ascension, Act::get(act))
     }
 
-    fn from(seed: &Seed, ascension: Ascension, act: Act) -> Self {
-        let offset = act.get_details().map_seed_offset;
+    fn from(seed: &Seed, ascension: Ascension, act: &'static Act) -> Self {
+        let offset = act.map_seed_offset();
         Self {
             act,
             ascension,
@@ -41,7 +40,7 @@ impl MapBuilder {
     }
 
     pub fn build(mut self) -> NodeGrid {
-        if self.act == Act(4) {
+        if self.act == Act::get(4) {
             unimplemented!();
         }
         let node_grid = GraphBuilder::new(&mut self.sts_random).build();
@@ -185,7 +184,7 @@ mod tests {
     #[test]
     fn test_map_0slaythespire() {
         let seed: Seed = "0SLAYTHESPIRE".try_into().unwrap();
-        let map_act_1 = MapBuilder::from(&seed, Ascension(0), Act(1)).build();
+        let map_act_1 = MapBuilder::from(&seed, Ascension(0), Act::get(1)).build();
         assert_eq!(
             map_act_1.to_string(),
             [
@@ -230,7 +229,7 @@ mod tests {
         let node_grids = (2..10002) // (2..10000002)
             .map(|i| {
                 let seed: Seed = i.into();
-                MapBuilder::from(&seed, Ascension(0), Act(1)).build()
+                MapBuilder::from(&seed, Ascension(0), Act::get(1)).build()
             })
             .collect::<Vec<NodeGrid>>();
         println!(

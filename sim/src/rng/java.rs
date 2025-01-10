@@ -6,16 +6,16 @@ pub struct JavaRandom {
 }
 
 impl JavaRandom {
-    pub fn next(&mut self, bits: usize) -> i32 {
+    fn next(&mut self, bits: usize) -> i32 {
         self.state = (self.state.wrapping_mul(0x5DEECE66D).wrapping_add(0xB)) & ((1 << 48) - 1);
         (self.state >> (48 - bits)) as i32
     }
 
-    pub fn next_i32(&mut self) -> i32 {
+    fn next_i32(&mut self) -> i32 {
         self.next(32)
     }
 
-    pub fn next_i32_bounded(&mut self, bound: i32) -> i32 {
+    fn next_i32_bounded(&mut self, bound: i32) -> i32 {
         let mut r = self.next(31);
         let m = bound - 1;
         if (bound & m) == 0 {
@@ -29,6 +29,7 @@ impl JavaRandom {
     }
 
     // Does not change the internal state of the random number generator.
+    // TODO: revisit this to see if cloning is necessary - maybe the java shuffle is only used once?
     pub fn shuffle<T>(&self, slice: &mut [T]) {
         let mut self_clone = self.clone();
         for i in (1..slice.len()).rev() {

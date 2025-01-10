@@ -2,11 +2,8 @@ use std::env;
 
 use once_cell::sync::Lazy;
 
-use crate::act::Act;
-use crate::ascension::Ascension;
-use crate::character::Character;
-use crate::encounter::{BossEncounter, EliteEncounter, MonsterEncounter};
-use crate::rng::{JavaRandom, Seed, StsRandom};
+use crate::data::{Ascension, Character};
+use crate::rng::Seed;
 
 pub static GAME_CONTEXT: Lazy<GameContext> = Lazy::new(GameContext::from_args);
 
@@ -15,12 +12,13 @@ pub struct GameContext {
     pub seed: Seed,
     pub character: Character,
     pub ascension: Ascension,
-
+    /*
     pub monster_rng: StsRandom,
 
     pub monster_encounters: Vec<MonsterEncounter>,
     pub elite_encounters: Vec<EliteEncounter>,
     pub boss_encounters: Vec<BossEncounter>,
+    */
 }
 
 impl GameContext {
@@ -49,21 +47,26 @@ impl GameContext {
     }
 
     pub fn from(seed: Seed, character: Character, ascension: Ascension) -> Self {
+        /*
         let mut monster_rng = (&seed).into();
         let monster_encounters = Self::generate_monster_encounters(&mut monster_rng, Act(1));
         let elite_encounters = Self::generate_elite_encounters(&mut monster_rng, Act(1));
         let boss_encounters = Self::generate_boss_encounters(&mut monster_rng, Act(1));
+        */
         Self {
             seed,
             character,
             ascension,
+            /*
             monster_rng,
             monster_encounters,
             elite_encounters,
             boss_encounters,
+            */
         }
     }
 
+    /*
     pub fn transition_to_act(&mut self, act: Act) {
         self.monster_encounters = Self::generate_monster_encounters(&mut self.monster_rng, act);
         self.elite_encounters = Self::generate_elite_encounters(&mut self.monster_rng, act);
@@ -170,8 +173,10 @@ impl GameContext {
         result.push(bosses[0]);
         result
     }
+    */
 }
 
+/*
 #[cfg(test)]
 mod test {
     use pretty_assertions::assert_eq;
@@ -549,3 +554,4 @@ mod test {
         assert_eq!(game_context.boss_encounters, [BossEncounter::DonuAndDeca]);
     }
 }
+*/

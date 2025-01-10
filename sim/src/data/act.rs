@@ -1,41 +1,73 @@
 use anyhow::anyhow;
 
-use crate::encounter::{BossEncounter, EliteEncounter, MonsterEncounter};
+use super::encounter::{BossEncounter, EliteEncounter, MonsterEncounter};
 
-#[derive(Clone, Copy, Debug, PartialEq)]
-pub struct Act(pub u8);
+#[derive(Debug, PartialEq)]
+pub struct Act {
+    map_seed_offset: u64,
+    weak_monster_encounter_count: usize,
+    weak_monster_encounters_and_probs: &'static [(MonsterEncounter, f32)],
+    strong_monster_encounters_and_probs: &'static [(MonsterEncounter, f32)],
+    elite_encounters: &'static [(EliteEncounter, f32)],
+    boss_encounters: &'static [BossEncounter],
+}
 
 impl Act {
-    pub fn get_details(&self) -> &'static ActDetails {
-        &ACT_DETAILS[(self.0 - 1) as usize]
+    pub fn get(n: i8) -> &'static Act {
+        <&'static Act>::try_from(n).unwrap()
+    }
+
+    pub fn from_str(s: &str) -> Result<&'static Act, anyhow::Error> {
+        <&'static Act>::try_from(s)
+    }
+
+    pub fn map_seed_offset(&self) -> u64 {
+        self.map_seed_offset
+    }
+
+    pub fn weak_monster_encounter_count(&self) -> usize {
+        self.weak_monster_encounter_count
+    }
+
+    pub fn weak_monster_encounters_and_probs(&self) -> &'static [(MonsterEncounter, f32)] {
+        self.weak_monster_encounters_and_probs
+    }
+
+    pub fn strong_monster_encounters_and_probs(&self) -> &'static [(MonsterEncounter, f32)] {
+        self.strong_monster_encounters_and_probs
+    }
+
+    pub fn elite_encounters_and_probs(&self) -> &'static [(EliteEncounter, f32)] {
+        self.elite_encounters
+    }
+
+    pub fn boss_encounters(&self) -> &'static [BossEncounter] {
+        self.boss_encounters
     }
 }
 
-impl TryFrom<&str> for Act {
+impl TryFrom<&str> for &'static Act {
     type Error = anyhow::Error;
 
     fn try_from(value: &str) -> Result<Self, Self::Error> {
-        let act = value.parse()?;
-        if !(1..=4).contains(&act) {
-            Err(anyhow!("Act must be between 1 and 4"))
-        } else {
-            Ok(Act(act))
+        <&'static Act>::try_from(value.parse::<i8>()?)
+    }
+}
+
+impl TryFrom<i8> for &'static Act {
+    type Error = anyhow::Error;
+
+    fn try_from(value: i8) -> Result<Self, Self::Error> {
+        match value {
+            1..=4 => Ok(&ACTS[value as usize - 1]),
+            _ => Err(anyhow!("Act must be between 1 and 4")),
         }
     }
 }
 
-pub struct ActDetails {
-    pub map_seed_offset: u64,
-    pub weak_monster_encounter_count: usize,
-    pub weak_monster_encounters_and_probs: &'static [(MonsterEncounter, f32)],
-    pub strong_monster_encounters_and_probs: &'static [(MonsterEncounter, f32)],
-    pub elite_encounters: &'static [(EliteEncounter, f32)],
-    pub boss_encounters: &'static [BossEncounter],
-}
-
-pub static ACT_DETAILS: &[ActDetails] = &[
+pub static ACTS: &[Act] = &[
     // ACT 1
-    ActDetails {
+    Act {
         map_seed_offset: 1,
         weak_monster_encounter_count: 3,
         weak_monster_encounters_and_probs: &[
@@ -68,7 +100,7 @@ pub static ACT_DETAILS: &[ActDetails] = &[
         ],
     },
     // ACT 2
-    ActDetails {
+    Act {
         map_seed_offset: 200,
         weak_monster_encounter_count: 2,
         weak_monster_encounters_and_probs: &[
@@ -100,7 +132,7 @@ pub static ACT_DETAILS: &[ActDetails] = &[
         ],
     },
     // ACT 3
-    ActDetails {
+    Act {
         map_seed_offset: 600,
         weak_monster_encounter_count: 2,
         weak_monster_encounters_and_probs: &[
@@ -130,7 +162,7 @@ pub static ACT_DETAILS: &[ActDetails] = &[
         ],
     },
     // ACT 4
-    ActDetails {
+    Act {
         map_seed_offset: 1200,
         weak_monster_encounter_count: 0,
         weak_monster_encounters_and_probs: &[],
@@ -145,13 +177,18 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_ascension_try_from() {
-        assert_eq!(Act::try_from("1").unwrap(), Act(1));
-        assert_eq!(Act::try_from("4").unwrap(), Act(4));
-        assert!(Act::try_from("0").is_err());
-        assert!(Act::try_from("5").is_err());
-        assert!(Act::try_from("").is_err());
-        assert!(Act::try_from("-1").is_err());
-        assert!(Act::try_from("ZZZ").is_err());
+    fn test_ascension_from_str() {
+        assert_eq!(Act::from_str("1").unwrap(), Act::get(1));
+        assert_eq!(Act::from_str("4").unwrap(), Act::get(4));
+        assert!(Act::from_str("0").is_err());
+        assert!(Act::from_str("5").is_err());
+        assert!(Act::from_str("").is_err());
+        assert!(Act::from_str("-1").is_err());
+        assert!(Act::from_str("ZZZ").is_err());
+    }
+
+    #[test]
+    fn test_array_indexing() {
+        assert_eq!(Act::get(1), &ACTS[0]);
     }
 }

@@ -41,34 +41,28 @@ pub enum MonsterEncounter {
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum EliteEncounter {
+    BookOfStabbing,
+    GiantHead,
+    GremlinLeader,
     GremlinNob,
     Lagavulin,
-    ThreeSentries,
-
-    BookOfStabbing,
-    GremlinLeader,
-    Taskmaster,
-
-    GiantHead,
     Nemesis,
     Reptomancer,
-
     SpireShieldAndSpireSpear,
+    Taskmaster,
+    ThreeSentries,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum BossEncounter {
-    TheGuardian,
+    AwakenedOne,
+    BronzeAutomaton,
+    CorruptHeart,
+    DonuAndDeca,
     Hexaghost,
     SlimeBoss,
-
-    BronzeAutomaton,
     TheChamp,
     TheCollector,
-
-    AwakenedOne,
-    DonuAndDeca,
+    TheGuardian,
     TimeEater,
-
-    CorruptHeart,
 }

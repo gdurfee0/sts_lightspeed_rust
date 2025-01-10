@@ -4,14 +4,13 @@ mod character;
 mod encounter;
 mod game_context;
 mod map;
-mod random;
-mod seed;
+mod rng;
 
 use crate::act::Act;
 use crate::encounter::MonsterEncounter;
 use crate::game_context::GAME_CONTEXT;
 use crate::map::MapBuilder;
-use crate::random::StsRandom;
+use crate::rng::StsRandom;
 
 // TODO: This could probably be optimized by maintaining `prev` and `prev_prev` Option<Monster>s.
 fn sample_monsters(

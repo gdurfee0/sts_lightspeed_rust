@@ -1,7 +1,7 @@
 use std::cmp::Ordering;
 use std::fmt;
 
-use crate::random::StsRandom;
+use crate::rng::StsRandom;
 
 use super::exit::ExitBits;
 use super::grid::NodeBuilderGrid;

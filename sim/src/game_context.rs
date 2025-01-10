@@ -4,7 +4,7 @@ use once_cell::sync::Lazy;
 
 use crate::ascension::Ascension;
 use crate::character::Character;
-use crate::seed::Seed;
+use crate::rng::Seed;
 
 pub static GAME_CONTEXT: Lazy<GameContext> = Lazy::new(GameContext::from_args);
 

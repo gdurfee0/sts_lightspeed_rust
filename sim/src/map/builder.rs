@@ -3,8 +3,7 @@ use std::iter::repeat;
 use crate::act::Act;
 use crate::ascension::Ascension;
 use crate::game_context::GAME_CONTEXT;
-use crate::random::StsRandom;
-use crate::seed::Seed;
+use crate::rng::{Seed, StsRandom};
 
 use super::graph::GraphBuilder;
 use super::grid::{NodeBuilderGrid, NodeGrid};

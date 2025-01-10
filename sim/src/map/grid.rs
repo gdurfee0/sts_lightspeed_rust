@@ -6,20 +6,23 @@
 /// node at that position.
 ///
 /// # NodeBuilder Elements
-/// - `NodeBuilder` elements in the grid can contain various attributes such as room type and exit
-///   bits.
+/// - `NodeBuilder` elements in the grid can contain room type and available exit directions.
+/// - `NodeBuilder` elements also maintain backward ("parent") edges in a way that is inefficient
+///   but true to the original game's implementation.
 /// - The `NodeBuilder` can be used to construct a `Node` which is a finalized version of the node.
 ///
 /// # Connections
 /// - Nodes in the grid are connected based on their exit bits. The exit bits determine the
-///   direction of connections between nodes (e.g., left, right, straight).
+///   direction of connections between nodes (e.g., left, up, right).
 /// - The `NodeBuilderGrid` provides methods to manipulate the grid, such as adding parents,
 ///   exits, and setting rooms.
 /// - The `NodeGrid` provides methods to display the grid and check for connections between nodes.
 ///
 /// # Display
-/// - The `fmt::Display` implementation for `NodeGrid` and `NodeBuilderGrid` provides a visual
+/// - The `fmt::Display` implementations for `NodeGrid` and `NodeBuilderGrid` provide a visual
 ///   representation of the grid, showing the connections between nodes and the types of rooms.
+/// - The display format for `NodeGrid` in particular nearly matches the
+///   C++ reference implementation.
 use std::fmt;
 
 use super::exit::ExitBits;
@@ -85,7 +88,8 @@ impl NodeBuilderGrid {
         self.grid[row][col].take()
     }
 
-    pub fn occupied_cols_for_row(&self, row: usize) -> Vec<usize> {
+    /// Returns a Vec<usize> holding column indices of nodes in the given row that are not empty.
+    pub fn nonempty_cols_for_row(&self, row: usize) -> Vec<usize> {
         self.grid[row]
             .iter()
             .enumerate()
@@ -105,6 +109,7 @@ impl NodeBuilderGrid {
         self.grid[row][col].get_or_insert_default().set_room(room);
     }
 
+    /// Records the column of the parent node for the given node.
     pub fn record_parent_col(&mut self, row: usize, col: usize, parent_col: usize) {
         self.grid[row][col]
             .get_or_insert_default()
@@ -121,6 +126,7 @@ impl NodeBuilderGrid {
             .map_or(false, |node| node.has_exit(exit))
     }
 
+    /// Returns true iff the node at the given row and column has a parent node with the given room.
     pub fn has_parent_room_of(&self, row: usize, col: usize, room: Room) -> bool {
         row > 0
             && (self.maybe_down_left_parent(row, col).map_or(false, |node| {
@@ -134,6 +140,8 @@ impl NodeBuilderGrid {
                 }))
     }
 
+    /// Returns the node below and to the left, provided it connects to node at the given
+    /// coordinates.
     fn maybe_down_left_parent(&self, row: usize, col: usize) -> Option<&NodeBuilder> {
         if col > 0 {
             self.grid[row - 1][col - 1]
@@ -144,12 +152,16 @@ impl NodeBuilderGrid {
         }
     }
 
+    /// Returns the node below the given coordinates, provided it connects to the node at the given
+    /// coordinates.
     fn maybe_down_parent(&self, row: usize, col: usize) -> Option<&NodeBuilder> {
         self.grid[row - 1][col]
             .as_ref()
             .filter(|node| node.has_exit(ExitBits::Up))
     }
 
+    /// Returns the node below and to the right, provided it connects to the node at the given
+    /// coordinates.
     fn maybe_down_right_parent(&self, row: usize, col: usize) -> Option<&NodeBuilder> {
         if col < COLUMN_MAX {
             self.grid[row - 1][col + 1]
@@ -160,6 +172,8 @@ impl NodeBuilderGrid {
         }
     }
 
+    /// Returns true iff the node at the given row and column shares a parent with another node
+    /// that has the given room type.
     pub fn has_left_sibling_room_of(&self, row: usize, col: usize, room: Room) -> bool {
         self.maybe_down_left_parent(row, col)
             .map_or(false, |_| self.has_child_room_of(row - 1, col - 1, room))
@@ -168,6 +182,8 @@ impl NodeBuilderGrid {
                 .map_or(false, |_| self.has_child_room_of(row - 1, col, room))
     }
 
+    /// Returns true iff the node at the given row and column has a child node with the given
+    /// room type.
     fn has_child_room_of(&self, row: usize, col: usize, room: Room) -> bool {
         [ExitBits::Left, ExitBits::Up, ExitBits::Right]
             .iter()
@@ -186,6 +202,8 @@ impl NodeBuilderGrid {
             })
     }
 
+    /// Returns an iterator over the recorded parent columns for the given node, unordered and
+    /// possibly with duplicates.
     pub fn recorded_parent_cols_iter(
         &self,
         row: usize,
@@ -198,6 +216,8 @@ impl NodeBuilderGrid {
             .flatten()
     }
 
+    /// Attempts to determine if the node at the given row and column shares a parent with another
+    /// node in the same row, but fails to do so in most cases.
     pub fn buggy_implementation_of_shares_parent_with(
         &self,
         row: usize,
@@ -221,6 +241,7 @@ impl NodeBuilderGrid {
         }
     }
 
+    /// Counts the number of nodes awaiting room assignment.
     pub fn unassigned_room_count(&self) -> usize {
         self.grid
             .iter()
@@ -234,7 +255,8 @@ impl NodeBuilderGrid {
             .count()
     }
 
-    pub fn room_total(&self) -> usize {
+    /// Incorrectly estimates total number of non-empty nodes in the grid.
+    pub fn room_almost_total(&self) -> usize {
         self.grid
             .iter()
             .enumerate()

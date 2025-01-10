@@ -80,7 +80,7 @@ impl<'a> RoomAssigner<'a> {
         self.node_grid
             .set_all_rooms_in_row(REST_ROW_INDEX, Room::Campfire);
         let unassigned_room_count = self.node_grid.unassigned_room_count();
-        let room_total = self.node_grid.room_total();
+        let room_total = self.node_grid.room_almost_total();
         let shop_room_count = (SHOP_ROOM_CHANCE * room_total as f32).round() as usize;
         let rest_room_count = (REST_ROOM_CHANCE * room_total as f32).round() as usize;
         let treasure_room_count = (TREASURE_ROOM_CHANCE * room_total as f32).round() as usize;
@@ -106,7 +106,7 @@ impl<'a> RoomAssigner<'a> {
             if row == MONSTER_ROW_INDEX || row == TREASURE_ROW_INDEX {
                 continue;
             }
-            for col in self.node_grid.occupied_cols_for_row(row) {
+            for col in self.node_grid.nonempty_cols_for_row(row) {
                 let mut rooms_already_considered: [bool; 10] = [false; 10];
                 let mut some_room_already_rejected = false;
                 for (i, entry) in unassigned_rooms[start_index..].iter_mut().enumerate() {

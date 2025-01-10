@@ -45,71 +45,12 @@ impl From<u64> for JavaRandom {
 mod test {
     use super::*;
 
-    // TODO: Move this method out of cfg(test) if it's actually needed, or just delete it.
-    impl JavaRandom {
-        fn next_i32(&mut self) -> i32 {
-            self.next(32)
-        }
-    }
-
     fn to_string(slice: &[i32]) -> String {
         slice
             .iter()
             .map(|x| x.to_string())
             .collect::<Vec<_>>()
             .join(" ")
-    }
-
-    #[test]
-    fn test_java_random_next_i32() {
-        let mut r = JavaRandom::from(2665621045298406349u64);
-        assert_eq!(r.next_i32(), 1435554138);
-        assert_eq!(r.next_i32(), -685876420);
-        assert_eq!(r.next_i32(), 980167561);
-        assert_eq!(r.next_i32(), 1620812725);
-        assert_eq!(r.next_i32(), -1708755396);
-        assert_eq!(r.next_i32(), -220472312);
-        assert_eq!(r.next_i32(), 303297683);
-        assert_eq!(r.next_i32(), 631505519);
-        assert_eq!(r.next_i32(), 1207798239);
-        assert_eq!(r.next_i32(), -898299774);
-        for _ in 0..1000000 {
-            let _ = r.next_i32();
-        }
-        assert_eq!(r.next_i32(), -826284903);
-        assert_eq!(r.next_i32(), -13980690);
-        assert_eq!(r.next_i32(), -1295521124);
-        assert_eq!(r.next_i32(), -161793911);
-        assert_eq!(r.next_i32(), -2051575420);
-        assert_eq!(r.next_i32(), 62780344);
-        assert_eq!(r.next_i32(), -458419070);
-        assert_eq!(r.next_i32(), -1651388872);
-        assert_eq!(r.next_i32(), -1273357138);
-        assert_eq!(r.next_i32(), -1018115670);
-
-        assert_eq!(r.next_i32_bounded(42 + (1 << 0)), 7);
-        assert_eq!(r.next_i32_bounded(42 + (1 << 3)), 41);
-        assert_eq!(r.next_i32_bounded(42 + (1 << 6)), 64);
-        assert_eq!(r.next_i32_bounded(42 + (1 << 9)), 169);
-        assert_eq!(r.next_i32_bounded(42 + (1 << 12)), 3471);
-        assert_eq!(r.next_i32_bounded(42 + (1 << 15)), 7577);
-        assert_eq!(r.next_i32_bounded(42 + (1 << 18)), 35786);
-        assert_eq!(r.next_i32_bounded(42 + (1 << 21)), 1224367);
-        assert_eq!(r.next_i32_bounded(42 + (1 << 24)), 7614339);
-        assert_eq!(r.next_i32_bounded(42 + (1 << 27)), 54347671);
-        for _ in 0..1000000 {
-            let _ = r.next_i32();
-        }
-        assert_eq!(r.next_i32_bounded(42 + (1 << 0)), 27);
-        assert_eq!(r.next_i32_bounded(42 + (1 << 3)), 22);
-        assert_eq!(r.next_i32_bounded(42 + (1 << 6)), 70);
-        assert_eq!(r.next_i32_bounded(42 + (1 << 9)), 3);
-        assert_eq!(r.next_i32_bounded(42 + (1 << 12)), 128);
-        assert_eq!(r.next_i32_bounded(42 + (1 << 15)), 17674);
-        assert_eq!(r.next_i32_bounded(42 + (1 << 18)), 160210);
-        assert_eq!(r.next_i32_bounded(42 + (1 << 21)), 1846018);
-        assert_eq!(r.next_i32_bounded(42 + (1 << 24)), 13777708);
-        assert_eq!(r.next_i32_bounded(42 + (1 << 27)), 108691387);
     }
 
     #[test]

@@ -1,9 +1,8 @@
 mod data;
 mod map;
-mod message;
 mod params;
 mod rng;
-mod simulator;
+mod sim;
 
 use std::io::stdin;
 use std::sync::mpsc::{channel, Receiver, Sender};
@@ -11,9 +10,8 @@ use std::thread;
 
 use anyhow::anyhow;
 
-use crate::message::{Choice, Prompt, StsMessage};
 use crate::params::GameParameters;
-use crate::simulator::StsSimulator;
+use crate::sim::{Choice, Prompt, StsMessage, StsSimulator};
 
 fn main() -> Result<(), anyhow::Error> {
     let (seed, character, ascension) = GameParameters::from_command_line();

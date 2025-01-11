@@ -2,12 +2,13 @@ use std::sync::mpsc::{Receiver, Sender};
 
 use anyhow::{anyhow, Error, Ok};
 
+use super::message::{Choice, PlayerView, Prompt, StsMessage};
+
 use crate::data::{
     Act, Ascension, Card, Character, NeowBlessing, NeowBonus, NeowPenalty, Relic,
     UNCOMMON_COLORLESS_CARDS,
 };
 use crate::map::{MapBuilder, Node, NodeGrid, Room};
-use crate::message::{Choice, PlayerView, Prompt, StsMessage};
 use crate::rng::{EncounterGenerator, NeowGenerator, Seed, StsRandom};
 
 pub struct StsSimulator {
@@ -66,7 +67,7 @@ impl StsSimulator {
             player_deck: character.starting_deck.to_vec(),
             player_row_col: None,
         }
-    } 
+    }
     pub fn run(mut self) -> Result<(), anyhow::Error> {
         println!(
             "[Simulator] Starting simulator of size {} with messages of size {}",

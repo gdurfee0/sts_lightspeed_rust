@@ -12,4 +12,6 @@ pub use ascension::Ascension;
 pub use character::Character;
 pub use encounter::Encounter;
 pub use event::Event;
-pub use neow::*;
+pub use neow::{
+    NeowBlessing, NeowBonus, NeowPenalty, FIRST_NEOW_POOL, SECOND_NEOW_POOL, THIRD_NEOW_POOL,
+};

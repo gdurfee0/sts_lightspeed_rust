@@ -1,10 +1,10 @@
 use std::fmt;
 
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug)]
 pub enum NeowBlessing {
     ChooseOneOfThreeCards,
     ChooseUncommonColorlessCard,
-    Composite(NeowBenefit, NeowDrawback),
+    Composite(NeowBonus, NeowPenalty),
     GainOneHundredGold,
     IncreaseMaxHpByTenPercent,
     NeowsLament,
@@ -17,8 +17,8 @@ pub enum NeowBlessing {
     UpgradeCard,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq)]
-pub enum NeowBenefit {
+#[derive(Clone, Copy, Debug)]
+pub enum NeowBonus {
     ChooseRareCard,
     ChooseRareColorlessCard,
     GainTwoHundredFiftyGold,
@@ -28,8 +28,8 @@ pub enum NeowBenefit {
     TransformTwoCards,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq)]
-pub enum NeowDrawback {
+#[derive(Clone, Copy, Debug)]
+pub enum NeowPenalty {
     DecreaseMaxHpByTenPercent,
     LoseAllGold,
     ObtainCurse,
@@ -53,50 +53,50 @@ pub const SECOND_NEOW_POOL: &[NeowBlessing] = &[
     NeowBlessing::GainOneHundredGold,
 ];
 
-pub const THIRD_NEOW_POOL: &[(NeowDrawback, &[NeowBenefit])] = &[
+pub const THIRD_NEOW_POOL: &[(NeowPenalty, &[NeowBonus])] = &[
     (
-        NeowDrawback::DecreaseMaxHpByTenPercent,
+        NeowPenalty::DecreaseMaxHpByTenPercent,
         &[
-            NeowBenefit::ChooseRareColorlessCard,
-            NeowBenefit::RemoveTwoCards,
-            NeowBenefit::ObtainRandomRareRelic,
-            NeowBenefit::ChooseRareCard,
-            NeowBenefit::GainTwoHundredFiftyGold,
-            NeowBenefit::TransformTwoCards,
+            NeowBonus::ChooseRareColorlessCard,
+            NeowBonus::RemoveTwoCards,
+            NeowBonus::ObtainRandomRareRelic,
+            NeowBonus::ChooseRareCard,
+            NeowBonus::GainTwoHundredFiftyGold,
+            NeowBonus::TransformTwoCards,
         ],
     ),
     (
-        NeowDrawback::LoseAllGold,
+        NeowPenalty::LoseAllGold,
         &[
-            NeowBenefit::ChooseRareColorlessCard,
-            NeowBenefit::RemoveTwoCards,
-            NeowBenefit::ObtainRandomRareRelic,
-            NeowBenefit::ChooseRareCard,
-            NeowBenefit::TransformTwoCards,
-            NeowBenefit::IncreaseMaxHpByTwentyPercent,
+            NeowBonus::ChooseRareColorlessCard,
+            NeowBonus::RemoveTwoCards,
+            NeowBonus::ObtainRandomRareRelic,
+            NeowBonus::ChooseRareCard,
+            NeowBonus::TransformTwoCards,
+            NeowBonus::IncreaseMaxHpByTwentyPercent,
         ],
     ),
     (
-        NeowDrawback::ObtainCurse,
+        NeowPenalty::ObtainCurse,
         &[
-            NeowBenefit::ChooseRareColorlessCard,
-            NeowBenefit::ObtainRandomRareRelic,
-            NeowBenefit::ChooseRareCard,
-            NeowBenefit::GainTwoHundredFiftyGold,
-            NeowBenefit::TransformTwoCards,
-            NeowBenefit::IncreaseMaxHpByTwentyPercent,
+            NeowBonus::ChooseRareColorlessCard,
+            NeowBonus::ObtainRandomRareRelic,
+            NeowBonus::ChooseRareCard,
+            NeowBonus::GainTwoHundredFiftyGold,
+            NeowBonus::TransformTwoCards,
+            NeowBonus::IncreaseMaxHpByTwentyPercent,
         ],
     ),
     (
-        NeowDrawback::TakeDamage,
+        NeowPenalty::TakeDamage,
         &[
-            NeowBenefit::ChooseRareColorlessCard,
-            NeowBenefit::RemoveTwoCards,
-            NeowBenefit::ObtainRandomRareRelic,
-            NeowBenefit::ChooseRareCard,
-            NeowBenefit::GainTwoHundredFiftyGold,
-            NeowBenefit::TransformTwoCards,
-            NeowBenefit::IncreaseMaxHpByTwentyPercent,
+            NeowBonus::ChooseRareColorlessCard,
+            NeowBonus::RemoveTwoCards,
+            NeowBonus::ObtainRandomRareRelic,
+            NeowBonus::ChooseRareCard,
+            NeowBonus::GainTwoHundredFiftyGold,
+            NeowBonus::TransformTwoCards,
+            NeowBonus::IncreaseMaxHpByTwentyPercent,
         ],
     ),
 ];
@@ -130,34 +130,34 @@ impl fmt::Display for NeowBlessing {
     }
 }
 
-impl fmt::Display for NeowBenefit {
+impl fmt::Display for NeowBonus {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
             f,
             "{}",
             match self {
-                NeowBenefit::ChooseRareCard => "Choose a rare card to obtain",
-                NeowBenefit::ChooseRareColorlessCard => "Choose a rare colorless card to obtain",
-                NeowBenefit::GainTwoHundredFiftyGold => "Receive 250 gold",
-                NeowBenefit::IncreaseMaxHpByTwentyPercent => "Increase max HP by 20%",
-                NeowBenefit::ObtainRandomRareRelic => "Obtain a random rare relic",
-                NeowBenefit::RemoveTwoCards => "Remove two cards",
-                NeowBenefit::TransformTwoCards => "Transform two cards",
+                NeowBonus::ChooseRareCard => "Choose a rare card to obtain",
+                NeowBonus::ChooseRareColorlessCard => "Choose a rare colorless card to obtain",
+                NeowBonus::GainTwoHundredFiftyGold => "Receive 250 gold",
+                NeowBonus::IncreaseMaxHpByTwentyPercent => "Increase max HP by 20%",
+                NeowBonus::ObtainRandomRareRelic => "Obtain a random rare relic",
+                NeowBonus::RemoveTwoCards => "Remove two cards",
+                NeowBonus::TransformTwoCards => "Transform two cards",
             }
         )
     }
 }
 
-impl fmt::Display for NeowDrawback {
+impl fmt::Display for NeowPenalty {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
             f,
             "{}",
             match self {
-                NeowDrawback::DecreaseMaxHpByTenPercent => "Decrease max HP by 10%",
-                NeowDrawback::LoseAllGold => "Lose all gold",
-                NeowDrawback::ObtainCurse => "Obtain a curse",
-                NeowDrawback::TakeDamage => "Take 30% of your max HP as damage",
+                NeowPenalty::DecreaseMaxHpByTenPercent => "Decrease max HP by 10%",
+                NeowPenalty::LoseAllGold => "Lose all gold",
+                NeowPenalty::ObtainCurse => "Obtain a curse",
+                NeowPenalty::TakeDamage => "Take 30% of your max HP as damage",
             }
         )
     }

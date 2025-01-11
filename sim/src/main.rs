@@ -13,39 +13,44 @@ use anyhow::anyhow;
 
 use crate::input::{Choice, Prompt};
 use crate::params::GameParameters;
-use crate::simulator::{Simulator, SimulatorOutput};
+use crate::simulator::{StsMessage, StsSimulator};
 
-fn main() {
+fn main() -> Result<(), anyhow::Error> {
     let (seed, character, ascension) = GameParameters::from_command_line();
     let (input_tx, input_rx) = channel();
     let (output_tx, output_rx) = channel();
-    let simulator = Simulator::new(seed, character, ascension, input_rx, output_tx);
-    thread::spawn(move || {
+    let simulator = StsSimulator::new(seed, character, ascension, input_rx, output_tx);
+    let simulator_handle = thread::spawn(move || {
         let _ = simulator.run();
     });
-    let _ = main_input_loop(input_tx, output_rx);
+    main_input_loop(input_tx, output_rx)?;
+    println!("[Main] Exiting.");
+    simulator_handle
+        .join()
+        .map_err(|e| anyhow!("Simulator thread panicked: {:?}", e))?;
+    Ok(())
 }
 
 fn main_input_loop(
     input_tx: Sender<usize>,
-    output_rx: Receiver<SimulatorOutput>,
+    output_rx: Receiver<StsMessage>,
 ) -> Result<(), anyhow::Error> {
     loop {
-        match output_rx.recv() {
-            Ok(SimulatorOutput::Map(map)) => println!("{}\n", map),
-            Ok(SimulatorOutput::Choose(prompt, choices)) => {
-                input_tx.send(collect_user_choice(prompt, choices)?)?;
-            }
-            Ok(SimulatorOutput::PlayerHp(current, max)) => {
-                println!("Player HP: {}/{}", current, max);
-            }
-            Err(e) => {
-                println!("Error receiving output from simulator: {}", e);
+        match output_rx.recv()? {
+            StsMessage::Map(map) => println!("{}\n", map),
+            StsMessage::View(view) => println!("{:?}", view),
+            StsMessage::GameOver(result) => {
+                println!(
+                    "[Main] Game Over; the player was {}victorious",
+                    if result { "" } else { "not " }
+                );
                 break;
+            }
+            StsMessage::Choose(prompt, choices) => {
+                input_tx.send(collect_user_choice(prompt, choices)?)?;
             }
         }
     }
-    println!("Main input loop exiting");
     Ok(())
 }
 

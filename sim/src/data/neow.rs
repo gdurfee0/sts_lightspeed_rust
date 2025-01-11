@@ -104,7 +104,7 @@ pub const THIRD_NEOW_POOL: &[(NeowDrawback, &[NeowBenefit])] = &[
 impl fmt::Display for NeowBlessing {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            NeowBlessing::Composite(benefit, drawback) => write!(f, "{} and {}", benefit, drawback),
+            NeowBlessing::Composite(benefit, drawback) => write!(f, "{}. {}", benefit, drawback),
             _ => write!(
                 f,
                 "{}",
@@ -157,7 +157,7 @@ impl fmt::Display for NeowDrawback {
                 NeowDrawback::DecreaseMaxHpByTenPercent => "Decrease max HP by 10%",
                 NeowDrawback::LoseAllGold => "Lose all gold",
                 NeowDrawback::ObtainCurse => "Obtain a curse",
-                NeowDrawback::TakeDamage => "Take 10% of your max HP as damage",
+                NeowDrawback::TakeDamage => "Take 30% of your max HP as damage",
             }
         )
     }

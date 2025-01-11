@@ -23,14 +23,13 @@ pub struct Simulator {
     ascension: Ascension,
     input_rx: Receiver<usize>,
     output_tx: Sender<SimulatorOutput>,
-    state: InternalState,
+    state: State,
     map: NodeGrid,
     encounter_generator: EncounterGenerator,
 }
 
-// TODO: restrict visibility
 #[derive(Clone, Copy, Debug)]
-pub enum InternalState {
+enum State {
     Event(Event),
 }
 
@@ -44,7 +43,7 @@ impl Simulator {
     ) -> Self {
         let map = MapBuilder::from(&seed, ascension, Act::get(1)).build();
         let encounter_generator = EncounterGenerator::new(&seed);
-        let state = InternalState::Event(Event::Neow);
+        let state = State::Event(Event::Neow);
         Self {
             seed,
             character,
@@ -57,52 +56,39 @@ impl Simulator {
         }
     }
 
-    pub fn run(mut self) {
+    pub fn run(mut self) -> Result<(), anyhow::Error> {
         println!("Simulator started");
-        if let Err(e) = self
-            .output_tx
-            .send(SimulatorOutput::Map(self.map.to_string()))
-        {
-            println!("Error initial sending map: {}", e);
-            return;
-        }
+        self.output_tx
+            .send(SimulatorOutput::Map(self.map.to_string()))?;
         let mut neow_generator = NeowGenerator::new(&self.seed);
-        let neow_choices: Vec<Choice> = neow_generator
+        let mut choices: Vec<Choice> = neow_generator
             .blessing_choices()
             .map(Choice::NeowBlessing)
             .to_vec();
-        if let Err(e) = self
-            .output_tx
-            .send(SimulatorOutput::Choose(Prompt::NeowBlessing, neow_choices))
-        {
-            println!("Error sending choices: {}", e);
-            return;
-        }
+        let mut prompt = Prompt::NeowBlessing;
         loop {
-            if let Some((prompt, choices)) = match self.input_rx.recv() {
-                Ok(choice) => self.evolve_state(choice),
-                Err(e) => {
-                    println!("Error receiving choice: {}", e);
-                    break;
+            self.output_tx
+                .send(SimulatorOutput::Choose(prompt, choices.clone()))?;
+            let choice_index = self.input_rx.recv()?;
+            match choices.get(choice_index) {
+                Some(choice) => match self.evolve_state(*choice) {
+                    Some((new_prompt, new_choices)) => {
+                        prompt = new_prompt;
+                        choices = new_choices;
+                    }
+                    None => break,
+                },
+                None => {
+                    println!("Invalid choice index {}", choice_index);
                 }
-            } {
-                if let Err(e) = self
-                    .output_tx
-                    .send(SimulatorOutput::Choose(prompt, choices))
-                {
-                    println!("Error sending choices: {}", e);
-                    break;
-                }
-            } else {
-                println!("Game over");
-                break;
             }
         }
         println!("Simulator finished");
+        Ok(())
     }
 
-    fn evolve_state(&mut self, choice: usize) -> Option<(Prompt, Vec<Choice>)> {
-        println!("Got {}", choice);
+    fn evolve_state(&mut self, choice: Choice) -> Option<(Prompt, Vec<Choice>)> {
+        println!("User chose \"{}\"", choice);
         None
     }
 }

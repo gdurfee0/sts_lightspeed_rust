@@ -69,7 +69,9 @@ GameContext::GameContext(CharacterClass cc, std::uint64_t seed, int ascension)
     std::fill(potions.begin(), potions.end(), Potion::EMPTY_POTION_SLOT);
 
     curEvent = Event::NEOW;
+    std::cout << "inr neow rng counter " << neowRng.counter << std::endl;
     info.neowRewards = Neow::getOptions(neowRng);
+    std::cout << "inr neow rng counter " << neowRng.counter << std::endl;
     screenState = ScreenState::EVENT_SCREEN;
     //std::cout << *this << std::endl;
 
@@ -2296,7 +2298,9 @@ void GameContext::chooseNeowOption(const Neow::Option &o) {
         case Neow::Bonus::THREE_CARDS:
             regainControlAction(*this); // hack because curse is received first
             regainControlAction = returnToMapAction;
+            std::cout << "neow rng counter " << neowRng.counter << std::endl;
             openCombatRewardScreen(Neow::getCardReward(neowRng, cc, false));
+            std::cout << "neow rng counter " << neowRng.counter << std::endl;
             break;
 
         case Neow::Bonus::ONE_RANDOM_RARE_CARD: {

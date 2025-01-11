@@ -86,6 +86,11 @@ impl StsRandom {
         }
     }
 
+    /// Advances the generator by generating one u64 and ignoring the result.
+    pub fn advance(&mut self) {
+        self.next_u64();
+    }
+
     /// Generates a random value of type `T` within the specified range.
     ///
     /// The range can be either:

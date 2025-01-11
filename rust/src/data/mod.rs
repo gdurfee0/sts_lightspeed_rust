@@ -9,6 +9,10 @@ mod relic;
 
 pub use act::Act;
 pub use ascension::Ascension;
+pub use card::{
+    Card, CURSE_CARDS, RARE_COLORLESS_CARDS, SPECIAL_COLORLESS_CARDS, STATUS_CARDS,
+    UNCOMMON_COLORLESS_CARDS,
+};
 pub use character::Character;
 pub use encounter::Encounter;
 pub use event::Event;

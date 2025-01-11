@@ -1,6 +1,6 @@
 use std::fmt;
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub enum NeowBlessing {
     ChooseOneOfThreeCards,
     ChooseUncommonColorlessCard,
@@ -17,7 +17,7 @@ pub enum NeowBlessing {
     UpgradeCard,
 }
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub enum NeowBonus {
     ChooseRareCard,
     ChooseRareColorlessCard,
@@ -28,7 +28,7 @@ pub enum NeowBonus {
     TransformTwoCards,
 }
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub enum NeowPenalty {
     DecreaseMaxHpByTenPercent,
     LoseAllGold,
@@ -109,7 +109,7 @@ impl fmt::Display for NeowBlessing {
                 f,
                 "{}",
                 match self {
-                    NeowBlessing::ChooseOneOfThreeCards => "Choose a card to obtain",
+                    NeowBlessing::ChooseOneOfThreeCards => "Choose one of 3 cards to obtain",
                     NeowBlessing::ChooseUncommonColorlessCard =>
                         "Choose an uncommon colorless card to obtain",
                     NeowBlessing::GainOneHundredGold => "Receive 100 gold",

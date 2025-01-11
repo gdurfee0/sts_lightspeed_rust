@@ -1,9 +1,88 @@
-#[derive(Clone, Copy, Debug, PartialEq)]
+use std::fmt;
+
+pub const UNCOMMON_COLORLESS_CARDS: &[Card] = &[
+    Card::BandageUp,
+    Card::Blind,
+    Card::DarkShackles,
+    Card::DeepBreath,
+    Card::Discovery,
+    Card::DramaticEntrance,
+    Card::Enlightenment,
+    Card::Finesse,
+    Card::FlashOfSteel,
+    Card::Forethought,
+    Card::GoodInstincts,
+    Card::Impatience,
+    Card::JackOfAllTrades,
+    Card::Madness,
+    Card::MindBlast,
+    Card::Panacea,
+    Card::PanicButton,
+    Card::Purity,
+    Card::SwiftStrike,
+    Card::Trip,
+];
+
+pub const RARE_COLORLESS_CARDS: &[Card] = &[
+    Card::Apotheosis,
+    Card::Chrysalis,
+    Card::HandOfGreed,
+    Card::MasterOfStrategy,
+    Card::Metamorphosis,
+    Card::SecretTechnique,
+    Card::SecretWeapon,
+    Card::TheBomb,
+    Card::ThinkingAhead,
+    Card::Transmutation,
+    Card::Violence,
+];
+
+pub const SPECIAL_COLORLESS_CARDS: &[Card] = &[
+    Card::Apparition,
+    Card::Beta,
+    Card::Bite,
+    Card::Expunger,
+    Card::Insight,
+    Card::Miracle,
+    Card::Omega,
+    Card::RitualDagger,
+    Card::Safety,
+    Card::Shiv,
+    Card::Smite,
+    Card::ThroughViolence,
+];
+
+pub const STATUS_CARDS: &[Card] = &[
+    Card::Burn,
+    Card::Dazed,
+    Card::Slimed,
+    Card::Void,
+    Card::Wound,
+];
+
+pub const CURSE_CARDS: &[Card] = &[
+    Card::AscendersBane,
+    Card::Clumsy,
+    Card::CurseOfTheBell,
+    Card::Decay,
+    Card::Doubt,
+    Card::Injury,
+    Card::Necronomicurse,
+    Card::Normality,
+    Card::Pain,
+    Card::Parasite,
+    Card::Pride,
+    Card::Regret,
+    Card::Shame,
+    Card::Writhe,
+];
+
+#[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
 pub enum Card {
     Accuracy,
     Acrobatics,
     Adrenaline,
-    AfterImmage,
+    AfterImage,
     Aggregate,
     Alchemize,
     AllForOne,
@@ -35,7 +114,7 @@ pub enum Card {
     BladeDance,
     Blasphemy,
     Blind,
-    Blizazrd,
+    Blizzard,
     BloodForBlood,
     Bloodletting,
     Bludgeon,
@@ -64,6 +143,8 @@ pub enum Card {
     Choke,
     Chrysalis,
     Clash,
+    Claw,
+    Cleave,
     CloakAndDagger,
     Clothesline,
     Clumsy,
@@ -87,6 +168,7 @@ pub enum Card {
     CurseOfTheBell,
     CutThroughFate,
     DaggerSpray,
+    DaggerThrow,
     DarkEmbrace,
     Darkness,
     DarkShackles,
@@ -192,7 +274,7 @@ pub enum Card {
     IronWave,
     JackOfAllTrades,
     Jax,
-    Judgement,
+    Judgment,
     Juggernaut,
     JustLucky,
     Leap,
@@ -237,7 +319,7 @@ pub enum Card {
     PerfectedStrike,
     Perserverance,
     PhantasmalKiller,
-    PiercingWall,
+    PiercingWail,
     PoisonedStab,
     PommelStrike,
     PowerThrough,
@@ -273,7 +355,7 @@ pub enum Card {
     Rushdown,
     SadisticNature,
     Safety,
-    Sanctify,
+    Sanctity,
     SandsOfTime,
     SashWhip,
     Scrape,
@@ -289,7 +371,7 @@ pub enum Card {
     Setup,
     SeverSoul,
     Shame,
-    ShimmeringFury,
+    SimmeringFury,
     Shiv,
     Shockwave,
     ShrugItOff,
@@ -358,4 +440,33 @@ pub enum Card {
     WreathOfFlame,
     Writhe,
     Zap,
+}
+
+impl fmt::Display for Card {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        // TODO: add en-us names for my convenience
+        write!(f, "{:?}", self)
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use pretty_assertions::assert_eq;
+
+    use super::*;
+
+    #[test]
+    fn test_no_duplicates() {
+        let mut all_cards = UNCOMMON_COLORLESS_CARDS
+            .iter()
+            .chain(RARE_COLORLESS_CARDS.iter())
+            .chain(SPECIAL_COLORLESS_CARDS.iter())
+            .chain(STATUS_CARDS.iter())
+            .chain(CURSE_CARDS.iter())
+            .collect::<Vec<_>>();
+        all_cards.sort();
+        let initial_cards = all_cards.clone();
+        all_cards.dedup();
+        assert_eq!(all_cards, initial_cards);
+    }
 }

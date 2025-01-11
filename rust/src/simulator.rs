@@ -1,8 +1,8 @@
 use std::sync::mpsc::{Receiver, Sender};
 
-use anyhow::{anyhow, Ok};
+use anyhow::{anyhow, Error, Ok};
 
-use crate::data::{Act, Ascension, Character, NeowBlessing, NeowBonus, NeowPenalty, Relic};
+use crate::data::{Act, Ascension, Card, Character, NeowBlessing, NeowBonus, NeowPenalty, Relic};
 use crate::map::{MapBuilder, NodeGrid};
 use crate::message::{Choice, PlayerView, Prompt, StsMessage};
 use crate::rng::{EncounterGenerator, NeowGenerator, Seed};
@@ -23,13 +23,14 @@ pub struct StsSimulator {
 
     // Current map layout
     map: NodeGrid,
-    player_row_col: Option<(usize, usize)>,
 
     // Current player state
     player_hp: u32,
     player_hp_max: u32,
     player_gold: u32,
     player_relics: Vec<Relic>,
+    player_deck: Vec<Card>,
+    player_row_col: Option<(usize, usize)>,
 }
 
 impl StsSimulator {
@@ -41,7 +42,7 @@ impl StsSimulator {
         output_tx: Sender<StsMessage>,
     ) -> Self {
         let map = MapBuilder::from(&seed, ascension, Act::get(1)).build();
-        let neow_generator = NeowGenerator::new(&seed);
+        let neow_generator = NeowGenerator::new(&seed, character);
         let encounter_generator = EncounterGenerator::new(&seed);
         Self {
             seed,
@@ -52,11 +53,12 @@ impl StsSimulator {
             neow_generator,
             encounter_generator,
             map,
-            player_row_col: None,
-            player_hp: character.start_hp,
-            player_hp_max: character.start_hp,
+            player_hp: character.starting_hp,
+            player_hp_max: character.starting_hp,
             player_gold: 99,
             player_relics: vec![character.starting_relic],
+            player_deck: character.starting_deck.to_vec(),
+            player_row_col: None,
         }
     }
 
@@ -68,6 +70,7 @@ impl StsSimulator {
         );
         self.send_map()?;
         self.send_relics()?;
+        self.send_deck()?;
         self.send_player_view()?;
         let mut prompt = Prompt::NeowBlessing;
         let mut choices = self
@@ -81,14 +84,14 @@ impl StsSimulator {
             if let Some(choice) = choices.get(choice_index) {
                 (prompt, choices) = self.handle_response(choice)?;
                 self.send_player_view()?;
-                self.send_prompt_and_choices(prompt, &choices)?;
             } else {
-                return Err(anyhow!(
+                eprintln!(
                     "[Simulator] Invalid choice index {} from client; expected 0..{}",
                     choice_index,
                     choices.len()
-                ));
+                );
             }
+            self.send_prompt_and_choices(prompt, &choices)?;
         }
     }
 
@@ -100,6 +103,12 @@ impl StsSimulator {
     fn send_relics(&self) -> Result<(), anyhow::Error> {
         self.output_tx
             .send(StsMessage::Relics(self.player_relics.clone()))?;
+        Ok(())
+    }
+
+    fn send_deck(&self) -> Result<(), anyhow::Error> {
+        self.output_tx
+            .send(StsMessage::Deck(self.player_deck.clone()))?;
         Ok(())
     }
 
@@ -122,19 +131,33 @@ impl StsSimulator {
         Ok(())
     }
 
-    fn handle_response(&mut self, choice: &Choice) -> Result<(Prompt, Vec<Choice>), anyhow::Error> {
+    fn handle_response(&mut self, choice: &Choice) -> Result<(Prompt, Vec<Choice>), Error> {
         match choice {
-            Choice::NeowBlessing(blessing) => {
-                self.handle_neow_blessing(blessing)?;
+            Choice::NeowBlessing(blessing) => self.handle_neow_blessing(blessing),
+            Choice::ObtainCard(card) => {
+                self.player_deck.push(*card);
+                self.send_deck()?;
                 Ok((Prompt::HaltAndCatchFire, vec![Choice::CatchFire]))
             }
             Choice::CatchFire => Ok((Prompt::HaltAndCatchFire, vec![Choice::CatchFire])),
         }
     }
 
-    fn handle_neow_blessing(&mut self, blessing: &NeowBlessing) -> Result<(), anyhow::Error> {
+    fn handle_neow_blessing(
+        &mut self,
+        blessing: &NeowBlessing,
+    ) -> Result<(Prompt, Vec<Choice>), Error> {
         match blessing {
-            NeowBlessing::ChooseOneOfThreeCards => todo!(),
+            NeowBlessing::ChooseOneOfThreeCards => {
+                return Ok((
+                    Prompt::ObtainCard,
+                    self.neow_generator
+                        .three_cards()
+                        .into_iter()
+                        .map(Choice::ObtainCard)
+                        .collect::<Vec<_>>(),
+                ));
+            }
             NeowBlessing::ChooseUncommonColorlessCard => todo!(),
             NeowBlessing::GainOneHundredGold => {
                 self.player_gold += 100;
@@ -181,7 +204,7 @@ impl StsSimulator {
                 }
             }
         }
-        Ok(())
+        Ok((Prompt::HaltAndCatchFire, vec![Choice::CatchFire]))
     }
 
     fn obtain_relic(&mut self, relic: Relic) -> Result<(), anyhow::Error> {

@@ -40,10 +40,19 @@ fn main_input_loop(
             StsMessage::Map(map) => println!("{}\n", map),
             StsMessage::Relics(relics) => {
                 println!(
-                    "Relics now: {}",
+                    "Relics([{}])",
                     relics
                         .iter()
                         .map(|relic| format!("{:?}", relic))
+                        .collect::<Vec<_>>()
+                        .join(",")
+                );
+            }
+            StsMessage::Deck(deck) => {
+                println!(
+                    "Deck([{}])",
+                    deck.iter()
+                        .map(|card| format!("{:?}", card))
                         .collect::<Vec<_>>()
                         .join(",")
                 );

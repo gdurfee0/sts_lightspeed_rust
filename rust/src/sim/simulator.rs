@@ -7,7 +7,7 @@ use super::neow::NeowSimulator;
 use super::player::Player;
 
 use crate::data::{Act, Ascension, Character};
-use crate::map::{MapBuilder, NodeGrid, Room};
+use crate::map::{MapBuilder, MapHighlighter, NodeGrid, Room};
 use crate::rng::{EncounterGenerator, Seed, StsRandom};
 
 pub struct StsSimulator {
@@ -89,7 +89,6 @@ impl StsSimulator {
         self.send_player_view()?;
 
         // Player needs to enter the board
-        self.send_map()?;
         let mut prompt = Prompt::EnterMap;
         let mut choices = self
             .map
@@ -97,6 +96,13 @@ impl StsSimulator {
             .into_iter()
             .map(Choice::MapEntryColumn)
             .collect::<Vec<_>>();
+        self.send_map_with_choices(
+            self.map
+                .nonempty_cols_for_row(0)
+                .into_iter()
+                .map(|col| (0, col))
+                .collect(),
+        )?;
         self.send_prompt_and_choices(prompt, &choices)?;
         loop {
             let choice_index = self.input_rx.recv()?;
@@ -123,11 +129,35 @@ impl StsSimulator {
     }
 
     fn send_map(&self) -> Result<(), anyhow::Error> {
-        self.output_tx.send(StsMessage::Map(
-            self.map
-                .to_string_with_highlighted_row_col(self.player_row_col)
-                + "\n\n a  b  c  d  e  f  g",
-        ))?;
+        let mut map_string = self.map.to_string_with_highlighter(StsMapHighlighter {
+            player_row_and_col: self.player_row_col,
+            choices: vec![],
+        });
+        map_string.push_str("\n\n a  b  c  d  e  f  g");
+        self.output_tx.send(StsMessage::Map(map_string))?;
+        Ok(())
+    }
+
+    fn send_map_with_choices(&self, map_choices: Vec<(usize, usize)>) -> Result<(), anyhow::Error> {
+        let mut suffix = String::new();
+        for (i, c) in ('a'..'g').enumerate() {
+            if map_choices.iter().any(|(_, col)| i == *col) {
+                suffix.push('{');
+                suffix.push(c);
+                suffix.push('}');
+            } else {
+                suffix.push(' ');
+                suffix.push(c);
+                suffix.push(' ');
+            }
+        }
+        let mut map_string = self.map.to_string_with_highlighter(StsMapHighlighter {
+            player_row_and_col: self.player_row_col,
+            choices: map_choices,
+        });
+        map_string.push_str("\n\n");
+        map_string.push_str(&suffix);
+        self.output_tx.send(StsMessage::Map(map_string))?;
         Ok(())
     }
 
@@ -181,5 +211,40 @@ impl StsSimulator {
     fn enter_room(&mut self, room: Room) -> Result<Option<(Prompt, Vec<Choice>)>, Error> {
         println!("[Simulator] Player entered room {:?}", room);
         Ok(None)
+    }
+}
+
+struct StsMapHighlighter {
+    player_row_and_col: Option<(usize, usize)>,
+    choices: Vec<(usize, usize)>,
+}
+
+impl MapHighlighter for StsMapHighlighter {
+    fn left(&self, row: usize, col: usize) -> char {
+        if self.choices.contains(&(row, col)) {
+            '{'
+        } else if let Some((player_row, player_col)) = self.player_row_and_col {
+            if row == player_row && col == player_col {
+                '['
+            } else {
+                ' '
+            }
+        } else {
+            ' '
+        }
+    }
+
+    fn right(&self, row: usize, col: usize) -> char {
+        if self.choices.contains(&(row, col)) {
+            '}'
+        } else if let Some((player_row, player_col)) = self.player_row_and_col {
+            if row == player_row && col == player_col {
+                ']'
+            } else {
+                ' '
+            }
+        } else {
+            ' '
+        }
     }
 }

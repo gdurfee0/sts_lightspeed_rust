@@ -38,6 +38,12 @@ pub struct NodeBuilderGrid {
     grid: [[Option<NodeBuilder>; COLUMN_COUNT]; ROW_COUNT],
 }
 
+// Convenience trait for highlighting the a node grid for its string representation.
+pub trait MapHighlighter {
+    fn left(&self, row: usize, col: usize) -> char;
+    fn right(&self, row: usize, col: usize) -> char;
+}
+
 impl NodeGrid {
     pub fn new(grid: [[Option<Node>; COLUMN_COUNT]; ROW_COUNT]) -> Self {
         Self { grid }
@@ -56,7 +62,10 @@ impl NodeGrid {
             .collect()
     }
 
-    pub fn to_string_with_highlighted_row_col(&self, row_col: Option<(usize, usize)>) -> String {
+    /// Displays a string representation of the grid, with rooms properly arranged and exits
+    /// (edges) connecting them. The `highlight_fn` parameter is a function that takes the row
+    /// and column indices of a node and returns a tuple of characters to highlight the node.
+    pub fn to_string_with_highlighter<T: MapHighlighter>(&self, highlighter: T) -> String {
         let mut result = String::new();
         for (row, row_slice) in self.grid.iter().enumerate().rev() {
             for maybe_node in row_slice.iter() {
@@ -73,18 +82,9 @@ impl NodeGrid {
             for (col, maybe_node) in row_slice.iter().enumerate() {
                 match maybe_node {
                     Some(node) => {
-                        let (a, b) = if let Some((r, c)) = row_col {
-                            if row == r && col == c {
-                                ('[', ']')
-                            } else {
-                                (' ', ' ')
-                            }
-                        } else {
-                            (' ', ' ')
-                        };
-                        result.push(a);
+                        result.push(highlighter.left(row, col));
                         result.push_str(node.room.to_string().as_str());
-                        result.push(b);
+                        result.push(highlighter.right(row, col));
                     }
                     None => {
                         result.push_str("   ");
@@ -100,9 +100,21 @@ impl NodeGrid {
     }
 }
 
+struct DummyHighlighter;
+
+impl MapHighlighter for DummyHighlighter {
+    fn left(&self, _: usize, _: usize) -> char {
+        ' '
+    }
+
+    fn right(&self, _: usize, _: usize) -> char {
+        ' '
+    }
+}
+
 impl fmt::Display for NodeGrid {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}", self.to_string_with_highlighted_row_col(None))
+        write!(f, "{}", self.to_string_with_highlighter(DummyHighlighter))
     }
 }
 
@@ -365,6 +377,29 @@ mod test {
                     .flat_map(|val64| val64.to_be_bytes())
                     .collect::<Vec<u8>>(),
             )
+        }
+    }
+
+    struct SimpleHighlighter {
+        pub row: usize,
+        pub col: usize,
+    }
+
+    impl MapHighlighter for SimpleHighlighter {
+        fn left(&self, row: usize, col: usize) -> char {
+            if row == self.row && col == self.col {
+                '['
+            } else {
+                ' '
+            }
+        }
+
+        fn right(&self, row: usize, col: usize) -> char {
+            if row == self.row && col == self.col {
+                ']'
+            } else {
+                ' '
+            }
         }
     }
 
@@ -734,44 +769,7 @@ mod test {
         );
 
         assert_eq!(
-            MAP_0SLAYTHESPIRE.to_string_with_highlighted_row_col(None),
-            [
-                r"  /     /   \  \     ",
-                r" R     R     R  R    ",
-                r" | \   |   /      \  ",
-                r" E  M  $  M        E ",
-                r"   \  \|  |      /   ",
-                r"    ?  E  R     R    ",
-                r"  /  / |    \   |    ",
-                r" 1  M  ?     M  ?    ",
-                r" |  | \  \ /  /      ",
-                r" ?  M  R  ?  M       ",
-                r" |/    |/ |  |       ",
-                r" R     M  ?  R       ",
-                r" | \ /  /      \     ",
-                r" T  T  T        T    ",
-                r" |  | \|          \  ",
-                r" M  $  M           M ",
-                r" |  |/   \       /   ",
-                r" M  M     ?     M    ",
-                r" |  | \     \ /      ",
-                r" R  E  R     M       ",
-                r" |    \  \ / |       ",
-                r" M     ?  M  ?       ",
-                r" |     |/ |  |       ",
-                r" ?     M  ?  M       ",
-                r" |   / |  | \  \     ",
-                r" ?  M  M  $  ?  M    ",
-                r" |/    |/      \|    ",
-                r" M     M        M    ",
-                r" |     |        |    ",
-                r" M     M        M    ",
-            ]
-            .join("\n")
-        );
-
-        assert_eq!(
-            MAP_0SLAYTHESPIRE.to_string_with_highlighted_row_col(Some((4, 3))),
+            MAP_0SLAYTHESPIRE.to_string_with_highlighter(SimpleHighlighter { row: 4, col: 3 }),
             [
                 r"  /     /   \  \     ",
                 r" R     R     R  R    ",

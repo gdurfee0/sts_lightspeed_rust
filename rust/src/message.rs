@@ -1,6 +1,6 @@
 use std::fmt;
 
-use crate::data::NeowBlessing;
+use crate::data::{NeowBlessing, Relic};
 
 /// Message type for communication from the Simualtor to a client (human operator or AI agent).
 /// The Simulator will send any number of these messages to the client, concluding with a
@@ -11,8 +11,9 @@ pub enum StsMessage {
     /// ASCII representation of the current map.
     Map(String),
 
-    // TODO: less frequently changing information such as deck composition, relics, etc.
-    //
+    // All of the player's relics in order of acquisition.
+    Relics(Vec<Relic>),
+
     // All information that might change on a move-by-move basis, such as the player's HP and gold.
     View(PlayerView),
 

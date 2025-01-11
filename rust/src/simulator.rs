@@ -2,7 +2,7 @@ use std::sync::mpsc::{Receiver, Sender};
 
 use anyhow::{anyhow, Ok};
 
-use crate::data::{Act, Ascension, Character, NeowBlessing, NeowBonus, NeowPenalty};
+use crate::data::{Act, Ascension, Character, NeowBlessing, NeowBonus, NeowPenalty, Relic};
 use crate::map::{MapBuilder, NodeGrid};
 use crate::message::{Choice, PlayerView, Prompt, StsMessage};
 use crate::rng::{EncounterGenerator, NeowGenerator, Seed};
@@ -29,15 +29,7 @@ pub struct StsSimulator {
     player_hp: u32,
     player_hp_max: u32,
     player_gold: u32,
-
-    // State machine node for the simulator
-    state: State,
-}
-
-#[derive(Clone, Copy, Debug)]
-enum State {
-    Neow,
-    Halt,
+    player_relics: Vec<Relic>,
 }
 
 impl StsSimulator {
@@ -64,7 +56,7 @@ impl StsSimulator {
             player_hp: character.start_hp,
             player_hp_max: character.start_hp,
             player_gold: 99,
-            state: State::Neow,
+            player_relics: vec![character.starting_relic],
         }
     }
 
@@ -75,6 +67,7 @@ impl StsSimulator {
             std::mem::size_of::<StsMessage>(),
         );
         self.send_map()?;
+        self.send_relics()?;
         self.send_player_view()?;
         let mut prompt = Prompt::NeowBlessing;
         let mut choices = self
@@ -104,6 +97,12 @@ impl StsSimulator {
         Ok(())
     }
 
+    fn send_relics(&self) -> Result<(), anyhow::Error> {
+        self.output_tx
+            .send(StsMessage::Relics(self.player_relics.clone()))?;
+        Ok(())
+    }
+
     fn send_player_view(&self) -> Result<(), anyhow::Error> {
         self.output_tx.send(StsMessage::View(PlayerView {
             hp: self.player_hp,
@@ -124,17 +123,12 @@ impl StsSimulator {
     }
 
     fn handle_response(&mut self, choice: &Choice) -> Result<(Prompt, Vec<Choice>), anyhow::Error> {
-        match (self.state, choice) {
-            (State::Neow, Choice::NeowBlessing(blessing)) => {
+        match choice {
+            Choice::NeowBlessing(blessing) => {
                 self.handle_neow_blessing(blessing)?;
-                self.state = State::Halt;
                 Ok((Prompt::HaltAndCatchFire, vec![Choice::CatchFire]))
             }
-            (State::Neow, _) => unreachable!(),
-            (State::Halt, Choice::CatchFire) => {
-                Ok((Prompt::HaltAndCatchFire, vec![Choice::CatchFire]))
-            }
-            (State::Halt, _) => unreachable!(),
+            Choice::CatchFire => Ok((Prompt::HaltAndCatchFire, vec![Choice::CatchFire])),
         }
     }
 
@@ -149,7 +143,7 @@ impl StsSimulator {
                 self.player_hp_max += self.player_hp_max / 10;
                 self.player_hp = self.player_hp_max;
             }
-            NeowBlessing::NeowsLament => todo!(),
+            NeowBlessing::NeowsLament => self.obtain_relic(Relic::NeowsLament)?,
             NeowBlessing::ObtainRandomCommonRelic => todo!(),
             NeowBlessing::ObtainRandomRareCard => todo!(),
             NeowBlessing::ObtainThreeRandomPotions => todo!(),
@@ -188,5 +182,191 @@ impl StsSimulator {
             }
         }
         Ok(())
+    }
+
+    fn obtain_relic(&mut self, relic: Relic) -> Result<(), anyhow::Error> {
+        self.player_relics.push(relic);
+        self.send_relics()?;
+        match relic {
+            Relic::Akabeko => todo!(),
+            Relic::Anchor => todo!(),
+            Relic::AncientTeaSet => todo!(),
+            Relic::ArtOfWar => todo!(),
+            Relic::Astrolabe => todo!(),
+            Relic::BagOfMarbles => todo!(),
+            Relic::BagOfPreparation => todo!(),
+            Relic::BirdFacedUrn => todo!(),
+            Relic::BlackBlood => todo!(),
+            Relic::BlackStar => todo!(),
+            Relic::BloodVial => todo!(),
+            Relic::BloodyIdol => todo!(),
+            Relic::BlueCandle => todo!(),
+            Relic::BottledFlame => todo!(),
+            Relic::BottledLightning => todo!(),
+            Relic::BottledTornado => todo!(),
+            Relic::Brimstone => todo!(),
+            Relic::BronzeScales => todo!(),
+            Relic::BurningBlood => todo!(),
+            Relic::BustedCrown => todo!(),
+            Relic::Calipers => todo!(),
+            Relic::CallingBell => todo!(),
+            Relic::CaptainsWheel => todo!(),
+            Relic::Cauldron => todo!(),
+            Relic::CentennialPuzzle => todo!(),
+            Relic::CeramicFish => todo!(),
+            Relic::ChampionBelt => todo!(),
+            Relic::CharonsAshes => todo!(),
+            Relic::ChemicalX => todo!(),
+            Relic::Circlet => todo!(),
+            Relic::CloakClasp => todo!(),
+            Relic::ClockworkSouvenir => todo!(),
+            Relic::CoffeeDripper => todo!(),
+            Relic::CrackedCore => todo!(),
+            Relic::CultistHeadpiece => todo!(),
+            Relic::CursedKey => todo!(),
+            Relic::Damaru => todo!(),
+            Relic::DarkstonePeriapt => todo!(),
+            Relic::DataDisk => todo!(),
+            Relic::DeadBranch => todo!(),
+            Relic::DollysMirror => todo!(),
+            Relic::DreamCatcher => todo!(),
+            Relic::DuVuDoll => todo!(),
+            Relic::Duality => todo!(),
+            Relic::Ectoplasm => todo!(),
+            Relic::EmotionChip => todo!(),
+            Relic::EmptyCage => todo!(),
+            Relic::Enchiridion => todo!(),
+            Relic::EternalFeather => todo!(),
+            Relic::FaceOfCleric => todo!(),
+            Relic::FossilizedHelix => todo!(),
+            Relic::FrozenCore => todo!(),
+            Relic::FrozenEgg => todo!(),
+            Relic::FrozenEye => todo!(),
+            Relic::FusionHammer => todo!(),
+            Relic::GamblingChip => todo!(),
+            Relic::Ginger => todo!(),
+            Relic::Girya => todo!(),
+            Relic::GoldPlatedCables => todo!(),
+            Relic::GoldenEye => todo!(),
+            Relic::GoldenIdol => todo!(),
+            Relic::GremlinHorn => todo!(),
+            Relic::GremlinVisage => todo!(),
+            Relic::HandDrill => todo!(),
+            Relic::HappyFlower => todo!(),
+            Relic::HolyWater => todo!(),
+            Relic::HornCleat => todo!(),
+            Relic::HoveringKite => todo!(),
+            Relic::IceCream => todo!(),
+            Relic::IncenseBurner => todo!(),
+            Relic::InkBottle => todo!(),
+            Relic::Inserter => todo!(),
+            Relic::JuzuBracelet => todo!(),
+            Relic::Kunai => todo!(),
+            Relic::Lantern => todo!(),
+            Relic::LeesWaffle => todo!(),
+            Relic::LetterOpener => todo!(),
+            Relic::LizardTail => todo!(),
+            Relic::MagicFlower => todo!(),
+            Relic::Mango => todo!(),
+            Relic::MarkOfPain => todo!(),
+            Relic::MarkOfTheBloom => todo!(),
+            Relic::Matryoshka => todo!(),
+            Relic::MawBank => todo!(),
+            Relic::MealTicket => todo!(),
+            Relic::MeatOnTheBone => todo!(),
+            Relic::MedicalKit => todo!(),
+            Relic::Melange => todo!(),
+            Relic::MembershipCard => todo!(),
+            Relic::MercuryHourglass => todo!(),
+            Relic::MoltenEgg => todo!(),
+            Relic::MummifiedHand => todo!(),
+            Relic::MutagenicStrength => todo!(),
+            Relic::NeowsLament => todo!(),
+            Relic::NlothsGift => todo!(),
+            Relic::NlothsHungryFace => todo!(),
+            Relic::Necronomicon => todo!(),
+            Relic::NilrysCodex => todo!(),
+            Relic::NinjaScroll => todo!(),
+            Relic::NuclearBattery => todo!(),
+            Relic::Nunchaku => todo!(),
+            Relic::OddMushroom => todo!(),
+            Relic::OddlySmoothStone => todo!(),
+            Relic::OldCoin => todo!(),
+            Relic::Omamori => todo!(),
+            Relic::OrangePellets => todo!(),
+            Relic::Orichalcum => todo!(),
+            Relic::OrnamentalFan => todo!(),
+            Relic::Orrery => todo!(),
+            Relic::PandorasBox => todo!(),
+            Relic::Pantograph => todo!(),
+            Relic::PaperKrane => todo!(),
+            Relic::PaperPhrog => todo!(),
+            Relic::PeacePipe => todo!(),
+            Relic::Pear => todo!(),
+            Relic::PenNib => todo!(),
+            Relic::PhilosophersStone => todo!(),
+            Relic::Pocketwatch => todo!(),
+            Relic::PotionBelt => todo!(),
+            Relic::PrayerWheel => todo!(),
+            Relic::PreservedInsect => todo!(),
+            Relic::PrismaticShard => todo!(),
+            Relic::PureWater => todo!(),
+            Relic::QuestionCard => todo!(),
+            Relic::RedMask => todo!(),
+            Relic::RedSkull => todo!(),
+            Relic::RegalPillow => todo!(),
+            Relic::RingOfTheSerpent => todo!(),
+            Relic::RingOfTheSnake => todo!(),
+            Relic::RunicCapacitor => todo!(),
+            Relic::RunicCube => todo!(),
+            Relic::RunicDome => todo!(),
+            Relic::RunicPyramid => todo!(),
+            Relic::SacredBark => todo!(),
+            Relic::SelfFormingClay => todo!(),
+            Relic::Shovel => todo!(),
+            Relic::Shuriken => todo!(),
+            Relic::SingingBowl => todo!(),
+            Relic::SlaversCollar => todo!(),
+            Relic::SlingOfCourage => todo!(),
+            Relic::SmilingMask => todo!(),
+            Relic::SneckoEye => todo!(),
+            Relic::SneckoSkull => todo!(),
+            Relic::Sozu => todo!(),
+            Relic::SpiritPoop => todo!(),
+            Relic::SsserpentHead => todo!(),
+            Relic::StoneCalendar => todo!(),
+            Relic::StrangeSpoon => todo!(),
+            Relic::Strawberry => todo!(),
+            Relic::StrikeDummy => todo!(),
+            Relic::Sundial => todo!(),
+            Relic::SymbioticVirus => todo!(),
+            Relic::TeardropLocket => todo!(),
+            Relic::TheAbacus => todo!(),
+            Relic::TheBoot => todo!(),
+            Relic::TheCourier => todo!(),
+            Relic::TheSpecimen => todo!(),
+            Relic::ThreadAndNeedle => todo!(),
+            Relic::Tingsha => todo!(),
+            Relic::TinyChest => todo!(),
+            Relic::TinyHouse => todo!(),
+            Relic::Toolbox => todo!(),
+            Relic::Torii => todo!(),
+            Relic::ToughBandages => todo!(),
+            Relic::ToxicEgg => todo!(),
+            Relic::ToyOrnithopter => todo!(),
+            Relic::TungstenRod => todo!(),
+            Relic::Turnip => todo!(),
+            Relic::TwistedFunnel => todo!(),
+            Relic::UnceasingTop => todo!(),
+            Relic::Vajra => todo!(),
+            Relic::VelvetChoker => todo!(),
+            Relic::VioletLotus => todo!(),
+            Relic::WarPaint => todo!(),
+            Relic::WarpedTongs => todo!(),
+            Relic::Whetstone => todo!(),
+            Relic::WhiteBeastStatue => todo!(),
+            Relic::WingBoots => todo!(),
+            Relic::WristBlade => todo!(),
+        }
     }
 }

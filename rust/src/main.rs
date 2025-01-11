@@ -38,16 +38,26 @@ fn main_input_loop(
     loop {
         match output_rx.recv()? {
             StsMessage::Map(map) => println!("{}\n", map),
+            StsMessage::Relics(relics) => {
+                println!(
+                    "Relics now: {}",
+                    relics
+                        .iter()
+                        .map(|relic| format!("{:?}", relic))
+                        .collect::<Vec<_>>()
+                        .join(",")
+                );
+            }
             StsMessage::View(view) => println!("{:?}", view),
+            StsMessage::Choose(prompt, choices) => {
+                input_tx.send(collect_user_choice(prompt, choices)?)?;
+            }
             StsMessage::GameOver(result) => {
                 println!(
                     "[Main] Game Over; the player was {}victorious",
                     if result { "" } else { "not " }
                 );
                 break;
-            }
-            StsMessage::Choose(prompt, choices) => {
-                input_tx.send(collect_user_choice(prompt, choices)?)?;
             }
         }
     }

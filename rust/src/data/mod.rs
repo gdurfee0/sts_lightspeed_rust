@@ -15,3 +15,4 @@ pub use event::Event;
 pub use neow::{
     NeowBlessing, NeowBonus, NeowPenalty, FIRST_NEOW_POOL, SECOND_NEOW_POOL, THIRD_NEOW_POOL,
 };
+pub use relic::Relic;

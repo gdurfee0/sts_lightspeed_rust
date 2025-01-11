@@ -66,8 +66,7 @@ impl StsSimulator {
             player_deck: character.starting_deck.to_vec(),
             player_row_col: None,
         }
-    }
-
+    } 
     pub fn run(mut self) -> Result<(), anyhow::Error> {
         println!(
             "[Simulator] Starting simulator of size {} with messages of size {}",
@@ -151,7 +150,7 @@ impl StsSimulator {
                     .get(0, *col)
                     .expect("We offered an invalid column")
                     .room;
-                self.enter_node(room)
+                self.enter_room(room)
             }
             Choice::NeowBlessing(blessing) => self.handle_neow_blessing(blessing),
             Choice::ObtainCard(card) => {
@@ -181,7 +180,7 @@ impl StsSimulator {
         }
     }
 
-    fn enter_node(&mut self, room: Room) -> Result<(Prompt, Vec<Choice>), Error> {
+    fn enter_room(&mut self, room: Room) -> Result<(Prompt, Vec<Choice>), Error> {
         println!("[Simulator] Player entered room {:?}", room);
         Ok((Prompt::HaltAndCatchFire, vec![Choice::CatchFire]))
     }

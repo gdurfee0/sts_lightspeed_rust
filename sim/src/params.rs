@@ -6,7 +6,7 @@ use crate::rng::Seed;
 pub struct GameParameters;
 
 impl GameParameters {
-    pub fn from_command_line() -> (Seed, Character, Ascension) {
+    pub fn from_command_line() -> (Seed, &'static Character, Ascension) {
         let mut args = env::args();
         args.next(); // Skip the program name
         let seed = args

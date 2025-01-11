@@ -1,22 +1,20 @@
 use anyhow::anyhow;
 
 #[derive(Debug, PartialEq)]
-pub enum Character {
-    Ironclad,
-    Silent,
-    Defect,
-    Watcher,
+pub struct Character {
+    /// The character's starting max hit points.
+    pub start_hp: u32,
 }
 
-impl TryFrom<&str> for Character {
+impl TryFrom<&str> for &'static Character {
     type Error = anyhow::Error;
 
     fn try_from(value: &str) -> Result<Self, Self::Error> {
         match value.to_lowercase().chars().next() {
-            Some('i') => Ok(Self::Ironclad),
-            Some('s') => Ok(Self::Silent),
-            Some('d') => Ok(Self::Defect),
-            Some('w') => Ok(Self::Watcher),
+            Some('i') => Ok(&CHARACTERS[0]),
+            Some('s') => Ok(&CHARACTERS[1]),
+            Some('d') => Ok(&CHARACTERS[2]),
+            Some('w') => Ok(&CHARACTERS[3]),
             _ => Err(anyhow!(
                 "Character options are (I)ronclad, (S)ilent, (D)efect, and (W)atcher"
             )),
@@ -24,7 +22,16 @@ impl TryFrom<&str> for Character {
     }
 }
 
-// TODO: Set this up in the same way as the Act struct using a static array
+static CHARACTERS: &[Character] = &[
+    // Ironclad
+    Character { start_hp: 80 },
+    // Silent
+    Character { start_hp: 70 },
+    // Defect
+    Character { start_hp: 75 },
+    // Watcher
+    Character { start_hp: 72 },
+];
 
 #[cfg(test)]
 mod tests {
@@ -33,18 +40,26 @@ mod tests {
     #[test]
     fn test_character_try_from() {
         assert_eq!(
-            Character::try_from("Ironclad").unwrap(),
-            Character::Ironclad
+            <&'static Character>::try_from("Ironclad").unwrap(),
+            &CHARACTERS[0]
         );
-        assert_eq!(Character::try_from("Silent").unwrap(), Character::Silent);
-        assert_eq!(Character::try_from("Defect").unwrap(), Character::Defect);
-        assert_eq!(Character::try_from("Watcher").unwrap(), Character::Watcher);
-        assert_eq!(Character::try_from("watcher").unwrap(), Character::Watcher);
-        assert!(Character::try_from("Unknown").is_err());
-    }
-
-    #[test]
-    fn test_from_empty_string() {
-        assert!(Character::try_from("").is_err());
+        assert_eq!(
+            <&'static Character>::try_from("Silent").unwrap(),
+            &CHARACTERS[1]
+        );
+        assert_eq!(
+            <&'static Character>::try_from("Defect").unwrap(),
+            &CHARACTERS[2]
+        );
+        assert_eq!(
+            <&'static Character>::try_from("Watcher").unwrap(),
+            &CHARACTERS[3]
+        );
+        assert_eq!(
+            <&'static Character>::try_from("watcher").unwrap(),
+            &CHARACTERS[3]
+        );
+        assert!(<&'static Character>::try_from("Unknown").is_err());
+        assert!(<&'static Character>::try_from("").is_err());
     }
 }

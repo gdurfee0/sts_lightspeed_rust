@@ -36,6 +36,9 @@ fn main_input_loop(
             Ok(SimulatorOutput::Choose(prompt, choices)) => {
                 input_tx.send(collect_user_choice(prompt, choices)?)?;
             }
+            Ok(SimulatorOutput::PlayerHp(current, max)) => {
+                println!("Player HP: {}/{}", current, max);
+            }
             Err(e) => {
                 println!("Error receiving output from simulator: {}", e);
                 break;

@@ -68,7 +68,7 @@ impl TryFrom<i8> for &'static Act {
     }
 }
 
-pub static ACTS: &[Act] = &[
+static ACTS: &[Act] = &[
     // ACT 1
     Act {
         map_seed_offset: 1,

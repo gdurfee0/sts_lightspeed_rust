@@ -15,17 +15,22 @@ pub enum SimulatorOutput {
     /// A list of strings, each representing a possible action; the agent must select one
     /// using zero-indexing.
     Choose(Prompt, Vec<Choice>),
+
+    /// The player's current HP and max HP
+    PlayerHp(u32, u32),
 }
 
 pub struct Simulator {
     seed: Seed,
-    character: Character,
+    character: &'static Character,
     ascension: Ascension,
     input_rx: Receiver<usize>,
     output_tx: Sender<SimulatorOutput>,
     state: State,
     map: NodeGrid,
     encounter_generator: EncounterGenerator,
+    //player_hp: u32,
+    //player_hp_max: u32,
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -36,7 +41,7 @@ enum State {
 impl Simulator {
     pub fn new(
         seed: Seed,
-        character: Character,
+        character: &'static Character,
         ascension: Ascension,
         input_rx: Receiver<usize>,
         output_tx: Sender<SimulatorOutput>,

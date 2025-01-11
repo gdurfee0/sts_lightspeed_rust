@@ -3,41 +3,9 @@ use std::sync::mpsc::{Receiver, Sender};
 use anyhow::{anyhow, Ok};
 
 use crate::data::{Act, Ascension, Character, NeowBlessing, NeowBonus, NeowPenalty};
-use crate::input::{Choice, Prompt};
 use crate::map::{MapBuilder, NodeGrid};
+use crate::message::{Choice, PlayerView, Prompt, StsMessage};
 use crate::rng::{EncounterGenerator, NeowGenerator, Seed};
-
-/// Message type for communication from the Simualtor to a client (human operator or AI agent).
-/// The Simulator will send any number of these messages to the client, concluding with a
-/// `Choose` message, at which point control passes to the client and the Simulator waits
-/// for a response.
-#[derive(Debug)]
-pub enum StsMessage {
-    /// ASCII representation of the current map.
-    Map(String),
-
-    // TODO: less frequently changing information such as deck composition, relics, etc.
-    //
-    // All information that might change on a move-by-move basis, such as the player's HP and gold.
-    View(PlayerView),
-
-    /// A list of `Choice`s, each representing a possible action; the client must select one
-    /// using zero-indexing and return its response as `usize` via its input_tx channel.
-    Choose(Prompt, Vec<Choice>),
-
-    /// Indicates that the game is over. The boolean indicates whether the player won or lost.
-    GameOver(bool),
-}
-
-#[derive(Clone, Debug)]
-pub struct PlayerView {
-    // TODO: keys
-    // TODO: character? or expect client to remember?
-    pub hp: u32,
-    pub hp_max: u32,
-    pub gold: u32,
-    // TODO: potions
-}
 
 pub struct StsSimulator {
     // Information typically set on the command line
@@ -68,7 +36,7 @@ pub struct StsSimulator {
 
 #[derive(Clone, Copy, Debug)]
 enum State {
-    NeowBlessing,
+    Neow,
     Halt,
 }
 
@@ -96,7 +64,7 @@ impl StsSimulator {
             player_hp: character.start_hp,
             player_hp_max: character.start_hp,
             player_gold: 99,
-            state: State::NeowBlessing,
+            state: State::Neow,
         }
     }
 
@@ -157,12 +125,12 @@ impl StsSimulator {
 
     fn handle_response(&mut self, choice: &Choice) -> Result<(Prompt, Vec<Choice>), anyhow::Error> {
         match (self.state, choice) {
-            (State::NeowBlessing, Choice::NeowBlessing(blessing)) => {
+            (State::Neow, Choice::NeowBlessing(blessing)) => {
                 self.handle_neow_blessing(blessing)?;
                 self.state = State::Halt;
                 Ok((Prompt::HaltAndCatchFire, vec![Choice::CatchFire]))
             }
-            (State::NeowBlessing, _) => unreachable!(),
+            (State::Neow, _) => unreachable!(),
             (State::Halt, Choice::CatchFire) => {
                 Ok((Prompt::HaltAndCatchFire, vec![Choice::CatchFire]))
             }
@@ -172,12 +140,15 @@ impl StsSimulator {
 
     fn handle_neow_blessing(&mut self, blessing: &NeowBlessing) -> Result<(), anyhow::Error> {
         match blessing {
-            NeowBlessing::ChooseOneOfThreeCards => unimplemented!(),
+            NeowBlessing::ChooseOneOfThreeCards => todo!(),
             NeowBlessing::ChooseUncommonColorlessCard => todo!(),
             NeowBlessing::GainOneHundredGold => {
                 self.player_gold += 100;
             }
-            NeowBlessing::IncreaseMaxHpByTenPercent => todo!(),
+            NeowBlessing::IncreaseMaxHpByTenPercent => {
+                self.player_hp_max += self.player_hp_max / 10;
+                self.player_hp = self.player_hp_max;
+            }
             NeowBlessing::NeowsLament => todo!(),
             NeowBlessing::ObtainRandomCommonRelic => todo!(),
             NeowBlessing::ObtainRandomRareCard => todo!(),
@@ -193,14 +164,22 @@ impl StsSimulator {
                     NeowBonus::GainTwoHundredFiftyGold => {
                         self.player_gold += 250;
                     }
-                    NeowBonus::IncreaseMaxHpByTwentyPercent => todo!(),
+                    NeowBonus::IncreaseMaxHpByTwentyPercent => {
+                        self.player_hp_max += self.player_hp_max / 5;
+                        self.player_hp = self.player_hp_max;
+                    }
                     NeowBonus::ObtainRandomRareRelic => todo!(),
                     NeowBonus::RemoveTwoCards => todo!(),
                     NeowBonus::TransformTwoCards => todo!(),
                 }
                 match penalty {
-                    NeowPenalty::DecreaseMaxHpByTenPercent => todo!(),
-                    NeowPenalty::LoseAllGold => todo!(),
+                    NeowPenalty::DecreaseMaxHpByTenPercent => {
+                        self.player_hp_max -= self.player_hp_max / 10;
+                        self.player_hp = self.player_hp_max;
+                    }
+                    NeowPenalty::LoseAllGold => {
+                        self.player_gold = 0;
+                    }
                     NeowPenalty::ObtainCurse => todo!(),
                     NeowPenalty::TakeDamage => {
                         self.player_hp -= (self.player_hp / 10) * 3;

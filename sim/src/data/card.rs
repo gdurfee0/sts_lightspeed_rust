@@ -127,6 +127,7 @@ pub enum Card {
     Entrench,
     Envenom,
     Equilibrium,
+    Eruption,
     EscapePlan,
     Establishment,
     Evaluate,

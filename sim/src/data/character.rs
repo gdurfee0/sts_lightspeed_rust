@@ -1,9 +1,18 @@
 use anyhow::anyhow;
 
+use super::card::Card;
+use super::relic::Relic;
+
 #[derive(Debug, PartialEq)]
 pub struct Character {
     /// The character's starting max hit points.
     pub start_hp: u32,
+
+    /// The character's starting relic.
+    pub starting_relic: Relic,
+
+    // The character's starting deck in the order displayed in-game.
+    pub starting_deck: &'static [Card],
 }
 
 impl TryFrom<&str> for &'static Character {
@@ -24,13 +33,75 @@ impl TryFrom<&str> for &'static Character {
 
 static CHARACTERS: &[Character] = &[
     // Ironclad
-    Character { start_hp: 80 },
+    Character {
+        start_hp: 80,
+        starting_relic: Relic::BurningBlood,
+        starting_deck: &[
+            Card::Strike,
+            Card::Strike,
+            Card::Strike,
+            Card::Strike,
+            Card::Strike,
+            Card::Defend,
+            Card::Defend,
+            Card::Defend,
+            Card::Defend,
+            Card::Bash,
+        ],
+    },
     // Silent
-    Character { start_hp: 70 },
+    Character {
+        start_hp: 70,
+        starting_relic: Relic::RingOfTheSnake,
+        starting_deck: &[
+            Card::Strike,
+            Card::Strike,
+            Card::Strike,
+            Card::Strike,
+            Card::Strike,
+            Card::Defend,
+            Card::Defend,
+            Card::Defend,
+            Card::Defend,
+            Card::Defend,
+            Card::Survivor,
+            Card::Neutralize,
+        ],
+    },
     // Defect
-    Character { start_hp: 75 },
+    Character {
+        start_hp: 75,
+        starting_relic: Relic::CrackedCore,
+        starting_deck: &[
+            Card::Strike,
+            Card::Strike,
+            Card::Strike,
+            Card::Strike,
+            Card::Defend,
+            Card::Defend,
+            Card::Defend,
+            Card::Defend,
+            Card::Zap,
+            Card::Dualcast,
+        ],
+    },
     // Watcher
-    Character { start_hp: 72 },
+    Character {
+        start_hp: 72,
+        starting_relic: Relic::PureWater,
+        starting_deck: &[
+            Card::Strike,
+            Card::Strike,
+            Card::Strike,
+            Card::Strike,
+            Card::Defend,
+            Card::Defend,
+            Card::Defend,
+            Card::Defend,
+            Card::Eruption,
+            Card::Vigilance,
+        ],
+    },
 ];
 
 #[cfg(test)]

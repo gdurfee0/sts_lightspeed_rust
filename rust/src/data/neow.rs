@@ -2,8 +2,8 @@ use std::fmt;
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum NeowBlessing {
-    ChooseOneOfThreeCards,
-    ChooseUncommonColorlessCard,
+    ChooseCard,
+    ChooseColorlessCard,
     Composite(NeowBonus, NeowPenalty),
     GainOneHundredGold,
     IncreaseMaxHpByTenPercent,
@@ -37,12 +37,12 @@ pub enum NeowPenalty {
 }
 
 pub const FIRST_NEOW_POOL: &[NeowBlessing] = &[
-    NeowBlessing::ChooseOneOfThreeCards,
+    NeowBlessing::ChooseCard,
     NeowBlessing::ObtainRandomRareCard,
     NeowBlessing::RemoveCard,
     NeowBlessing::UpgradeCard,
     NeowBlessing::TransformCard,
-    NeowBlessing::ChooseUncommonColorlessCard,
+    NeowBlessing::ChooseColorlessCard,
 ];
 
 pub const SECOND_NEOW_POOL: &[NeowBlessing] = &[
@@ -109,8 +109,8 @@ impl fmt::Display for NeowBlessing {
                 f,
                 "{}",
                 match self {
-                    NeowBlessing::ChooseOneOfThreeCards => "Choose one of 3 cards to obtain",
-                    NeowBlessing::ChooseUncommonColorlessCard =>
+                    NeowBlessing::ChooseCard => "Choose one of 3 cards to obtain",
+                    NeowBlessing::ChooseColorlessCard =>
                         "Choose an uncommon colorless card to obtain",
                     NeowBlessing::GainOneHundredGold => "Receive 100 gold",
                     NeowBlessing::IncreaseMaxHpByTenPercent => "Increase max HP by 10%",

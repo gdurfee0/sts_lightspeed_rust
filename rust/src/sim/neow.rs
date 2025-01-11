@@ -3,10 +3,9 @@ use std::sync::mpsc::{Receiver, Sender};
 use anyhow::{Error, Ok};
 
 use super::message::{Choice, Prompt, StsMessage};
+use super::player::Player;
 
-use crate::data::{
-    Card, Character, NeowBlessing, NeowBonus, NeowPenalty, Relic, UNCOMMON_COLORLESS_CARDS,
-};
+use crate::data::{Character, NeowBlessing, NeowBonus, NeowPenalty, UNCOMMON_COLORLESS_CARDS};
 use crate::rng::{NeowGenerator, Seed, StsRandom};
 
 pub struct NeowSimulator<'a> {
@@ -22,11 +21,7 @@ pub struct NeowSimulator<'a> {
     card_sts_random: &'a mut StsRandom,
 
     // Current player state
-    player_hp: &'a mut u32,
-    player_hp_max: &'a mut u32,
-    player_gold: &'a mut u32,
-    player_relics: &'a mut Vec<Relic>,
-    player_deck: &'a mut Vec<Card>,
+    player: &'a mut Player,
 }
 
 impl<'a> NeowSimulator<'a> {
@@ -36,11 +31,7 @@ impl<'a> NeowSimulator<'a> {
         input_rx: &'a mut Receiver<usize>,
         output_tx: &'a mut Sender<StsMessage>,
         card_sts_random: &'a mut StsRandom,
-        player_hp: &'a mut u32,
-        player_hp_max: &'a mut u32,
-        player_gold: &'a mut u32,
-        player_relics: &'a mut Vec<Relic>,
-        player_deck: &'a mut Vec<Card>,
+        player: &'a mut Player,
     ) -> Self {
         let neow_generator = NeowGenerator::new(&seed, character);
         Self {
@@ -49,11 +40,7 @@ impl<'a> NeowSimulator<'a> {
             output_tx,
             neow_generator,
             card_sts_random,
-            player_hp,
-            player_hp_max,
-            player_gold,
-            player_relics,
-            player_deck,
+            player,
         }
     }
     pub fn run(mut self) -> Result<(), anyhow::Error> {
@@ -103,7 +90,7 @@ impl<'a> NeowSimulator<'a> {
         match choice {
             Choice::NeowBlessing(blessing) => self.handle_neow_blessing(blessing),
             Choice::ObtainCard(card) => {
-                self.player_deck.push(*card);
+                self.player.deck.push(*card);
                 // NeowSimulator is finished.
                 Ok(None)
             }
@@ -116,7 +103,7 @@ impl<'a> NeowSimulator<'a> {
         blessing: &NeowBlessing,
     ) -> Result<Option<(Prompt, Vec<Choice>)>, Error> {
         match blessing {
-            NeowBlessing::ChooseOneOfThreeCards => Ok(Some((
+            NeowBlessing::ChooseCard => Ok(Some((
                 Prompt::ObtainCard,
                 self.neow_generator
                     .three_card_choices()
@@ -124,7 +111,7 @@ impl<'a> NeowSimulator<'a> {
                     .map(Choice::ObtainCard)
                     .collect(),
             ))),
-            NeowBlessing::ChooseUncommonColorlessCard => Ok(Some((
+            NeowBlessing::ChooseColorlessCard => Ok(Some((
                 Prompt::ObtainCard,
                 self.card_sts_random
                     .sample_without_replacement(UNCOMMON_COLORLESS_CARDS, 3)
@@ -133,12 +120,12 @@ impl<'a> NeowSimulator<'a> {
                     .collect(),
             ))),
             NeowBlessing::GainOneHundredGold => {
-                *self.player_gold += 100;
+                self.player.gold += 100;
                 Ok(None)
             }
             NeowBlessing::IncreaseMaxHpByTenPercent => {
-                *self.player_hp_max += *self.player_hp_max / 10;
-                *self.player_hp = *self.player_hp_max;
+                self.player.hp_max += self.player.hp_max / 10;
+                self.player.hp = self.player.hp_max;
                 Ok(None)
             }
             NeowBlessing::NeowsLament => todo!(),
@@ -152,27 +139,27 @@ impl<'a> NeowSimulator<'a> {
             NeowBlessing::Composite(bonus, penalty) => {
                 match penalty {
                     NeowPenalty::DecreaseMaxHpByTenPercent => {
-                        *self.player_hp_max -= *self.player_hp_max / 10;
-                        *self.player_hp = *self.player_hp_max;
+                        self.player.hp_max -= self.player.hp_max / 10;
+                        self.player.hp = self.player.hp_max;
                     }
                     NeowPenalty::LoseAllGold => {
-                        *self.player_gold = 0;
+                        self.player.gold = 0;
                     }
                     NeowPenalty::ObtainCurse => todo!(),
                     NeowPenalty::TakeDamage => {
-                        *self.player_hp -= (*self.player_hp / 10) * 3;
+                        self.player.hp -= (self.player.hp / 10) * 3;
                     }
                 }
                 match bonus {
                     NeowBonus::ChooseRareCard => todo!(),
                     NeowBonus::ChooseRareColorlessCard => todo!(),
                     NeowBonus::GainTwoHundredFiftyGold => {
-                        *self.player_gold += 250;
+                        self.player.gold += 250;
                         Ok(None)
                     }
                     NeowBonus::IncreaseMaxHpByTwentyPercent => {
-                        *self.player_hp_max += *self.player_hp_max / 5;
-                        *self.player_hp = *self.player_hp_max;
+                        self.player.hp_max += self.player.hp_max / 5;
+                        self.player.hp = self.player.hp_max;
                         Ok(None)
                     }
                     NeowBonus::ObtainRandomRareRelic => todo!(),

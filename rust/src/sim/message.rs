@@ -30,8 +30,6 @@ pub enum StsMessage {
 
 #[derive(Clone, Debug)]
 pub struct PlayerView {
-    // TODO: keys
-    // TODO: character? or expect client to remember?
     pub hp: u32,
     pub hp_max: u32,
     pub gold: u32,
@@ -47,9 +45,9 @@ pub enum Prompt {
 
 #[derive(Clone, Debug)]
 pub enum Choice {
-    ObtainCard(Card),
     MapEntryColumn(usize),
     NeowBlessing(NeowBlessing),
+    ObtainCard(Card),
 }
 
 impl fmt::Display for Prompt {
@@ -66,7 +64,7 @@ impl fmt::Display for Choice {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Choice::ObtainCard(card) => write!(f, "{}", card),
-            Choice::MapEntryColumn(col) => write!(f, "Column {}", ('a' as u8 + *col as u8) as char),
+            Choice::MapEntryColumn(col) => write!(f, "Column {}", (b'a' + *col as u8) as char),
             Choice::NeowBlessing(blessing) => write!(f, "{}", blessing),
         }
     }

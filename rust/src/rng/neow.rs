@@ -72,7 +72,7 @@ mod test {
         assert_eq!(
             generator.blessing_choices().to_vec(),
             vec![
-                NeowBlessing::ChooseOneOfThreeCards,
+                NeowBlessing::ChooseCard,
                 NeowBlessing::GainOneHundredGold,
                 NeowBlessing::Composite(
                     NeowBonus::GainTwoHundredFiftyGold,
@@ -87,7 +87,7 @@ mod test {
         assert_eq!(
             generator.blessing_choices().to_vec(),
             vec![
-                NeowBlessing::ChooseUncommonColorlessCard,
+                NeowBlessing::ChooseColorlessCard,
                 NeowBlessing::IncreaseMaxHpByTenPercent,
                 NeowBlessing::Composite(NeowBonus::TransformTwoCards, NeowPenalty::TakeDamage),
                 NeowBlessing::ReplaceStarterRelic

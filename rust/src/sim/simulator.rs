@@ -4,8 +4,9 @@ use anyhow::{Error, Ok};
 
 use super::message::{Choice, PlayerView, Prompt, StsMessage};
 use super::neow::NeowSimulator;
+use super::player::Player;
 
-use crate::data::{Act, Ascension, Card, Character, Relic};
+use crate::data::{Act, Ascension, Character};
 use crate::map::{MapBuilder, NodeGrid, Room};
 use crate::rng::{EncounterGenerator, Seed, StsRandom};
 
@@ -27,12 +28,9 @@ pub struct StsSimulator {
     map: NodeGrid,
 
     // Current player state
-    // TODO: House this in a struct to simplify references held by sub-simulators.
-    player_hp: u32,
-    player_hp_max: u32,
-    player_gold: u32,
-    player_relics: Vec<Relic>,
-    player_deck: Vec<Card>,
+    player: Player,
+
+    // Current player row and column in the map
     player_row_col: Option<(usize, usize)>,
 }
 
@@ -56,14 +54,17 @@ impl StsSimulator {
             encounter_generator,
             card_sts_random,
             map,
-            player_hp: character.starting_hp,
-            player_hp_max: character.starting_hp,
-            player_gold: 99,
-            player_relics: vec![character.starting_relic],
-            player_deck: character.starting_deck.to_vec(),
+            player: Player {
+                hp: character.starting_hp,
+                hp_max: character.starting_hp,
+                gold: 99,
+                relics: vec![character.starting_relic],
+                deck: character.starting_deck.to_vec(),
+            },
             player_row_col: None,
         }
     }
+
     pub fn run(mut self) -> Result<(), anyhow::Error> {
         println!(
             "[Simulator] Starting simulator of size {} with messages of size {}",
@@ -80,11 +81,7 @@ impl StsSimulator {
             &mut self.input_rx,
             &mut self.output_tx,
             &mut self.card_sts_random,
-            &mut self.player_hp,
-            &mut self.player_hp_max,
-            &mut self.player_gold,
-            &mut self.player_relics,
-            &mut self.player_deck,
+            &mut self.player,
         );
         neow_simulator.run()?;
         self.send_relics()?;
@@ -136,21 +133,21 @@ impl StsSimulator {
 
     fn send_relics(&self) -> Result<(), anyhow::Error> {
         self.output_tx
-            .send(StsMessage::Relics(self.player_relics.clone()))?;
+            .send(StsMessage::Relics(self.player.relics.clone()))?;
         Ok(())
     }
 
     fn send_deck(&self) -> Result<(), anyhow::Error> {
         self.output_tx
-            .send(StsMessage::Deck(self.player_deck.clone()))?;
+            .send(StsMessage::Deck(self.player.deck.clone()))?;
         Ok(())
     }
 
     fn send_player_view(&self) -> Result<(), anyhow::Error> {
         self.output_tx.send(StsMessage::View(PlayerView {
-            hp: self.player_hp,
-            hp_max: self.player_hp_max,
-            gold: self.player_gold,
+            hp: self.player.hp,
+            hp_max: self.player.hp_max,
+            gold: self.player.gold,
         }))?;
         Ok(())
     }

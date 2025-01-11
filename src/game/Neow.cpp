@@ -82,6 +82,7 @@ std::array<Neow::Option, 4> Neow::getOptions(Random &r) {
 
 CardReward sts::Neow::getColorlessCardReward(Random &neowRng, Random& cardRng, bool rareOnly) {
     CardReward reward;
+    std::cout << "ingccr neow rng counter " << neowRng.counter << std::endl;
     for (int i = 0; i < 3; ++i) {
 
         CardRarity rarity = neowRng.randomBoolean(0.33F) ? CardRarity::UNCOMMON : CardRarity::COMMON;
@@ -108,6 +109,7 @@ CardReward sts::Neow::getColorlessCardReward(Random &neowRng, Random& cardRng, b
         }
         reward.push_back(card);
     }
+    std::cout << "ingccr neow rng counter " << neowRng.counter << std::endl;
 
     return reward;
 }

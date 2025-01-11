@@ -40,6 +40,7 @@ pub struct PlayerView {
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum Prompt {
+    EnterMap,
     HaltAndCatchFire,
     ObtainCard,
     NeowBlessing,
@@ -49,12 +50,14 @@ pub enum Prompt {
 pub enum Choice {
     ObtainCard(Card),
     CatchFire,
+    MapEntryColumn(usize),
     NeowBlessing(NeowBlessing),
 }
 
 impl fmt::Display for Prompt {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
+            Prompt::EnterMap => write!(f, "Select a column for your entry point on to the map"),
             Prompt::HaltAndCatchFire => write!(f, "You halt. Now decide your fate"),
             Prompt::ObtainCard => write!(f, "Choose a card to obtain"),
             Prompt::NeowBlessing => write!(f, "Choose Neow's Blessing"),
@@ -67,6 +70,7 @@ impl fmt::Display for Choice {
         match self {
             Choice::ObtainCard(card) => write!(f, "{}", card),
             Choice::CatchFire => write!(f, "Catch Fire"),
+            Choice::MapEntryColumn(col) => write!(f, "Column {}", ('a' as u8 + *col as u8) as char),
             Choice::NeowBlessing(blessing) => write!(f, "{}", blessing),
         }
     }

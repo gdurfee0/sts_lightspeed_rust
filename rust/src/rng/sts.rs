@@ -184,6 +184,31 @@ impl StsRandom {
         &choices.last().unwrap().0
     }
 
+    /// Samples from the given input slice, without duplicates.
+    ///
+    /// Fisher-Yates would be better here, but we implement it this way for consistency with the
+    /// original game.
+    ///
+    /// TODO: For performance, consider a mutable input slice instead of returning a Vec<T>
+    pub fn sample_without_replacement<T>(&mut self, choices: &[T], n: usize) -> Vec<T>
+    where
+        T: Copy + fmt::Debug + PartialEq,
+    {
+        assert!(
+            n <= choices.len(),
+            "Cannot sample more elements than are available in the input slice"
+        );
+        let mut result = Vec::with_capacity(n);
+        for _ in 0..n {
+            let mut choice = *self.choose(choices);
+            while result.contains(&choice) {
+                choice = *self.choose(choices);
+            }
+            result.push(choice);
+        }
+        result
+    }
+
     /// Pulls a value of type `f32` uniformly at random from [0, 1) by scaling a u64.
     fn next_f32(&mut self) -> f32 {
         (self.next_u64() >> 40) as f32 * 5.9604645e-8

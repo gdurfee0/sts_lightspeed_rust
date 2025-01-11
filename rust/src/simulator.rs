@@ -2,10 +2,13 @@ use std::sync::mpsc::{Receiver, Sender};
 
 use anyhow::{anyhow, Error, Ok};
 
-use crate::data::{Act, Ascension, Card, Character, NeowBlessing, NeowBonus, NeowPenalty, Relic};
-use crate::map::{MapBuilder, NodeGrid};
+use crate::data::{
+    Act, Ascension, Card, Character, NeowBlessing, NeowBonus, NeowPenalty, Relic,
+    UNCOMMON_COLORLESS_CARDS,
+};
+use crate::map::{MapBuilder, Node, NodeGrid, Room};
 use crate::message::{Choice, PlayerView, Prompt, StsMessage};
-use crate::rng::{EncounterGenerator, NeowGenerator, Seed};
+use crate::rng::{EncounterGenerator, NeowGenerator, Seed, StsRandom};
 
 pub struct StsSimulator {
     // Information typically set on the command line
@@ -20,6 +23,7 @@ pub struct StsSimulator {
     // Random number generators for various game elements
     neow_generator: NeowGenerator,
     encounter_generator: EncounterGenerator,
+    card_sts_random: StsRandom,
 
     // Current map layout
     map: NodeGrid,
@@ -44,6 +48,7 @@ impl StsSimulator {
         let map = MapBuilder::from(&seed, ascension, Act::get(1)).build();
         let neow_generator = NeowGenerator::new(&seed, character);
         let encounter_generator = EncounterGenerator::new(&seed);
+        let card_sts_random = StsRandom::from(&seed);
         Self {
             seed,
             character,
@@ -52,6 +57,7 @@ impl StsSimulator {
             output_tx,
             neow_generator,
             encounter_generator,
+            card_sts_random,
             map,
             player_hp: character.starting_hp,
             player_hp_max: character.starting_hp,
@@ -96,7 +102,11 @@ impl StsSimulator {
     }
 
     fn send_map(&self) -> Result<(), anyhow::Error> {
-        self.output_tx.send(StsMessage::Map(self.map.to_string()))?;
+        self.output_tx.send(StsMessage::Map(
+            self.map
+                .to_string_with_highlighted_row_col(self.player_row_col)
+                + "\n\n a  b  c  d  e  f  g",
+        ))?;
         Ok(())
     }
 
@@ -133,14 +143,47 @@ impl StsSimulator {
 
     fn handle_response(&mut self, choice: &Choice) -> Result<(Prompt, Vec<Choice>), Error> {
         match choice {
+            Choice::MapEntryColumn(col) => {
+                self.player_row_col = Some((0, *col));
+                self.send_map()?;
+                let room = self
+                    .map
+                    .get(0, *col)
+                    .expect("We offered an invalid column")
+                    .room;
+                self.enter_node(room)
+            }
             Choice::NeowBlessing(blessing) => self.handle_neow_blessing(blessing),
             Choice::ObtainCard(card) => {
                 self.player_deck.push(*card);
                 self.send_deck()?;
-                Ok((Prompt::HaltAndCatchFire, vec![Choice::CatchFire]))
+                // Pick up where we left off.
+                self.continue_game()
             }
             Choice::CatchFire => Ok((Prompt::HaltAndCatchFire, vec![Choice::CatchFire])),
         }
+    }
+
+    fn continue_game(&mut self) -> Result<(Prompt, Vec<Choice>), Error> {
+        if let Some((row, col)) = self.player_row_col {
+            Ok((Prompt::HaltAndCatchFire, vec![Choice::CatchFire]))
+        } else {
+            // Player needs to enter the map.
+            self.send_map()?;
+            Ok((
+                Prompt::EnterMap,
+                self.map
+                    .nonempty_cols_for_row(0)
+                    .into_iter()
+                    .map(Choice::MapEntryColumn)
+                    .collect(),
+            ))
+        }
+    }
+
+    fn enter_node(&mut self, room: Room) -> Result<(Prompt, Vec<Choice>), Error> {
+        println!("[Simulator] Player entered room {:?}", room);
+        Ok((Prompt::HaltAndCatchFire, vec![Choice::CatchFire]))
     }
 
     fn handle_neow_blessing(
@@ -152,13 +195,22 @@ impl StsSimulator {
                 return Ok((
                     Prompt::ObtainCard,
                     self.neow_generator
-                        .three_cards()
+                        .three_card_choices()
                         .into_iter()
                         .map(Choice::ObtainCard)
-                        .collect::<Vec<_>>(),
+                        .collect(),
                 ));
             }
-            NeowBlessing::ChooseUncommonColorlessCard => todo!(),
+            NeowBlessing::ChooseUncommonColorlessCard => {
+                return Ok((
+                    Prompt::ObtainCard,
+                    self.card_sts_random
+                        .sample_without_replacement(UNCOMMON_COLORLESS_CARDS, 3)
+                        .into_iter()
+                        .map(Choice::ObtainCard)
+                        .collect(),
+                ));
+            }
             NeowBlessing::GainOneHundredGold => {
                 self.player_gold += 100;
             }

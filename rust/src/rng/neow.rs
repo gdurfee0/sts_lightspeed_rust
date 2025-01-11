@@ -1,5 +1,6 @@
 use crate::data::{
     Card, Character, NeowBlessing, FIRST_NEOW_POOL, SECOND_NEOW_POOL, THIRD_NEOW_POOL,
+    UNCOMMON_COLORLESS_CARDS,
 };
 
 use super::{Seed, StsRandom};
@@ -37,10 +38,10 @@ impl NeowGenerator {
         &self.blessing_choices
     }
 
-    pub fn three_cards(&mut self) -> Vec<Card> {
+    pub fn three_card_choices(&mut self) -> Vec<Card> {
         let mut result: Vec<Card> = Vec::with_capacity(3);
         let pools = &[
-            (self.character.uncommon_card_pool, 0.33),
+            (self.character.uncommon_card_pool, 0.33), // Should this be 1. / 3. instead?
             (self.character.common_card_pool, 0.67),
         ];
         for _ in 0..3 {
@@ -100,7 +101,7 @@ mod test {
         let character = <&'static Character>::try_from("i").unwrap();
         let mut generator = NeowGenerator::new(&seed, character);
         assert_eq!(
-            generator.three_cards().to_vec(),
+            generator.three_card_choices().to_vec(),
             vec![Card::SeeingRed, Card::Clothesline, Card::BloodForBlood]
         );
 
@@ -108,7 +109,7 @@ mod test {
         let character = <&'static Character>::try_from("i").unwrap();
         let mut generator = NeowGenerator::new(&seed, character);
         assert_eq!(
-            generator.three_cards().to_vec(),
+            generator.three_card_choices().to_vec(),
             vec![Card::IronWave, Card::Cleave, Card::Headbutt]
         );
 
@@ -116,21 +117,21 @@ mod test {
         let character = <&'static Character>::try_from("s").unwrap();
         let mut generator = NeowGenerator::new(&seed, character);
         assert_eq!(
-            generator.three_cards().to_vec(),
+            generator.three_card_choices().to_vec(),
             vec![Card::Dash, Card::Backflip, Card::Choke]
         );
 
         let character = <&'static Character>::try_from("d").unwrap();
         let mut generator = NeowGenerator::new(&seed, character);
         assert_eq!(
-            generator.three_cards().to_vec(),
+            generator.three_card_choices().to_vec(),
             vec![Card::Equilibrium, Card::CompileDriver, Card::Aggregate]
         );
 
         let character = <&'static Character>::try_from("w").unwrap();
         let mut generator = NeowGenerator::new(&seed, character);
         assert_eq!(
-            generator.three_cards().to_vec(),
+            generator.three_card_choices().to_vec(),
             vec![Card::Worship, Card::CutThroughFate, Card::WheelKick]
         );
 
@@ -138,7 +139,7 @@ mod test {
         let character = <&'static Character>::try_from("w").unwrap();
         let mut generator = NeowGenerator::new(&seed, character);
         assert_eq!(
-            generator.three_cards().to_vec(),
+            generator.three_card_choices().to_vec(),
             vec![Card::FlyingSleeves, Card::Tranquility, Card::Evaluate]
         );
     }

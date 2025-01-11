@@ -42,38 +42,67 @@ impl NodeGrid {
     pub fn new(grid: [[Option<Node>; COLUMN_COUNT]; ROW_COUNT]) -> Self {
         Self { grid }
     }
-}
 
-impl fmt::Display for NodeGrid {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        for row in self.grid.iter().rev() {
-            for maybe_node in row.iter() {
+    pub fn get(&self, row: usize, col: usize) -> Option<&Node> {
+        self.grid[row][col].as_ref()
+    }
+
+    /// Returns a Vec<usize> holding column indices of nodes in the given row that are not empty.
+    pub fn nonempty_cols_for_row(&self, row: usize) -> Vec<usize> {
+        self.grid[row]
+            .iter()
+            .enumerate()
+            .filter_map(|(col, maybe_node)| maybe_node.as_ref().map(|_| col))
+            .collect()
+    }
+
+    pub fn to_string_with_highlighted_row_col(&self, row_col: Option<(usize, usize)>) -> String {
+        let mut result = String::new();
+        for (row, row_slice) in self.grid.iter().enumerate().rev() {
+            for maybe_node in row_slice.iter() {
                 match maybe_node {
                     Some(node) => {
-                        write!(f, "{}", node.exit_bits())?;
+                        result.push_str(node.exit_bits.to_string().as_str());
                     }
                     None => {
-                        write!(f, "   ")?;
+                        result.push_str("   ");
                     }
                 }
             }
-            writeln!(f)?;
-            for maybe_node in row.iter() {
+            result.push('\n');
+            for (col, maybe_node) in row_slice.iter().enumerate() {
                 match maybe_node {
                     Some(node) => {
-                        write!(f, " {} ", node.room())?;
+                        let (a, b) = if let Some((r, c)) = row_col {
+                            if row == r && col == c {
+                                ('[', ']')
+                            } else {
+                                (' ', ' ')
+                            }
+                        } else {
+                            (' ', ' ')
+                        };
+                        result.push(a);
+                        result.push_str(node.room.to_string().as_str());
+                        result.push(b);
                     }
                     None => {
-                        write!(f, "   ")?;
+                        result.push_str("   ");
                     }
                 }
             }
             // Avoid adding an extra newline after the last row
-            if row.as_ptr() != self.grid[0].as_ptr() {
-                writeln!(f)?;
+            if row_slice.as_ptr() != self.grid[0].as_ptr() {
+                result.push('\n');
             }
         }
-        Ok(())
+        result
+    }
+}
+
+impl fmt::Display for NodeGrid {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}", self.to_string_with_highlighted_row_col(None))
     }
 }
 
@@ -100,13 +129,13 @@ impl NodeBuilderGrid {
     pub fn set_all_rooms_in_row(&mut self, row: usize, room: Room) {
         for maybe_node in self.grid[row].iter_mut() {
             if let Some(node) = maybe_node.as_mut() {
-                node.set_room(room);
+                node.room = Some(room);
             }
         }
     }
 
     pub fn set_room(&mut self, row: usize, col: usize, room: Room) {
-        self.grid[row][col].get_or_insert_default().set_room(room);
+        self.grid[row][col].get_or_insert_default().room = Some(room);
     }
 
     /// Records the column of the parent node for the given node.
@@ -129,15 +158,15 @@ impl NodeBuilderGrid {
     /// Returns true iff the node at the given row and column has a parent node with the given room.
     pub fn has_parent_room_of(&self, row: usize, col: usize, room: Room) -> bool {
         row > 0
-            && (self.maybe_down_left_parent(row, col).map_or(false, |node| {
-                node.room().map(|r| r == room).unwrap_or(false)
-            }) || self.maybe_down_parent(row, col).map_or(false, |node| {
-                node.room().map(|r| r == room).unwrap_or(false)
-            }) || self
-                .maybe_down_right_parent(row, col)
-                .map_or(false, |node| {
-                    node.room().map(|r| r == room).unwrap_or(false)
-                }))
+            && (self
+                .maybe_down_left_parent(row, col)
+                .map_or(false, |node| node.room.map(|r| r == room).unwrap_or(false))
+                || self
+                    .maybe_down_parent(row, col)
+                    .map_or(false, |node| node.room.map(|r| r == room).unwrap_or(false))
+                || self
+                    .maybe_down_right_parent(row, col)
+                    .map_or(false, |node| node.room.map(|r| r == room).unwrap_or(false)))
     }
 
     /// Returns the node below and to the left, provided it connects to node at the given
@@ -196,9 +225,7 @@ impl NodeBuilderGrid {
                         _ => unreachable!(),
                     }]
                     .as_ref()
-                    .map_or(false, |node| {
-                        node.room().map(|r| r == room).unwrap_or(false)
-                    })
+                    .map_or(false, |node| node.room.map(|r| r == room).unwrap_or(false))
             })
     }
 
@@ -249,7 +276,7 @@ impl NodeBuilderGrid {
             .filter(|maybe_node| {
                 maybe_node
                     .as_ref()
-                    .map(|node| node.room().is_none())
+                    .map(|node| node.room.is_none())
                     .unwrap_or(false)
             })
             .count()
@@ -702,6 +729,80 @@ mod test {
                 r"       M     ?  $  $ ",
                 r"     /     /  /  /   ",
                 r"    M     M  M  M    ",
+            ]
+            .join("\n")
+        );
+
+        assert_eq!(
+            MAP_0SLAYTHESPIRE.to_string_with_highlighted_row_col(None),
+            [
+                r"  /     /   \  \     ",
+                r" R     R     R  R    ",
+                r" | \   |   /      \  ",
+                r" E  M  $  M        E ",
+                r"   \  \|  |      /   ",
+                r"    ?  E  R     R    ",
+                r"  /  / |    \   |    ",
+                r" 1  M  ?     M  ?    ",
+                r" |  | \  \ /  /      ",
+                r" ?  M  R  ?  M       ",
+                r" |/    |/ |  |       ",
+                r" R     M  ?  R       ",
+                r" | \ /  /      \     ",
+                r" T  T  T        T    ",
+                r" |  | \|          \  ",
+                r" M  $  M           M ",
+                r" |  |/   \       /   ",
+                r" M  M     ?     M    ",
+                r" |  | \     \ /      ",
+                r" R  E  R     M       ",
+                r" |    \  \ / |       ",
+                r" M     ?  M  ?       ",
+                r" |     |/ |  |       ",
+                r" ?     M  ?  M       ",
+                r" |   / |  | \  \     ",
+                r" ?  M  M  $  ?  M    ",
+                r" |/    |/      \|    ",
+                r" M     M        M    ",
+                r" |     |        |    ",
+                r" M     M        M    ",
+            ]
+            .join("\n")
+        );
+
+        assert_eq!(
+            MAP_0SLAYTHESPIRE.to_string_with_highlighted_row_col(Some((4, 3))),
+            [
+                r"  /     /   \  \     ",
+                r" R     R     R  R    ",
+                r" | \   |   /      \  ",
+                r" E  M  $  M        E ",
+                r"   \  \|  |      /   ",
+                r"    ?  E  R     R    ",
+                r"  /  / |    \   |    ",
+                r" 1  M  ?     M  ?    ",
+                r" |  | \  \ /  /      ",
+                r" ?  M  R  ?  M       ",
+                r" |/    |/ |  |       ",
+                r" R     M  ?  R       ",
+                r" | \ /  /      \     ",
+                r" T  T  T        T    ",
+                r" |  | \|          \  ",
+                r" M  $  M           M ",
+                r" |  |/   \       /   ",
+                r" M  M     ?     M    ",
+                r" |  | \     \ /      ",
+                r" R  E  R     M       ",
+                r" |    \  \ / |       ",
+                r" M     ? [M] ?       ",
+                r" |     |/ |  |       ",
+                r" ?     M  ?  M       ",
+                r" |   / |  | \  \     ",
+                r" ?  M  M  $  ?  M    ",
+                r" |/    |/      \|    ",
+                r" M     M        M    ",
+                r" |     |        |    ",
+                r" M     M        M    ",
             ]
             .join("\n")
         );

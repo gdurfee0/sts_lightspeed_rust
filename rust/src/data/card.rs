@@ -1,5 +1,7 @@
 use std::fmt;
 
+pub const x: &[Card] = &[];
+
 pub const UNCOMMON_COLORLESS_CARDS: &[Card] = &[
     Card::BandageUp,
     Card::Blind,

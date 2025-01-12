@@ -25,37 +25,25 @@ pub enum StsMessage {
 
     /// A list of `Choice`s, each representing a possible action; the client must select one
     /// using zero-indexing and return its response as `usize` via its input_tx channel.
-    /// It is not expected that Choices not chosen will remain after the decision has been made.
     Choices(Prompt, Vec<Choice>),
-
-    /// A list of `Choice`s, each representing a possible action; the client must select one
-    /// at a time by communicating the appropriate `usize` on the input channel. The expectation
-    /// is that the client will be able to make multiple choices from the same list consecutively,
-    /// e.g. when being handed 3 potions by Neow.
-    Rewards(Prompt, Vec<Choice>),
 }
 
+/// Regularly used information about the player that is sent to the client on every turn.
 #[derive(Clone, Debug)]
 pub struct PlayerView {
     pub hp: u32,
     pub hp_max: u32,
     pub gold: u32,
-    // TODO: potions
+    pub potions: Vec<Potion>,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum Prompt {
-    AcceptRewards,
-    ChooseCard,
+    ChooseNext, // Expectation is that the player may accept and and all of the Choices offered.
+    ChooseOne,  // Expectation is that the player can pick at most one of the Choices offered.
     MoveTo,
     NeowBlessing,
-}
-
-#[derive(Clone, Debug)]
-pub enum Reward {
-    Card(Card),
-    Potion(Potion),
-    Relic(Relic),
+    RemoveCard,
 }
 
 #[derive(Clone, Debug)]
@@ -64,16 +52,18 @@ pub enum Choice {
     NeowBlessing(NeowBlessing),
     ObtainCard(Card),
     ObtainPotion(Potion),
+    RemoveCard(Card),
     Skip,
 }
 
 impl fmt::Display for Prompt {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Prompt::AcceptRewards => write!(f, "Available rewards"),
-            Prompt::ChooseCard => write!(f, "Choose a card to obtain"),
+            Prompt::ChooseNext => write!(f, "Choose the next item to obtain"),
+            Prompt::ChooseOne => write!(f, "Choose an item to obtain"),
             Prompt::MoveTo => write!(f, "Move up into one of the following columns"),
             Prompt::NeowBlessing => write!(f, "Choose Neow's Blessing"),
+            Prompt::RemoveCard => write!(f, "Choose a card to remove"),
         }
     }
 }
@@ -85,6 +75,7 @@ impl fmt::Display for Choice {
             Choice::NeowBlessing(blessing) => write!(f, "{}", blessing),
             Choice::ObtainCard(card) => write!(f, "{}", card),
             Choice::ObtainPotion(potion) => write!(f, "{}", potion),
+            Choice::RemoveCard(card) => write!(f, "{}", card),
             Choice::Skip => write!(f, "(Skip)"),
         }
     }

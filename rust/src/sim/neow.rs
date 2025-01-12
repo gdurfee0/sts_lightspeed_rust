@@ -66,8 +66,11 @@ impl<'a> NeowSimulator<'a> {
             NeowBlessing::NeowsLament => todo!(),
             NeowBlessing::ObtainRandomCommonRelic => todo!(),
             NeowBlessing::ObtainRandomRareCard => todo!(),
-            NeowBlessing::ObtainThreeRandomPotions => todo!(),
-            NeowBlessing::RemoveCard => todo!(),
+            NeowBlessing::ObtainThreeRandomPotions => self.player.choose_many_potions(
+                self.potion_sts_random
+                    .sample_without_replacement(self.character.potion_pool, 3),
+            ),
+            NeowBlessing::RemoveCard => self.player.remove_one_card(),
             NeowBlessing::ReplaceStarterRelic => todo!(),
             NeowBlessing::TransformCard => todo!(),
             NeowBlessing::UpgradeCard => todo!(),

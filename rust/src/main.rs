@@ -66,7 +66,6 @@ fn main_input_loop(
                 );
                 break;
             }
-            StsMessage::Rewards(prompt, vec) => todo!(),
         }
     }
     Ok(())
@@ -88,9 +87,17 @@ fn collect_user_choice(prompt: Prompt, choices: Vec<Choice>) -> Result<usize, an
                 return Err(anyhow!("User closed the input stream"));
             }
             Ok(_) => {
-                let choice = match user_input.trim().parse::<usize>() {
+                let index = match user_input.trim().parse::<usize>() {
                     Ok(i) if i <= choices.len() && i > 0 => i,
                     _ => {
+                        // Help the user out if this involves movement.
+                        if let Prompt::MoveTo = prompt {
+                            if let Some(index) =
+                                letter_to_choice(user_input.trim().chars().last(), &choices)
+                            {
+                                return Ok(index);
+                            }
+                        }
                         println!(
                             "Invalid input: must be an integer in the range {}..={}",
                             1,
@@ -99,9 +106,25 @@ fn collect_user_choice(prompt: Prompt, choices: Vec<Choice>) -> Result<usize, an
                         continue;
                     }
                 };
-                return Ok(choice - 1);
+                return Ok(index - 1);
             }
             Err(e) => return Err(anyhow!("Error reading input: {}", e)),
         }
     }
+}
+
+fn letter_to_choice(letter: Option<char>, choices: &[Choice]) -> Option<usize> {
+    for (choice_index, choice) in choices.iter().enumerate() {
+        match (letter, choice) {
+            (Some('a'), Choice::MoveTo(0)) => return Some(choice_index),
+            (Some('b'), Choice::MoveTo(1)) => return Some(choice_index),
+            (Some('c'), Choice::MoveTo(2)) => return Some(choice_index),
+            (Some('d'), Choice::MoveTo(3)) => return Some(choice_index),
+            (Some('e'), Choice::MoveTo(4)) => return Some(choice_index),
+            (Some('f'), Choice::MoveTo(5)) => return Some(choice_index),
+            (Some('g'), Choice::MoveTo(6)) => return Some(choice_index),
+            _ => {}
+        }
+    }
+    None
 }

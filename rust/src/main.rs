@@ -56,7 +56,7 @@ fn main_input_loop(
                 );
             }
             StsMessage::View(view) => println!("{:?}", view),
-            StsMessage::Choose(prompt, choices) => {
+            StsMessage::Choices(prompt, choices) => {
                 input_tx.send(collect_user_choice(prompt, choices)?)?;
             }
             StsMessage::GameOver(result) => {
@@ -66,6 +66,7 @@ fn main_input_loop(
                 );
                 break;
             }
+            StsMessage::Rewards(prompt, vec) => todo!(),
         }
     }
     Ok(())

@@ -13,5 +13,4 @@ const PATH_DENSITY: usize = 6;
 pub use builder::MapBuilder;
 pub use exit::ExitBits;
 pub use grid::{MapHighlighter, NodeGrid};
-pub use node::Node;
 pub use room::Room;

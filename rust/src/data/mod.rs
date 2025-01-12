@@ -5,6 +5,7 @@ mod character;
 mod encounter;
 mod event;
 mod neow;
+mod potion;
 mod relic;
 
 pub use act::Act;
@@ -19,4 +20,5 @@ pub use event::Event;
 pub use neow::{
     NeowBlessing, NeowBonus, NeowPenalty, FIRST_NEOW_POOL, SECOND_NEOW_POOL, THIRD_NEOW_POOL,
 };
+pub use potion::Potion;
 pub use relic::Relic;

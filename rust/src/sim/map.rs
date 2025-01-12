@@ -1,13 +1,10 @@
-use std::sync::mpsc::{Receiver, Sender};
-
-use anyhow::{anyhow, Ok};
+use anyhow::{anyhow, Error};
 
 use crate::data::{Act, Ascension};
 use crate::map::{ExitBits, MapBuilder, MapHighlighter, NodeGrid, Room, ROW_COUNT};
 use crate::rng::Seed;
 
-use super::message::StsMessage;
-use super::{Choice, Prompt};
+use super::player::Player;
 
 pub struct MapSimulator {
     // Game seed used to create maps for every act
@@ -30,50 +27,30 @@ impl MapSimulator {
         }
     }
 
-    pub fn send_map(&self, output_tx: &mut Sender<StsMessage>) -> Result<(), anyhow::Error> {
-        output_tx.send(StsMessage::Map(format!(
-            "{}\n\n a  b  c  d  e  f  g",
-            self.map.to_string_with_highlighter(StsMapHighlighter {
-                player_row_col: self.player_row_col,
-                choices: vec![],
-            })
-        )))?;
+    pub fn send_map_to_player(&self, player: &mut Player) -> Result<(), Error> {
+        player.send_map_string(self.map_string())?;
         Ok(())
     }
 
-    pub fn advance(
-        &mut self,
-        input_rx: &mut Receiver<usize>,
-        output_tx: &mut Sender<StsMessage>,
-    ) -> Result<Room, anyhow::Error> {
-        let (prompt, choices, next_row, map_choices) = match self.player_row_col {
-            None => {
-                // Player is not yet on the map, so may select any room in the bottom row.
-                (
-                    Prompt::MoveUp,
-                    self.map
-                        .nonempty_cols_for_row(0)
-                        .into_iter()
-                        .map(Choice::Column)
-                        .collect::<Vec<_>>(),
-                    0,
-                    self.map
-                        .nonempty_cols_for_row(0)
-                        .into_iter()
-                        .map(|col| (0, col))
-                        .collect::<Vec<_>>(),
-                )
-            }
+    pub fn advance(&mut self, player: &mut Player) -> Result<Room, Error> {
+        let (next_row, movement_options) = match self.player_row_col {
+            // Player is not yet on the map, so may select any room in the bottom row.
+            None => (
+                0,
+                self.map
+                    .nonempty_cols_for_row(0)
+                    .into_iter()
+                    .collect::<Vec<_>>(),
+            ),
+            // Player is at the top of the map, and will move to the boss next.
             Some((row, _)) if row == ROW_COUNT - 1 => {
-                // Player is at the top of the map, and will move to the boss next.
                 self.player_row_col = None;
                 // TODO: something about advancing to the next Act
-                self.send_map(output_tx)?;
+                player.send_map_string(self.map_string())?;
                 return Ok(Room::Boss);
             }
+            // Player is already on the board, and needs to move to a new room via an exit.
             Some((row, col)) => {
-                // Player is already on the board, and needs to move to a new room via an
-                // existing exit.
                 let node = self.map.get(row, col).unwrap_or_else(|| {
                     panic!("Player is in an impossible location! {} {}", row, col)
                 });
@@ -87,48 +64,45 @@ impl MapSimulator {
                 if node.has_exit(ExitBits::Right) {
                     columns.push(col + 1);
                 }
-                (
-                    Prompt::MoveUp,
-                    columns
-                        .iter()
-                        .copied()
-                        .map(Choice::Column)
-                        .collect::<Vec<_>>(),
-                    row + 1,
-                    columns
-                        .into_iter()
-                        .map(|col| (row + 1, col))
-                        .collect::<Vec<_>>(),
-                )
+                (row + 1, columns.into_iter().collect::<Vec<_>>())
             }
         };
-        self.send_map_with_choices(output_tx, map_choices)?;
-        output_tx.send(StsMessage::Choose(prompt, choices.to_vec()))?;
-        let choice_index = input_rx.recv()?;
-        if let Some(Choice::Column(col)) = choices.get(choice_index) {
-            self.player_row_col = Some((next_row, *col));
-            let node = self.map.get(next_row, *col).unwrap_or_else(|| {
-                panic!("Player is in an impossible location! {} {}", next_row, col)
-            });
-            self.send_map(output_tx)?;
+        player.send_map_string(
+            self.highlighted_map_string(
+                &movement_options
+                    .iter()
+                    .map(|col| (next_row, *col))
+                    .collect::<Vec<_>>(),
+            ),
+        )?;
+        let next_col = player.choose_movement_option(movement_options)?;
+        self.player_row_col = Some((next_row, next_col));
+        if let Some(node) = self.map.get(next_row, next_col) {
+            player.send_map_string(self.map_string())?;
             Ok(node.room)
         } else {
             Err(anyhow!(
-                "[MapSimulator] Invalid choice index {} from client; expected 0..{}",
-                choice_index,
-                choices.len()
+                "Player is in an impossible location! {} {}",
+                next_row,
+                next_col
             ))
         }
     }
 
-    fn send_map_with_choices(
-        &self,
-        output_tx: &mut Sender<StsMessage>,
-        map_choices: Vec<(usize, usize)>,
-    ) -> Result<(), anyhow::Error> {
+    fn map_string(&self) -> String {
+        format!(
+            "{}\n\n a  b  c  d  e  f  g",
+            self.map.to_string_with_highlighter(StsMapHighlighter {
+                player_row_col: self.player_row_col,
+                row_col_highlights: &[],
+            })
+        )
+    }
+
+    fn highlighted_map_string(&self, row_col_highlights: &[(usize, usize)]) -> String {
         let mut suffix = String::new();
         for (i, c) in ('a'..'g').enumerate() {
-            if map_choices.iter().any(|(_, col)| i == *col) {
+            if row_col_highlights.iter().any(|(_, col)| i == *col) {
                 suffix.push('{');
                 suffix.push(c);
                 suffix.push('}');
@@ -140,23 +114,22 @@ impl MapSimulator {
         }
         let mut map_string = self.map.to_string_with_highlighter(StsMapHighlighter {
             player_row_col: self.player_row_col,
-            choices: map_choices,
+            row_col_highlights,
         });
         map_string.push_str("\n\n");
         map_string.push_str(&suffix);
-        output_tx.send(StsMessage::Map(map_string))?;
-        Ok(())
+        map_string
     }
 }
 
-struct StsMapHighlighter {
+struct StsMapHighlighter<'a> {
     player_row_col: Option<(usize, usize)>,
-    choices: Vec<(usize, usize)>,
+    row_col_highlights: &'a [(usize, usize)],
 }
 
-impl MapHighlighter for StsMapHighlighter {
+impl MapHighlighter for StsMapHighlighter<'_> {
     fn left(&self, row: usize, col: usize) -> char {
-        if self.choices.contains(&(row, col)) {
+        if self.row_col_highlights.contains(&(row, col)) {
             '{'
         } else if let Some((player_row, player_col)) = self.player_row_col {
             if row == player_row && col == player_col {
@@ -170,7 +143,7 @@ impl MapHighlighter for StsMapHighlighter {
     }
 
     fn right(&self, row: usize, col: usize) -> char {
-        if self.choices.contains(&(row, col)) {
+        if self.row_col_highlights.contains(&(row, col)) {
             '}'
         } else if let Some((player_row, player_col)) = self.player_row_col {
             if row == player_row && col == player_col {

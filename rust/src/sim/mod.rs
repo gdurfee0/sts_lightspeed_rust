@@ -1,3 +1,4 @@
+mod map;
 mod message;
 mod neow;
 mod player;

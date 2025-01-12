@@ -24,6 +24,10 @@ impl Node {
     pub fn new(room: Room, exit_bits: ExitBits) -> Self {
         Self { room, exit_bits }
     }
+
+    pub fn has_exit(&self, exit: ExitBits) -> bool {
+        self.exit_bits.contains(exit)
+    }
 }
 
 impl NodeBuilder {

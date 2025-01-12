@@ -9,6 +9,7 @@ use super::player::Player;
 use crate::data::{Act, Ascension, Character};
 use crate::map::{MapBuilder, MapHighlighter, NodeGrid, Room};
 use crate::rng::{EncounterGenerator, Seed, StsRandom};
+use crate::sim::map::MapSimulator;
 
 pub struct StsSimulator {
     // Information typically set on the command line
@@ -71,7 +72,8 @@ impl StsSimulator {
             std::mem::size_of::<StsSimulator>(),
             std::mem::size_of::<StsMessage>(),
         );
-        self.send_map()?;
+        let mut map_simulator = MapSimulator::new(&self.seed, self.ascension);
+        map_simulator.send_map(&mut self.output_tx)?;
         self.send_relics()?;
         self.send_deck()?;
         self.send_player_view()?;
@@ -88,77 +90,29 @@ impl StsSimulator {
         self.send_deck()?;
         self.send_player_view()?;
 
-        // Player needs to enter the board
-        let mut prompt = Prompt::EnterMap;
-        let mut choices = self
-            .map
-            .nonempty_cols_for_row(0)
-            .into_iter()
-            .map(Choice::MapEntryColumn)
-            .collect::<Vec<_>>();
-        self.send_map_with_choices(
-            self.map
-                .nonempty_cols_for_row(0)
-                .into_iter()
-                .map(|col| (0, col))
-                .collect(),
-        )?;
-        self.send_prompt_and_choices(prompt, &choices)?;
         loop {
-            let choice_index = self.input_rx.recv()?;
-            if let Some(choice) = choices.get(choice_index) {
-                if let Some((p, c)) = self.handle_response(choice)? {
-                    prompt = p;
-                    choices = c;
-                } else {
-                    break;
+            match map_simulator.advance(&mut self.input_rx, &mut self.output_tx)? {
+                Room::Boss => todo!(),
+                Room::BurningElite1 => todo!(),
+                Room::BurningElite2 => todo!(),
+                Room::BurningElite3 => todo!(),
+                Room::BurningElite4 => todo!(),
+                Room::Campfire => todo!(),
+                Room::Elite => todo!(),
+                Room::Event => todo!(),
+                Room::Monster => {
+                    let m = self.encounter_generator.next_monster_encounter();
+                    println!("[Simulator] Encountering monster {:?}", m);
+                    todo!();
                 }
-                self.send_player_view()?;
-            } else {
-                eprintln!(
-                    "[Simulator] Invalid choice index {} from client; expected 0..{}",
-                    choice_index,
-                    choices.len()
-                );
-            }
-            self.send_prompt_and_choices(prompt, &choices)?;
-        }
-        self.output_tx.send(StsMessage::GameOver(true))?;
-        println!("[Simulator] Exiting.");
-        Ok(())
-    }
-
-    fn send_map(&self) -> Result<(), anyhow::Error> {
-        let mut map_string = self.map.to_string_with_highlighter(StsMapHighlighter {
-            player_row_and_col: self.player_row_col,
-            choices: vec![],
-        });
-        map_string.push_str("\n\n a  b  c  d  e  f  g");
-        self.output_tx.send(StsMessage::Map(map_string))?;
-        Ok(())
-    }
-
-    fn send_map_with_choices(&self, map_choices: Vec<(usize, usize)>) -> Result<(), anyhow::Error> {
-        let mut suffix = String::new();
-        for (i, c) in ('a'..'g').enumerate() {
-            if map_choices.iter().any(|(_, col)| i == *col) {
-                suffix.push('{');
-                suffix.push(c);
-                suffix.push('}');
-            } else {
-                suffix.push(' ');
-                suffix.push(c);
-                suffix.push(' ');
+                Room::Shop => todo!(),
+                Room::Treasure => todo!(),
             }
         }
-        let mut map_string = self.map.to_string_with_highlighter(StsMapHighlighter {
-            player_row_and_col: self.player_row_col,
-            choices: map_choices,
-        });
-        map_string.push_str("\n\n");
-        map_string.push_str(&suffix);
-        self.output_tx.send(StsMessage::Map(map_string))?;
-        Ok(())
+
+        //self.output_tx.send(StsMessage::GameOver(true))?;
+        //println!("[Simulator] Exiting.");
+        //Ok(())
     }
 
     fn send_relics(&self) -> Result<(), anyhow::Error> {
@@ -180,71 +134,5 @@ impl StsSimulator {
             gold: self.player.gold,
         }))?;
         Ok(())
-    }
-
-    fn send_prompt_and_choices(
-        &self,
-        prompt: Prompt,
-        choices: &[Choice],
-    ) -> Result<(), anyhow::Error> {
-        self.output_tx
-            .send(StsMessage::Choose(prompt, choices.to_vec()))?;
-        Ok(())
-    }
-
-    fn handle_response(&mut self, choice: &Choice) -> Result<Option<(Prompt, Vec<Choice>)>, Error> {
-        match choice {
-            Choice::MapEntryColumn(col) => {
-                self.player_row_col = Some((0, *col));
-                self.send_map()?;
-                let room = self
-                    .map
-                    .get(0, *col)
-                    .expect("We offered an invalid column")
-                    .room;
-                self.enter_room(room)
-            }
-            _ => unreachable!(),
-        }
-    }
-
-    fn enter_room(&mut self, room: Room) -> Result<Option<(Prompt, Vec<Choice>)>, Error> {
-        println!("[Simulator] Player entered room {:?}", room);
-        Ok(None)
-    }
-}
-
-struct StsMapHighlighter {
-    player_row_and_col: Option<(usize, usize)>,
-    choices: Vec<(usize, usize)>,
-}
-
-impl MapHighlighter for StsMapHighlighter {
-    fn left(&self, row: usize, col: usize) -> char {
-        if self.choices.contains(&(row, col)) {
-            '{'
-        } else if let Some((player_row, player_col)) = self.player_row_and_col {
-            if row == player_row && col == player_col {
-                '['
-            } else {
-                ' '
-            }
-        } else {
-            ' '
-        }
-    }
-
-    fn right(&self, row: usize, col: usize) -> char {
-        if self.choices.contains(&(row, col)) {
-            '}'
-        } else if let Some((player_row, player_col)) = self.player_row_and_col {
-            if row == player_row && col == player_col {
-                ']'
-            } else {
-                ' '
-            }
-        } else {
-            ' '
-        }
     }
 }

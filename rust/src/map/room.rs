@@ -2,6 +2,7 @@ use std::fmt;
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum Room {
+    Boss,
     BurningElite1,
     BurningElite2,
     BurningElite3,
@@ -20,6 +21,7 @@ impl fmt::Display for Room {
             f,
             "{}",
             match self {
+                Room::Boss => "B",
                 Room::BurningElite1 => "1",
                 Room::BurningElite2 => "2",
                 Room::BurningElite3 => "3",

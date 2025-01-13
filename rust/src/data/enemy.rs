@@ -61,7 +61,7 @@ pub enum EnemyType {
     Taskmaster,
     TheChamp,
     TheCollector,
-    TheGuardian, //
+    TheGuardian,
     TheMaw,
     TimeEater,
     TorchHead,
@@ -69,7 +69,7 @@ pub enum EnemyType {
     WrithingMass,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Debug)]
 pub struct EnemyTemplate {
     // TODO: ascension-dependent HP ranges
     pub enemy_type: EnemyType,
@@ -77,6 +77,7 @@ pub struct EnemyTemplate {
 }
 
 impl From<EnemyType> for EnemyTemplate {
+    // TODO: revisit this pattern if memory usage becomes a concern
     fn from(enemy_type: EnemyType) -> EnemyTemplate {
         let hp = match enemy_type {
             EnemyType::AcidSlimeM => 28..=32,

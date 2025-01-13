@@ -4,6 +4,7 @@ mod character;
 mod encounter;
 mod enemy;
 mod event;
+mod intent;
 mod neow;
 mod potion;
 mod relic;
@@ -13,6 +14,7 @@ pub use card::{Card, CURSE_CARD_POOL, UNCOMMON_COLORLESS_CARDS};
 pub use character::Character;
 pub use encounter::Encounter;
 pub use enemy::{EnemyTemplate, EnemyType};
+pub use intent::Intent;
 pub use neow::{
     NeowBlessing, NeowBonus, NeowPenalty, FIRST_NEOW_POOL, SECOND_NEOW_POOL, THIRD_NEOW_POOL,
 };

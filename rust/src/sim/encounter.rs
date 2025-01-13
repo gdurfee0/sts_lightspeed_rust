@@ -1,6 +1,6 @@
 use anyhow::Error;
 
-use crate::data::{Encounter, EnemyTemplate, EnemyType};
+use crate::data::{Encounter, EnemyTemplate, EnemyType, Intent};
 use crate::rng::{Seed, StsRandom};
 
 use super::player::Player;
@@ -10,6 +10,17 @@ pub struct EncounterSimulator<'a> {
     misc_sts_random: &'a mut StsRandom,
     enemy_hp_sts_random: StsRandom,
     player: &'a mut Player,
+}
+
+pub struct Enemy {
+    enemy_type: EnemyType,
+    hp: u32,
+    hp_max: u32,
+    intent: Intent,
+}
+
+pub struct EnemyParty {
+    enemies: [Option<Enemy>; 5],
 }
 
 impl<'a> EncounterSimulator<'a> {

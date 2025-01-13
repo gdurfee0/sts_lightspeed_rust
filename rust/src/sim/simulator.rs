@@ -6,7 +6,7 @@ use super::player::Player;
 
 use crate::data::{Ascension, Character};
 use crate::map::Room;
-use crate::rng::{EncounterGenerator, Seed, StsRandom};
+use crate::rng::{EncounterGenerator, RelicGenerator, Seed, StsRandom};
 use crate::sim::map::MapSimulator;
 
 pub struct StsSimulator {
@@ -19,6 +19,7 @@ pub struct StsSimulator {
     encounter_generator: EncounterGenerator,
     card_sts_random: StsRandom,
     potion_sts_random: StsRandom,
+    relic_generator: RelicGenerator,
 
     // Current player state
     player: Player,
@@ -35,6 +36,7 @@ impl StsSimulator {
         let encounter_generator = EncounterGenerator::new(&seed);
         let card_sts_random = StsRandom::from(&seed);
         let potion_sts_random = StsRandom::from(&seed);
+        let relic_generator = RelicGenerator::new(&seed, character);
         let player = Player::new(character, input_rx, output_tx);
         Self {
             seed,
@@ -43,6 +45,7 @@ impl StsSimulator {
             encounter_generator,
             card_sts_random,
             potion_sts_random,
+            relic_generator,
             player,
         }
     }
@@ -53,16 +56,15 @@ impl StsSimulator {
             std::mem::size_of::<StsSimulator>(),
             std::mem::size_of::<StsMessage>(),
         );
+        self.player.send_initial_state()?;
         let mut map_simulator = MapSimulator::new(&self.seed, self.ascension);
         map_simulator.send_map_to_player(&mut self.player)?;
-        self.player.send_relics()?;
-        self.player.send_deck()?;
-        self.player.send_player_view()?;
         let neow_simulator = NeowSimulator::new(
             self.seed.clone(),
             self.character,
             &mut self.card_sts_random,
             &mut self.potion_sts_random,
+            &mut self.relic_generator,
             &mut self.player,
         );
         neow_simulator.run()?;

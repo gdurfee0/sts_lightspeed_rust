@@ -35,6 +35,33 @@ impl RelicGenerator {
             boss_relic_pool: boss_relic_pool.into_iter().collect(),
         }
     }
+
+    // TODO: Add checks that the relic is valid for the current situation
+    pub fn common_relic(&mut self) -> Relic {
+        self.common_relic_pool
+            .pop_front()
+            .unwrap_or_else(|| self.uncommon_relic())
+    }
+
+    pub fn uncommon_relic(&mut self) -> Relic {
+        self.uncommon_relic_pool
+            .pop_front()
+            .unwrap_or_else(|| self.rare_relic())
+    }
+
+    pub fn rare_relic(&mut self) -> Relic {
+        self.rare_relic_pool.pop_front().unwrap_or(Relic::Circlet)
+    }
+
+    pub fn shop_relic(&mut self) -> Relic {
+        self.shop_relic_pool
+            .pop_front()
+            .unwrap_or_else(|| self.uncommon_relic())
+    }
+
+    pub fn boss_relic(&mut self) -> Relic {
+        self.boss_relic_pool.pop_front().unwrap_or(Relic::Circlet)
+    }
 }
 
 #[cfg(test)]
@@ -46,22 +73,10 @@ mod test {
     #[test]
     fn test_relic_generator() {
         let mut generator = RelicGenerator::new(&12u64.into(), "i".try_into().unwrap());
-        println!("{:?}", generator.common_relic_pool);
-        assert_eq!(
-            generator.common_relic_pool.pop_front(),
-            Some(Relic::RedSkull)
-        );
+        assert_eq!(generator.common_relic(), Relic::RedSkull);
         let mut generator = RelicGenerator::new(&1u64.into(), "i".try_into().unwrap());
-        println!("{:?}", generator.boss_relic_pool);
-        assert_eq!(
-            generator.boss_relic_pool.pop_front(),
-            Some(Relic::SneckoEye)
-        );
+        assert_eq!(generator.boss_relic(), Relic::SneckoEye);
         let mut generator = RelicGenerator::new(&2u64.into(), "i".try_into().unwrap());
-        println!("{:?}", generator.boss_relic_pool);
-        assert_eq!(
-            generator.boss_relic_pool.pop_front(),
-            Some(Relic::RunicDome)
-        );
+        assert_eq!(generator.boss_relic(), Relic::RunicDome);
     }
 }

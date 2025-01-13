@@ -8,33 +8,21 @@ use crate::data::{Card, NeowBlessing, Potion, Relic};
 /// the Simulator waits for a response on the input channel.
 #[derive(Debug)]
 pub enum StsMessage {
-    /// ASCII representation of the current map.
     Map(String),
-
-    /// All of the player's relics in order of acquisition.
-    Relics(Vec<Relic>),
-
-    /// The player's card deck in order of acquisition.
     Deck(Vec<Card>),
-
-    /// All information that might change on a move-by-move basis, such as the player's HP and gold.
-    View(PlayerView),
-
-    /// Indicates that the game is over. The boolean indicates whether the player won or lost.
+    Potions(Vec<Option<Potion>>),
+    Relics(Vec<Relic>),
+    CardObtained(Card),
+    CardRemoved(Card, usize),
+    PotionObtained(Potion, usize),
+    RelicObtained(Relic),
+    GoldChanged(u32),
+    HpChanged(u32, u32),
     GameOver(bool),
 
     /// A list of `Choice`s, each representing a possible action; the client must select one
     /// using zero-indexing and return its response as `usize` via its input_tx channel.
     Choices(Prompt, Vec<Choice>),
-}
-
-/// Regularly used information about the player that is sent to the client on every turn.
-#[derive(Clone, Debug)]
-pub struct PlayerView {
-    pub hp: u32,
-    pub hp_max: u32,
-    pub gold: u32,
-    pub potions: Vec<Potion>,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]

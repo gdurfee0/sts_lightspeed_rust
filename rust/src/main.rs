@@ -35,16 +35,14 @@ fn main_input_loop(
 ) -> Result<(), anyhow::Error> {
     loop {
         match output_rx.recv()? {
-            StsMessage::Map(map) => println!("{}\n", map),
-            StsMessage::Relics(relics) => {
-                println!(
-                    "Relics([{}])",
-                    relics
-                        .iter()
-                        .map(|relic| format!("{:?}", relic))
-                        .collect::<Vec<_>>()
-                        .join(",")
-                );
+            StsMessage::CardObtained(card) => {
+                println!("CardObtained({:?})", card);
+            }
+            StsMessage::CardRemoved(card, index) => {
+                println!("CardRemoved({:?}@{})", card, index);
+            }
+            StsMessage::Choices(prompt, choices) => {
+                input_tx.send(collect_user_choice(prompt, choices)?)?;
             }
             StsMessage::Deck(deck) => {
                 println!(
@@ -55,9 +53,29 @@ fn main_input_loop(
                         .join(",")
                 );
             }
-            StsMessage::View(view) => println!("{:?}", view),
-            StsMessage::Choices(prompt, choices) => {
-                input_tx.send(collect_user_choice(prompt, choices)?)?;
+            StsMessage::Map(map) => println!("{}\n", map),
+            StsMessage::PotionObtained(potion, slot) => {
+                println!("PotionObtained({:?}@{})", potion, slot);
+            }
+            StsMessage::Potions(potions) => {
+                println!(
+                    "Potions([{}])",
+                    potions
+                        .iter()
+                        .map(|potion| format!("{:?}", potion))
+                        .collect::<Vec<_>>()
+                        .join(",")
+                );
+            }
+            StsMessage::Relics(relics) => {
+                println!(
+                    "Relics([{}])",
+                    relics
+                        .iter()
+                        .map(|relic| format!("{:?}", relic))
+                        .collect::<Vec<_>>()
+                        .join(",")
+                );
             }
             StsMessage::GameOver(result) => {
                 println!(
@@ -65,6 +83,15 @@ fn main_input_loop(
                     if result { "" } else { "not " }
                 );
                 break;
+            }
+            StsMessage::RelicObtained(relic) => {
+                println!("RelicObtained({:?})", relic);
+            }
+            StsMessage::GoldChanged(gold) => {
+                println!("GoldChanged({})", gold);
+            }
+            StsMessage::HpChanged(hp, hp_max) => {
+                println!("HpChanged({}/{})", hp, hp_max);
             }
         }
     }

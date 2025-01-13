@@ -1,7 +1,5 @@
 use std::fmt;
 
-pub const x: &[Card] = &[];
-
 pub const UNCOMMON_COLORLESS_CARDS: &[Card] = &[
     Card::BandageUp,
     Card::Blind,
@@ -25,58 +23,17 @@ pub const UNCOMMON_COLORLESS_CARDS: &[Card] = &[
     Card::Trip,
 ];
 
-pub const RARE_COLORLESS_CARDS: &[Card] = &[
-    Card::Apotheosis,
-    Card::Chrysalis,
-    Card::HandOfGreed,
-    Card::MasterOfStrategy,
-    Card::Metamorphosis,
-    Card::SecretTechnique,
-    Card::SecretWeapon,
-    Card::TheBomb,
-    Card::ThinkingAhead,
-    Card::Transmutation,
-    Card::Violence,
-];
-
-pub const SPECIAL_COLORLESS_CARDS: &[Card] = &[
-    Card::Apparition,
-    Card::Beta,
-    Card::Bite,
-    Card::Expunger,
-    Card::Insight,
-    Card::Miracle,
-    Card::Omega,
-    Card::RitualDagger,
-    Card::Safety,
-    Card::Shiv,
-    Card::Smite,
-    Card::ThroughViolence,
-];
-
-pub const STATUS_CARDS: &[Card] = &[
-    Card::Burn,
-    Card::Dazed,
-    Card::Slimed,
-    Card::Void,
-    Card::Wound,
-];
-
-pub const CURSE_CARDS: &[Card] = &[
-    Card::AscendersBane,
-    Card::Clumsy,
-    Card::CurseOfTheBell,
-    Card::Decay,
-    Card::Doubt,
-    Card::Injury,
-    Card::Necronomicurse,
-    Card::Normality,
-    Card::Pain,
-    Card::Parasite,
-    Card::Pride,
+pub const CURSE_CARD_POOL: &[Card] = &[
     Card::Regret,
+    Card::Injury,
     Card::Shame,
+    Card::Parasite,
+    Card::Normality,
+    Card::Doubt,
     Card::Writhe,
+    Card::Pain,
+    Card::Decay,
+    Card::Clumsy,
 ];
 
 #[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
@@ -448,27 +405,5 @@ impl fmt::Display for Card {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         // TODO: add en-us names for my convenience
         write!(f, "{:?}", self)
-    }
-}
-
-#[cfg(test)]
-mod test {
-    use pretty_assertions::assert_eq;
-
-    use super::*;
-
-    #[test]
-    fn test_no_duplicates() {
-        let mut all_cards = UNCOMMON_COLORLESS_CARDS
-            .iter()
-            .chain(RARE_COLORLESS_CARDS.iter())
-            .chain(SPECIAL_COLORLESS_CARDS.iter())
-            .chain(STATUS_CARDS.iter())
-            .chain(CURSE_CARDS.iter())
-            .collect::<Vec<_>>();
-        all_cards.sort();
-        let initial_cards = all_cards.clone();
-        all_cards.dedup();
-        assert_eq!(all_cards, initial_cards);
     }
 }

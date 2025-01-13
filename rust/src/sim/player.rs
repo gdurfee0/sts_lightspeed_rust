@@ -5,21 +5,18 @@ use anyhow::{anyhow, Error};
 
 use crate::data::{Card, Character, NeowBlessing, Potion, Relic};
 
-use super::message::{Choice, PlayerView, Prompt, StsMessage};
+use super::message::{Choice, Prompt, StsMessage};
 
 /// Encapsulates the state of the player in the game, e.g. HP, gold, deck, etc.
 /// Also handles interactions with the player via the input_rx and output_tx channels.
 pub struct Player {
-    // Keeping the first few of these public for now to avoid having to write getters and setters,
-    // but this might change if the need to manually call send_player_view() every time becomes
-    // too onerous.
-    pub hp: u32,
-    pub hp_max: u32,
-    pub gold: u32,
-    pub relics: Vec<Relic>,
-    pub deck: Vec<Card>,
-    pub potions: Vec<Potion>,
-    pub potion_slots: usize,
+    hp: u32,
+    hp_max: u32,
+    gold: u32,
+    relics: Vec<Relic>,
+    deck: Vec<Card>,
+    potions: Vec<Option<Potion>>,
+    potion_slots: usize,
 
     // Communication channels
     input_rx: Receiver<usize>,
@@ -36,7 +33,7 @@ impl Player {
         let relics = vec![character.starting_relic];
         let deck = character.starting_deck.to_vec();
         let potion_slots = 3; // TODO: ascension
-        let potions = Vec::with_capacity(potion_slots);
+        let potions = [None; 3].to_vec();
         Self {
             hp: character.starting_hp,
             hp_max: character.starting_hp,
@@ -50,29 +47,81 @@ impl Player {
         }
     }
 
-    pub fn send_map_string(&self, map_string: String) -> Result<(), anyhow::Error> {
-        self.output_tx.send(StsMessage::Map(map_string))?;
+    pub fn hp_max(&self) -> u32 {
+        self.hp_max
+    }
+
+    pub fn hp(&self) -> u32 {
+        self.hp
+    }
+
+    pub fn gold(&self) -> u32 {
+        self.gold
+    }
+
+    pub fn take_damage(&mut self, amount: u32) -> Result<(), Error> {
+        self.hp = self.hp.saturating_sub(amount);
+        self.output_tx
+            .send(StsMessage::HpChanged(self.hp, self.hp_max))?;
+        if self.hp == 0 {
+            self.output_tx.send(StsMessage::GameOver(false))?;
+            Err(anyhow!("Player died"))
+        } else {
+            Ok(())
+        }
+    }
+
+    pub fn increase_hp_max(&mut self, amount: u32) -> Result<(), Error> {
+        self.hp_max = self.hp_max.saturating_add(amount);
+        self.hp = self.hp.saturating_add(amount);
+        self.output_tx
+            .send(StsMessage::HpChanged(self.hp, self.hp_max))?;
         Ok(())
     }
 
-    pub fn send_relics(&self) -> Result<(), anyhow::Error> {
+    pub fn decrease_hp_max(&mut self, amount: u32) -> Result<(), Error> {
+        self.hp_max = self.hp_max.saturating_sub(amount);
+        self.hp = self.hp.min(self.hp_max);
+        self.output_tx
+            .send(StsMessage::HpChanged(self.hp, self.hp_max))?;
+        Ok(())
+    }
+
+    pub fn decrease_gold(&mut self, amount: u32) -> Result<(), Error> {
+        self.gold = self.gold.saturating_sub(amount);
+        self.output_tx.send(StsMessage::GoldChanged(self.gold))?;
+        Ok(())
+    }
+
+    pub fn increase_gold(&mut self, amount: u32) -> Result<(), Error> {
+        self.gold = self.gold.saturating_add(amount);
+        self.output_tx.send(StsMessage::GoldChanged(self.gold))?;
+        Ok(())
+    }
+
+    pub fn send_initial_state(&self) -> Result<(), Error> {
+        self.output_tx.send(StsMessage::Deck(self.deck.clone()))?;
+        self.output_tx
+            .send(StsMessage::Potions(self.potions.clone()))?;
         self.output_tx
             .send(StsMessage::Relics(self.relics.clone()))?;
         Ok(())
     }
 
-    pub fn send_deck(&self) -> Result<(), anyhow::Error> {
-        self.output_tx.send(StsMessage::Deck(self.deck.clone()))?;
+    pub fn send_map_string(&self, map_string: String) -> Result<(), anyhow::Error> {
+        self.output_tx.send(StsMessage::Map(map_string))?;
         Ok(())
     }
 
-    pub fn send_player_view(&self) -> Result<(), Error> {
-        self.output_tx.send(StsMessage::View(PlayerView {
-            hp: self.hp,
-            hp_max: self.hp_max,
-            gold: self.gold,
-            potions: self.potions.clone(),
-        }))?;
+    pub fn obtain_card(&mut self, card: Card) -> Result<(), Error> {
+        self.deck.push(card);
+        self.output_tx.send(StsMessage::CardObtained(card))?;
+        Ok(())
+    }
+
+    pub fn obtain_relic(&mut self, relic: Relic) -> Result<(), Error> {
+        self.relics.push(relic);
+        self.output_tx.send(StsMessage::RelicObtained(relic))?;
         Ok(())
     }
 
@@ -119,7 +168,7 @@ impl Player {
         let choice_index = self.input_rx.recv()?;
         match choices.get(choice_index) {
             Some(Choice::ObtainCard(card)) => {
-                self.deck.push(*card);
+                self.obtain_card(*card)?;
                 Ok(())
             }
             Some(Choice::Skip) => Ok(()),
@@ -127,28 +176,36 @@ impl Player {
         }
     }
 
-    pub fn choose_many_potions(&mut self, mut potions_vec: Vec<Potion>) -> Result<(), Error> {
+    pub fn choose_many_potions(&mut self, mut choices_vec: Vec<Potion>) -> Result<(), Error> {
         loop {
-            let choices = potions_vec
-                .clone()
-                .into_iter()
-                .map(Choice::ObtainPotion)
-                .chain(once(Choice::Skip))
-                .collect::<Vec<_>>();
-            self.output_tx
-                .send(StsMessage::Choices(Prompt::ChooseNext, choices.clone()))?;
-            match choices.get(self.input_rx.recv()?) {
-                Some(Choice::ObtainPotion(potion)) => {
-                    self.potions.push(*potion);
-                    potions_vec.retain(|&p| p != *potion);
-                    if potions_vec.is_empty() || self.potions.len() >= self.potion_slots {
-                        break;
+            let next_available_slot = self.potions.iter().position(Option::is_none);
+            if let Some(slot) = next_available_slot {
+                let choices = choices_vec
+                    .clone()
+                    .into_iter()
+                    .map(Choice::ObtainPotion)
+                    .chain(once(Choice::Skip))
+                    .collect::<Vec<_>>();
+                self.output_tx
+                    .send(StsMessage::Choices(Prompt::ChooseNext, choices.clone()))?;
+                let choice_index = self.input_rx.recv()?;
+                match choices.get(choice_index) {
+                    Some(Choice::ObtainPotion(potion)) => {
+                        self.potions[slot] = Some(*potion);
+                        self.output_tx
+                            .send(StsMessage::PotionObtained(*potion, slot))?;
                     }
+                    Some(Choice::Skip) => break,
+                    _ => return Err(anyhow!("Invalid choice")),
                 }
-                Some(Choice::Skip) => break,
-                _ => return Err(anyhow!("Invalid choice")),
+                choices_vec.remove(choice_index);
+            } else {
+                // No available slots.
+                break;
             }
         }
+        self.output_tx
+            .send(StsMessage::Potions(self.potions.clone()))?;
         Ok(())
     }
 
@@ -164,13 +221,13 @@ impl Player {
         let choice_index = self.input_rx.recv()?;
         match choices.get(choice_index) {
             Some(Choice::RemoveCard(card)) => {
-                // Remove the first occurrence of the card from the deck.
-                self.deck.remove(
-                    self.deck
-                        .iter()
-                        .position(|&c| c == *card)
-                        .expect("Card not found"),
-                );
+                let index = self
+                    .deck
+                    .iter()
+                    .position(|&c| c == *card)
+                    .expect("Card not found");
+                self.deck.remove(index);
+                self.output_tx.send(StsMessage::CardRemoved(*card, index))?;
                 Ok(())
             }
             _ => Err(anyhow!("Invalid choice")),

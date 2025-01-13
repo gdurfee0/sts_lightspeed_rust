@@ -9,8 +9,8 @@ use super::player::Player;
 
 pub struct EncounterSimulator<'a> {
     encounter: Encounter,
-    misc_sts_random: &'a mut StsRandom,
-    enemy_hp_sts_random: StsRandom,
+    misc_rng: &'a mut StsRandom,
+    hp_rng: StsRandom,
     player: &'a mut Player,
 }
 
@@ -28,8 +28,8 @@ macro_rules! impl_enemy {
         }
 
         impl $name {
-            pub fn new(hp_sts_random: &mut StsRandom) -> Self {
-                let hp = hp_sts_random.gen_range($hp);
+            pub fn new(hp_rng: &mut StsRandom) -> Self {
+                let hp = hp_rng.gen_range($hp);
                 Self { hp, hp_max: hp }
             }
         }
@@ -59,14 +59,14 @@ impl<'a> EncounterSimulator<'a> {
     pub fn new(
         seed_for_floor: Seed,
         encounter: Encounter,
-        misc_sts_random: &'a mut StsRandom,
+        misc_rng: &'a mut StsRandom,
         player: &'a mut Player,
     ) -> Self {
-        let enemy_hp_sts_random = StsRandom::from(seed_for_floor);
+        let hp_rng = StsRandom::from(seed_for_floor);
         Self {
             encounter,
-            misc_sts_random,
-            enemy_hp_sts_random,
+            misc_rng,
+            hp_rng,
             player,
         }
     }
@@ -112,16 +112,15 @@ impl<'a> EncounterSimulator<'a> {
             Encounter::ShelledParasiteAndFungiBeast => todo!(),
             Encounter::SlimeBoss => todo!(),
             Encounter::SmallSlimes => {
-                let (e1, e2): (Box<dyn Enemy>, Box<dyn Enemy>) = if self.misc_sts_random.next_bool()
-                {
+                let (e1, e2): (Box<dyn Enemy>, Box<dyn Enemy>) = if self.misc_rng.next_bool() {
                     (
-                        Box::new(SpikeSlimeS::new(&mut self.enemy_hp_sts_random)),
-                        Box::new(AcidSlimeM::new(&mut self.enemy_hp_sts_random)),
+                        Box::new(SpikeSlimeS::new(&mut self.hp_rng)),
+                        Box::new(AcidSlimeM::new(&mut self.hp_rng)),
                     )
                 } else {
                     (
-                        Box::new(AcidSlimeS::new(&mut self.enemy_hp_sts_random)),
-                        Box::new(SpikeSlimeM::new(&mut self.enemy_hp_sts_random)),
+                        Box::new(AcidSlimeS::new(&mut self.hp_rng)),
+                        Box::new(SpikeSlimeM::new(&mut self.hp_rng)),
                     )
                 };
                 println!("Enemies: {:?}, {:?}", e1, e2);

@@ -5,7 +5,6 @@ use crate::data::{Character, Relic};
 use super::{Seed, StsRandom};
 
 pub struct RelicGenerator {
-    sts_random: StsRandom,
     common_relic_pool: VecDeque<Relic>,
     uncommon_relic_pool: VecDeque<Relic>,
     rare_relic_pool: VecDeque<Relic>,
@@ -20,14 +19,13 @@ impl RelicGenerator {
         let mut rare_relic_pool = character.rare_relic_pool.to_vec();
         let mut shop_relic_pool = character.shop_relic_pool.to_vec();
         let mut boss_relic_pool = character.boss_relic_pool.to_vec();
-        let mut sts_random = StsRandom::from(seed);
-        sts_random.java_compat_shuffle(&mut common_relic_pool);
-        sts_random.java_compat_shuffle(&mut uncommon_relic_pool);
-        sts_random.java_compat_shuffle(&mut rare_relic_pool);
-        sts_random.java_compat_shuffle(&mut shop_relic_pool);
-        sts_random.java_compat_shuffle(&mut boss_relic_pool);
+        let mut relic_rng = StsRandom::from(seed);
+        relic_rng.java_compat_shuffle(&mut common_relic_pool);
+        relic_rng.java_compat_shuffle(&mut uncommon_relic_pool);
+        relic_rng.java_compat_shuffle(&mut rare_relic_pool);
+        relic_rng.java_compat_shuffle(&mut shop_relic_pool);
+        relic_rng.java_compat_shuffle(&mut boss_relic_pool);
         Self {
-            sts_random,
             common_relic_pool: common_relic_pool.into_iter().collect(),
             uncommon_relic_pool: uncommon_relic_pool.into_iter().collect(),
             rare_relic_pool: rare_relic_pool.into_iter().collect(),

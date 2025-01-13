@@ -17,9 +17,9 @@ pub struct StsSimulator {
 
     // Random number generators for various game elements
     encounter_generator: EncounterGenerator,
-    card_sts_random: StsRandom,
-    misc_sts_random: StsRandom,
-    potion_sts_random: StsRandom,
+    card_rng: StsRandom,
+    misc_rng: StsRandom,
+    potion_rng: StsRandom,
     relic_generator: RelicGenerator,
 
     // Current player state
@@ -34,18 +34,18 @@ impl StsSimulator {
         output_tx: Sender<StsMessage>,
     ) -> Self {
         let encounter_generator = EncounterGenerator::new(seed);
-        let card_sts_random = StsRandom::from(seed);
-        let misc_sts_random = StsRandom::from(seed);
-        let potion_sts_random = StsRandom::from(seed);
+        let card_rng = StsRandom::from(seed);
+        let misc_rng = StsRandom::from(seed);
+        let potion_rng = StsRandom::from(seed);
         let relic_generator = RelicGenerator::new(seed, character);
         let player = Player::new(character, input_rx, output_tx);
         Self {
             seed,
             character,
             encounter_generator,
-            card_sts_random,
-            misc_sts_random,
-            potion_sts_random,
+            card_rng,
+            misc_rng,
+            potion_rng,
             relic_generator,
             player,
         }
@@ -63,17 +63,17 @@ impl StsSimulator {
         let neow_simulator = NeowSimulator::new(
             self.seed,
             self.character,
-            &mut self.card_sts_random,
-            &mut self.potion_sts_random,
+            &mut self.card_rng,
+            &mut self.potion_rng,
             &mut self.relic_generator,
             &mut self.player,
         );
         neow_simulator.run()?;
         let mut floor = 1;
         loop {
-            // TODO: shuffle_sts_random
-            self.card_sts_random = self.seed.with_offset(floor).into();
-            self.misc_sts_random = self.seed.with_offset(floor).into();
+            // TODO: shuffle_rng
+            self.card_rng = self.seed.with_offset(floor).into();
+            self.misc_rng = self.seed.with_offset(floor).into();
             match map_simulator.advance(&mut self.player)? {
                 Room::Boss => todo!(),
                 Room::BurningElite1 => todo!(),
@@ -87,7 +87,7 @@ impl StsSimulator {
                     EncounterSimulator::new(
                         self.seed.with_offset(floor),
                         self.encounter_generator.next_monster_encounter(),
-                        &mut self.misc_sts_random,
+                        &mut self.misc_rng,
                         &mut self.player,
                     )
                     .run()?;

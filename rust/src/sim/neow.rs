@@ -11,7 +11,7 @@ pub struct NeowSimulator<'a> {
 
     // Random number generators for various game elements
     neow_generator: NeowGenerator<'a>,
-    potion_sts_random: &'a mut StsRandom,
+    potion_rng: &'a mut StsRandom,
     relic_generator: &'a mut RelicGenerator,
 
     // Current player state
@@ -22,16 +22,16 @@ impl<'a> NeowSimulator<'a> {
     pub fn new(
         seed: Seed,
         character: &'static Character,
-        card_sts_random: &'a mut StsRandom,
-        potion_sts_random: &'a mut StsRandom,
+        card_rng: &'a mut StsRandom,
+        potion_rng: &'a mut StsRandom,
         relic_generator: &'a mut RelicGenerator,
         player: &'a mut Player,
     ) -> Self {
-        let neow_generator = NeowGenerator::new(seed, character, card_sts_random);
+        let neow_generator = NeowGenerator::new(seed, character, card_rng);
         Self {
             character,
             neow_generator,
-            potion_sts_random,
+            potion_rng,
             relic_generator,
             player,
         }
@@ -63,7 +63,7 @@ impl<'a> NeowSimulator<'a> {
                 .player
                 .obtain_card(self.neow_generator.one_random_rare_card()),
             NeowBlessing::ObtainThreeRandomPotions => self.player.choose_potions_to_obtain(
-                self.potion_sts_random
+                self.potion_rng
                     .sample_without_replacement(self.character.potion_pool, 3),
             ),
             NeowBlessing::RemoveCard => self.player.choose_card_to_remove(),

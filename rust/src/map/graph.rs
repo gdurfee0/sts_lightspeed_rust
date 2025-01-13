@@ -8,14 +8,14 @@ use super::grid::NodeBuilderGrid;
 use super::{COLUMN_COUNT, COLUMN_MAX, PATH_DENSITY, ROW_COUNT};
 
 pub struct GraphBuilder<'a> {
-    sts_random: &'a mut StsRandom,
+    map_rng: &'a mut StsRandom,
     node_grid: NodeBuilderGrid,
 }
 
 impl<'a> GraphBuilder<'a> {
-    pub fn new(sts_random: &'a mut StsRandom) -> Self {
+    pub fn new(map_rng: &'a mut StsRandom) -> Self {
         Self {
-            sts_random,
+            map_rng,
             node_grid: NodeBuilderGrid::new(),
         }
     }
@@ -27,12 +27,12 @@ impl<'a> GraphBuilder<'a> {
     }
 
     fn embed_paths(&mut self) {
-        let first_path_start_col = self.sts_random.gen_range(0..COLUMN_COUNT);
+        let first_path_start_col = self.map_rng.gen_range(0..COLUMN_COUNT);
         self.embed_path(first_path_start_col);
         for i in 1..PATH_DENSITY {
-            let mut path_start_col = self.sts_random.gen_range(0..COLUMN_COUNT);
+            let mut path_start_col = self.map_rng.gen_range(0..COLUMN_COUNT);
             while i == 1 && path_start_col == first_path_start_col {
-                path_start_col = self.sts_random.gen_range(0..COLUMN_COUNT);
+                path_start_col = self.map_rng.gen_range(0..COLUMN_COUNT);
             }
             self.embed_path(path_start_col);
         }
@@ -87,15 +87,15 @@ impl<'a> GraphBuilder<'a> {
     fn propose_exit(&mut self, col: usize) -> (ExitBits, usize) {
         match col {
             0 => *self
-                .sts_random
+                .map_rng
                 .choose(&[(ExitBits::Up, 0), (ExitBits::Right, 1)]),
-            1..COLUMN_MAX => *self.sts_random.choose(&[
+            1..COLUMN_MAX => *self.map_rng.choose(&[
                 (ExitBits::Left, col - 1),
                 (ExitBits::Up, col),
                 (ExitBits::Right, col + 1),
             ]),
             COLUMN_MAX => *self
-                .sts_random
+                .map_rng
                 .choose(&[(ExitBits::Left, COLUMN_MAX - 1), (ExitBits::Up, COLUMN_MAX)]),
             _ => unreachable!(),
         }
@@ -147,14 +147,14 @@ impl<'a> GraphBuilder<'a> {
                 .buggy_implementation_of_shares_parent_with(row, my_col, other_col)
             {
                 (exit, next_col) = match next_col.cmp(&my_col) {
-                    Ordering::Less => *self.sts_random.choose(&[
+                    Ordering::Less => *self.map_rng.choose(&[
                         (ExitBits::Up, my_col),
                         match my_col {
                             COLUMN_MAX => (ExitBits::Up, COLUMN_MAX),
                             _ => (ExitBits::Right, my_col + 1),
                         },
                     ]),
-                    Ordering::Equal => *self.sts_random.choose(&[
+                    Ordering::Equal => *self.map_rng.choose(&[
                         match my_col {
                             0 => (ExitBits::Right, 1),
                             _ => (ExitBits::Left, my_col - 1), // bounce instead of clamp; intended?
@@ -165,7 +165,7 @@ impl<'a> GraphBuilder<'a> {
                             _ => (ExitBits::Right, my_col + 1), // bounce not clamp; intended?
                         },
                     ]),
-                    Ordering::Greater => *self.sts_random.choose(&[
+                    Ordering::Greater => *self.map_rng.choose(&[
                         match my_col {
                             0 => (ExitBits::Up, 0),
                             _ => (ExitBits::Left, my_col - 1),
@@ -222,8 +222,8 @@ mod tests {
 
     #[test]
     fn test_connection_graph() {
-        let mut sts_random = StsRandom::from(2);
-        let node_grid = GraphBuilder::new(&mut sts_random).build();
+        let mut map_rng = StsRandom::from(2);
+        let node_grid = GraphBuilder::new(&mut map_rng).build();
         assert_eq!(
             node_grid.exit_bits_as_vec(),
             [
@@ -244,8 +244,8 @@ mod tests {
             ]
         );
 
-        let mut sts_random = StsRandom::from(3);
-        let node_grid = GraphBuilder::new(&mut sts_random).build();
+        let mut map_rng = StsRandom::from(3);
+        let node_grid = GraphBuilder::new(&mut map_rng).build();
         assert_eq!(
             node_grid.exit_bits_as_vec(),
             [
@@ -275,10 +275,7 @@ mod tests {
     fn test_connection_graph_test_vectors() {
         let now = Instant::now();
         let node_grids = (2..10002) // (2..10000002)
-            .map(|i| {
-                let mut sts_random = StsRandom::from(i);
-                GraphBuilder::new(&mut sts_random).build()
-            })
+            .map(|i| GraphBuilder::new(&mut StsRandom::from(i)).build())
             .collect::<Vec<NodeBuilderGrid>>();
         println!(
             "Time taken to generate {} graphs: {:?}",

@@ -19,7 +19,7 @@ const MONSTER_ROW_INDEX: usize = 0;
 
 pub struct MapBuilder {
     act: &'static Act,
-    sts_random: StsRandom,
+    map_rng: StsRandom,
 }
 
 impl MapBuilder {
@@ -27,7 +27,7 @@ impl MapBuilder {
         let offset = act.map_seed_offset;
         Self {
             act,
-            sts_random: StsRandom::from(seed.with_offset(offset)),
+            map_rng: StsRandom::from(seed.with_offset(offset)),
         }
     }
 
@@ -35,8 +35,8 @@ impl MapBuilder {
         if self.act == Act::get(4) {
             unimplemented!();
         }
-        let node_grid = GraphBuilder::new(&mut self.sts_random).build();
-        RoomAssigner::new(node_grid, &mut self.sts_random)
+        let node_grid = GraphBuilder::new(&mut self.map_rng).build();
+        RoomAssigner::new(node_grid, &mut self.map_rng)
             .assign_rooms()
             .finish()
     }
@@ -45,15 +45,15 @@ impl MapBuilder {
 struct RoomAssigner<'a> {
     node_grid: NodeBuilderGrid,
     elite_rooms: Vec<(usize, usize)>,
-    sts_random: &'a mut StsRandom,
+    map_rng: &'a mut StsRandom,
 }
 
 impl<'a> RoomAssigner<'a> {
-    pub fn new(node_grid: NodeBuilderGrid, sts_random: &'a mut StsRandom) -> Self {
+    pub fn new(node_grid: NodeBuilderGrid, map_rng: &'a mut StsRandom) -> Self {
         Self {
             node_grid,
             elite_rooms: vec![],
-            sts_random,
+            map_rng,
         }
     }
 
@@ -82,7 +82,7 @@ impl<'a> RoomAssigner<'a> {
             .take(unassigned_room_count)
             .map(Some)
             .collect::<Vec<Option<Room>>>();
-        self.sts_random.shuffle(&mut unassigned_rooms);
+        self.map_rng.shuffle(&mut unassigned_rooms);
         let mut start_index = 0;
         for row in 0..(ROW_COUNT - 1) {
             if row == MONSTER_ROW_INDEX || row == TREASURE_ROW_INDEX {
@@ -139,11 +139,11 @@ impl<'a> RoomAssigner<'a> {
             eprintln!("Not enough elite rooms; this is a known bug");
             return;
         }
-        let (row, col) = self.sts_random.choose(&self.elite_rooms);
+        let (row, col) = self.map_rng.choose(&self.elite_rooms);
         self.node_grid.set_room(
             *row,
             *col,
-            match self.sts_random.gen_range(0..=3) {
+            match self.map_rng.gen_range(0..=3) {
                 0 => Room::BurningElite1,
                 1 => Room::BurningElite2,
                 2 => Room::BurningElite3,

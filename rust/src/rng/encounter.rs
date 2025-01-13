@@ -17,7 +17,7 @@ use super::{Seed, StsRandom};
 /// to work around. So we're using a more manual approach here.
 pub struct EncounterGenerator {
     act: &'static Act,
-    sts_random: StsRandom,
+    encounter_rng: StsRandom,
     monster_queue: VecDeque<Encounter>,
     elite_queue: VecDeque<Encounter>,
     boss_queue: VecDeque<Encounter>,
@@ -28,10 +28,10 @@ impl EncounterGenerator {
     /// queues for Act 1.
     pub fn new(seed: Seed) -> Self {
         let act = Act::get(1);
-        let sts_random = StsRandom::from(seed);
+        let encounter_rng = StsRandom::from(seed);
         let mut result = Self {
             act,
-            sts_random,
+            encounter_rng,
             monster_queue: VecDeque::new(),
             elite_queue: VecDeque::new(),
             boss_queue: VecDeque::new(),
@@ -96,7 +96,7 @@ impl EncounterGenerator {
     // embarassing repetition.
     fn sample_first_strong_monster_encounter(&mut self) {
         let mut proposed_encounter = *self
-            .sts_random
+            .encounter_rng
             .weighted_choose(self.act.strong_monster_encounter_pool);
         while match self.monster_queue.back() {
             Some(prev_encounter) => matches!(
@@ -108,7 +108,7 @@ impl EncounterGenerator {
             None => false,
         } {
             proposed_encounter = *self
-                .sts_random
+                .encounter_rng
                 .weighted_choose(self.act.strong_monster_encounter_pool);
         }
         self.monster_queue.push_back(proposed_encounter);
@@ -126,7 +126,7 @@ impl EncounterGenerator {
     // duplicates.
     fn sample_monster_encounters(&mut self, count: usize, pool: &'static [(Encounter, f32)]) {
         for _ in 0..count {
-            let mut proposed_encounter = *self.sts_random.weighted_choose(pool);
+            let mut proposed_encounter = *self.encounter_rng.weighted_choose(pool);
             while match self.monster_queue.back() {
                 Some(prev_encounter) if self.monster_queue.len() >= 2 => {
                     proposed_encounter == *prev_encounter
@@ -140,7 +140,7 @@ impl EncounterGenerator {
                 Some(prev_encounter) => proposed_encounter == *prev_encounter,
                 None => false,
             } {
-                proposed_encounter = *self.sts_random.weighted_choose(pool);
+                proposed_encounter = *self.encounter_rng.weighted_choose(pool);
             }
             self.monster_queue.push_back(proposed_encounter);
         }
@@ -150,14 +150,14 @@ impl EncounterGenerator {
     fn sample_elite_encounters(&mut self) {
         for _ in 0..10 {
             let mut proposed_encounter = *self
-                .sts_random
+                .encounter_rng
                 .weighted_choose(self.act.elite_encounter_pool);
             while match self.elite_queue.back() {
                 Some(prev_encounter) => proposed_encounter == *prev_encounter,
                 None => false,
             } {
                 proposed_encounter = *self
-                    .sts_random
+                    .encounter_rng
                     .weighted_choose(self.act.elite_encounter_pool);
             }
             self.elite_queue.push_back(proposed_encounter);
@@ -168,7 +168,7 @@ impl EncounterGenerator {
     // TODO: Make this two bosses for higher Ascensions.
     fn sample_boss_encounters(&mut self) {
         let mut bosses = self.act.boss_encounter_pool.to_vec();
-        self.sts_random.java_compat_shuffle(bosses.as_mut());
+        self.encounter_rng.java_compat_shuffle(bosses.as_mut());
         self.boss_queue.push_back(bosses[0]);
     }
 }

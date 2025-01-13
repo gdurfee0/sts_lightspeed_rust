@@ -71,6 +71,9 @@ impl StsSimulator {
         neow_simulator.run()?;
         let mut floor = 1;
         loop {
+            // TODO: shuffle_sts_random
+            self.card_sts_random = self.seed.with_offset(floor).into();
+            self.misc_sts_random = self.seed.with_offset(floor).into();
             match map_simulator.advance(&mut self.player)? {
                 Room::Boss => todo!(),
                 Room::BurningElite1 => todo!(),
@@ -82,6 +85,7 @@ impl StsSimulator {
                 Room::Event => todo!(),
                 Room::Monster => {
                     EncounterSimulator::new(
+                        &self.seed.with_offset(floor),
                         self.encounter_generator.next_monster_encounter(),
                         &mut self.misc_sts_random,
                         &mut self.player,
@@ -92,9 +96,6 @@ impl StsSimulator {
                 Room::Treasure => todo!(),
             }
             floor += 1;
-            self.card_sts_random = self.seed.with_offset(floor).into();
-            self.misc_sts_random = self.seed.with_offset(floor).into();
-            // TODO: shuffle_sts_random
         }
 
         //self.output_tx.send(StsMessage::GameOver(true))?;

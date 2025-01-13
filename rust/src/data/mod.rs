@@ -12,7 +12,7 @@ pub use act::Act;
 pub use card::{Card, CURSE_CARD_POOL, UNCOMMON_COLORLESS_CARDS};
 pub use character::Character;
 pub use encounter::Encounter;
-pub use enemy::Enemy;
+pub use enemy::{EnemyTemplate, EnemyType};
 pub use neow::{
     NeowBlessing, NeowBonus, NeowPenalty, FIRST_NEOW_POOL, SECOND_NEOW_POOL, THIRD_NEOW_POOL,
 };

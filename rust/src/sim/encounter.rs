@@ -1,25 +1,29 @@
 use anyhow::Error;
 
-use crate::data::Encounter;
-use crate::rng::StsRandom;
+use crate::data::{Encounter, EnemyTemplate, EnemyType};
+use crate::rng::{Seed, StsRandom};
 
 use super::player::Player;
 
 pub struct EncounterSimulator<'a> {
     encounter: Encounter,
     misc_sts_random: &'a mut StsRandom,
+    enemy_hp_sts_random: StsRandom,
     player: &'a mut Player,
 }
 
 impl<'a> EncounterSimulator<'a> {
     pub fn new(
+        seed_for_floor: &Seed,
         encounter: Encounter,
         misc_sts_random: &'a mut StsRandom,
         player: &'a mut Player,
     ) -> Self {
+        let enemy_hp_sts_random = StsRandom::from(seed_for_floor);
         Self {
             encounter,
             misc_sts_random,
+            enemy_hp_sts_random,
             player,
         }
     }
@@ -65,7 +69,21 @@ impl<'a> EncounterSimulator<'a> {
             Encounter::ShelledParasiteAndFungiBeast => todo!(),
             Encounter::SlimeBoss => todo!(),
             Encounter::SmallSlimes => {
-                println!("[EncounterSimulator] Running Small Slimes encounter");
+                let (e1, e2) = if self.misc_sts_random.next_bool() {
+                    (
+                        EnemyTemplate::from(EnemyType::SpikeSlimeS),
+                        EnemyTemplate::from(EnemyType::AcidSlimeM),
+                    )
+                } else {
+                    (
+                        EnemyTemplate::from(EnemyType::AcidSlimeS),
+                        EnemyTemplate::from(EnemyType::SpikeSlimeM),
+                    )
+                };
+                println!("Enemy templates: {:?}, {:?}", e1, e2);
+                let hp1 = self.enemy_hp_sts_random.gen_range(e1.hp);
+                let hp2 = self.enemy_hp_sts_random.gen_range(e2.hp);
+                println!("Enemy HPs: {}, {}", hp1, hp2);
             }
             Encounter::SnakePlant => todo!(),
             Encounter::Snecko => todo!(),

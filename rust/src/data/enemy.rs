@@ -1,5 +1,7 @@
-#[derive(Clone, Copy, Debug, PartialEq)]
-pub enum Enemy {
+use std::ops::RangeInclusive;
+
+#[derive(Clone, Copy, Debug)]
+pub enum EnemyType {
     AcidSlimeL,
     AcidSlimeM,
     AcidSlimeS,
@@ -35,10 +37,54 @@ pub enum Enemy {
     Mystic,
     Nemesis,
     OrbWalker,
+    Pointy,
+    RedLouse,
+    RedSlaver,
+    Reptomancer,
+    Repulsor,
+    Romeo,
+    Sentry,
+    ShelledParasite,
+    ShieldGremlin,
+    SlimeBoss,
+    SnakePlant,
+    SneakyGremlin,
+    Snecko,
+    SphericGuardian,
+    Spiker,
+    SpikeSlimeL,
+    SpikeSlimeM,
+    SpikeSlimeS,
+    SpireGrowth,
+    SpireShield,
+    SpireSpear,
+    Taskmaster,
+    TheChamp,
+    TheCollector,
+    TheGuardian, //
+    TheMaw,
+    TimeEater,
+    TorchHead,
+    Transient,
+    WrithingMass,
 }
 
-pub struct EnemyCharacteristics {
+#[derive(Clone, Debug)]
+pub struct EnemyTemplate {
     // TODO: ascension-dependent HP ranges
-    pub hp_min: u32,
-    pub hp_max: u32,
+    pub enemy_type: EnemyType,
+    pub hp: RangeInclusive<u32>,
+}
+
+impl From<EnemyType> for EnemyTemplate {
+    fn from(enemy_type: EnemyType) -> EnemyTemplate {
+        let hp = match enemy_type {
+            EnemyType::AcidSlimeM => 28..=32,
+            EnemyType::AcidSlimeS => 8..=12,
+            EnemyType::SpikeSlimeM => 28..=32,
+            EnemyType::SpikeSlimeS => 10..=14,
+            _ => todo!(),
+        };
+        EnemyTemplate { enemy_type, hp }
+    }
 }

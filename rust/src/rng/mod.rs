@@ -1,6 +1,7 @@
 mod encounter;
 mod java;
 mod neow;
+mod relic;
 mod seed;
 mod sts;
 

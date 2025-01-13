@@ -97,49 +97,34 @@ mod test {
 
     #[test]
     fn test_three_cards() {
-        let seed = 3u64.into();
-        let character = <&'static Character>::try_from("i").unwrap();
-        let mut generator = NeowGenerator::new(&seed, character);
+        let mut generator = NeowGenerator::new(&3.into(), "i".try_into().unwrap());
         assert_eq!(
-            generator.three_card_choices().to_vec(),
+            generator.three_card_choices(),
             vec![Card::SeeingRed, Card::Clothesline, Card::BloodForBlood]
         );
-
-        let seed = "15".try_into().unwrap();
-        let character = <&'static Character>::try_from("i").unwrap();
-        let mut generator = NeowGenerator::new(&seed, character);
+        let mut generator = NeowGenerator::new(&40.into(), "i".try_into().unwrap());
         assert_eq!(
-            generator.three_card_choices().to_vec(),
+            generator.three_card_choices(),
             vec![Card::IronWave, Card::Cleave, Card::Headbutt]
         );
-
-        let seed = 3u64.into();
-        let character = <&'static Character>::try_from("s").unwrap();
-        let mut generator = NeowGenerator::new(&seed, character);
+        let mut generator = NeowGenerator::new(&3.into(), "s".try_into().unwrap());
         assert_eq!(
-            generator.three_card_choices().to_vec(),
+            generator.three_card_choices(),
             vec![Card::Dash, Card::Backflip, Card::Choke]
         );
-
-        let character = <&'static Character>::try_from("d").unwrap();
-        let mut generator = NeowGenerator::new(&seed, character);
+        let mut generator = NeowGenerator::new(&3.into(), "d".try_into().unwrap());
         assert_eq!(
-            generator.three_card_choices().to_vec(),
+            generator.three_card_choices(),
             vec![Card::Equilibrium, Card::CompileDriver, Card::Aggregate]
         );
-
-        let character = <&'static Character>::try_from("w").unwrap();
-        let mut generator = NeowGenerator::new(&seed, character);
+        let mut generator = NeowGenerator::new(&3.into(), "w".try_into().unwrap());
         assert_eq!(
-            generator.three_card_choices().to_vec(),
+            generator.three_card_choices(),
             vec![Card::Worship, Card::CutThroughFate, Card::WheelKick]
         );
-
-        let seed = "15".try_into().unwrap();
-        let character = <&'static Character>::try_from("w").unwrap();
-        let mut generator = NeowGenerator::new(&seed, character);
+        let mut generator = NeowGenerator::new(&"15".try_into().unwrap(), "w".try_into().unwrap());
         assert_eq!(
-            generator.three_card_choices().to_vec(),
+            generator.three_card_choices(),
             vec![Card::FlyingSleeves, Card::Tranquility, Card::Evaluate]
         );
     }

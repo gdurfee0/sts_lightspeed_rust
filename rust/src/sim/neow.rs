@@ -2,7 +2,9 @@ use anyhow::Error;
 
 use super::player::Player;
 
-use crate::data::{Character, NeowBlessing, NeowBonus, NeowPenalty, UNCOMMON_COLORLESS_CARDS};
+use crate::data::{
+    Character, NeowBlessing, NeowBonus, NeowPenalty, Relic, UNCOMMON_COLORLESS_CARDS,
+};
 use crate::rng::{NeowGenerator, Seed, StsRandom};
 
 pub struct NeowSimulator<'a> {
@@ -51,6 +53,7 @@ impl<'a> NeowSimulator<'a> {
                 .player
                 .choose_one_card(self.neow_generator.three_card_choices()),
             NeowBlessing::ChooseColorlessCard => self.player.choose_one_card(
+                // Intentionally using the card_sts_random generator here for fidelity
                 self.card_sts_random
                     .sample_without_replacement(UNCOMMON_COLORLESS_CARDS, 3),
             ),
@@ -63,7 +66,10 @@ impl<'a> NeowSimulator<'a> {
                 self.player.hp = self.player.hp_max;
                 Ok(())
             }
-            NeowBlessing::NeowsLament => todo!(),
+            NeowBlessing::NeowsLament => {
+                self.player.relics.push(Relic::NeowsLament);
+                self.player.send_relics()
+            }
             NeowBlessing::ObtainRandomCommonRelic => todo!(),
             NeowBlessing::ObtainRandomRareCard => todo!(),
             NeowBlessing::ObtainThreeRandomPotions => self.player.choose_many_potions(

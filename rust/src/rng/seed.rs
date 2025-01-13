@@ -4,7 +4,7 @@ use std::result::Result;
 
 use anyhow::anyhow;
 
-#[derive(Clone, PartialEq)]
+#[derive(Clone, Copy, PartialEq)]
 pub struct Seed(u64);
 
 impl Seed {
@@ -39,8 +39,8 @@ impl TryFrom<&str> for Seed {
     }
 }
 
-impl From<&Seed> for String {
-    fn from(value: &Seed) -> String {
+impl From<Seed> for String {
+    fn from(value: Seed) -> String {
         let mut seed = value.0;
         let mut result = String::new();
         while seed > 0 {
@@ -62,8 +62,8 @@ impl From<&Seed> for String {
     }
 }
 
-impl From<&Seed> for u64 {
-    fn from(value: &Seed) -> u64 {
+impl From<Seed> for u64 {
+    fn from(value: Seed) -> u64 {
         value.0
     }
 }
@@ -76,13 +76,13 @@ impl From<u64> for Seed {
 
 impl fmt::Debug for Seed {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "Seed({}) = {}", String::from(self), self.0)
+        write!(f, "Seed({}) = {}", String::from(*self), self.0)
     }
 }
 
 impl fmt::Display for Seed {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", String::from(self))
+        write!(f, "{}", String::from(*self))
     }
 }
 

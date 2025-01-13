@@ -15,7 +15,7 @@ pub struct MapSimulator {
 }
 
 impl MapSimulator {
-    pub fn new(seed: &Seed) -> Self {
+    pub fn new(seed: Seed) -> Self {
         let map = MapBuilder::from(seed, Act::get(1)).build();
         Self {
             player_row_col: None,

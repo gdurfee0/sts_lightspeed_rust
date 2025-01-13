@@ -27,7 +27,7 @@ impl<'a> NeowSimulator<'a> {
         relic_generator: &'a mut RelicGenerator,
         player: &'a mut Player,
     ) -> Self {
-        let neow_generator = NeowGenerator::new(&seed, character, card_sts_random);
+        let neow_generator = NeowGenerator::new(seed, character, card_sts_random);
         Self {
             character,
             neow_generator,

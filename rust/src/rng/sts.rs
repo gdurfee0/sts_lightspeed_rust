@@ -241,15 +241,9 @@ impl From<u64> for StsRandom {
     }
 }
 
-impl From<&Seed> for StsRandom {
-    fn from(seed: &Seed) -> Self {
-        Self::from(u64::from(seed))
-    }
-}
-
 impl From<Seed> for StsRandom {
     fn from(seed: Seed) -> Self {
-        Self::from(&seed)
+        Self::from(u64::from(seed))
     }
 }
 

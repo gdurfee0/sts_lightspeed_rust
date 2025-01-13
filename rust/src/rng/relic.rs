@@ -14,13 +14,13 @@ pub struct RelicGenerator {
 }
 
 impl RelicGenerator {
-    pub fn new(seed: &Seed, character: &'static Character) -> Self {
-        let mut sts_random: StsRandom = seed.into();
+    pub fn new(seed: Seed, character: &'static Character) -> Self {
         let mut common_relic_pool = character.common_relic_pool.to_vec();
         let mut uncommon_relic_pool = character.uncommon_relic_pool.to_vec();
         let mut rare_relic_pool = character.rare_relic_pool.to_vec();
         let mut shop_relic_pool = character.shop_relic_pool.to_vec();
         let mut boss_relic_pool = character.boss_relic_pool.to_vec();
+        let mut sts_random = StsRandom::from(seed);
         sts_random.java_compat_shuffle(&mut common_relic_pool);
         sts_random.java_compat_shuffle(&mut uncommon_relic_pool);
         sts_random.java_compat_shuffle(&mut rare_relic_pool);
@@ -68,15 +68,17 @@ impl RelicGenerator {
 mod test {
     use pretty_assertions::assert_eq;
 
+    use crate::data::IRONCLAD;
+
     use super::*;
 
     #[test]
     fn test_relic_generator() {
-        let mut generator = RelicGenerator::new(&12u64.into(), "i".try_into().unwrap());
+        let mut generator = RelicGenerator::new(12.into(), IRONCLAD);
         assert_eq!(generator.common_relic(), Relic::RedSkull);
-        let mut generator = RelicGenerator::new(&1u64.into(), "i".try_into().unwrap());
+        let mut generator = RelicGenerator::new(1.into(), IRONCLAD);
         assert_eq!(generator.boss_relic(), Relic::SneckoEye);
-        let mut generator = RelicGenerator::new(&2u64.into(), "i".try_into().unwrap());
+        let mut generator = RelicGenerator::new(2.into(), IRONCLAD);
         assert_eq!(generator.boss_relic(), Relic::RunicDome);
     }
 }

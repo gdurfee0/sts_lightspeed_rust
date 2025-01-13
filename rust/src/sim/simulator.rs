@@ -33,11 +33,11 @@ impl StsSimulator {
         input_rx: Receiver<usize>,
         output_tx: Sender<StsMessage>,
     ) -> Self {
-        let encounter_generator = EncounterGenerator::new(&seed);
-        let card_sts_random = StsRandom::from(&seed);
-        let misc_sts_random = StsRandom::from(&seed);
-        let potion_sts_random = StsRandom::from(&seed);
-        let relic_generator = RelicGenerator::new(&seed, character);
+        let encounter_generator = EncounterGenerator::new(seed);
+        let card_sts_random = StsRandom::from(seed);
+        let misc_sts_random = StsRandom::from(seed);
+        let potion_sts_random = StsRandom::from(seed);
+        let relic_generator = RelicGenerator::new(seed, character);
         let player = Player::new(character, input_rx, output_tx);
         Self {
             seed,
@@ -58,10 +58,10 @@ impl StsSimulator {
             std::mem::size_of::<StsMessage>(),
         );
         self.player.send_initial_state()?;
-        let mut map_simulator = MapSimulator::new(&self.seed);
+        let mut map_simulator = MapSimulator::new(self.seed);
         map_simulator.send_map_to_player(&mut self.player)?;
         let neow_simulator = NeowSimulator::new(
-            self.seed.clone(),
+            self.seed,
             self.character,
             &mut self.card_sts_random,
             &mut self.potion_sts_random,
@@ -85,7 +85,7 @@ impl StsSimulator {
                 Room::Event => todo!(),
                 Room::Monster => {
                     EncounterSimulator::new(
-                        &self.seed.with_offset(floor),
+                        self.seed.with_offset(floor),
                         self.encounter_generator.next_monster_encounter(),
                         &mut self.misc_sts_random,
                         &mut self.player,

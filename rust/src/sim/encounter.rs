@@ -14,7 +14,7 @@ pub struct EncounterSimulator<'a> {
 
 impl<'a> EncounterSimulator<'a> {
     pub fn new(
-        seed_for_floor: &Seed,
+        seed_for_floor: Seed,
         encounter: Encounter,
         misc_sts_random: &'a mut StsRandom,
         player: &'a mut Player,

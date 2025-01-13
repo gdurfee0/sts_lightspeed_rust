@@ -23,11 +23,11 @@ pub struct MapBuilder {
 }
 
 impl MapBuilder {
-    pub fn from(seed: &Seed, act: &'static Act) -> Self {
+    pub fn from(seed: Seed, act: &'static Act) -> Self {
         let offset = act.map_seed_offset;
         Self {
             act,
-            sts_random: seed.with_offset(offset).into(),
+            sts_random: StsRandom::from(seed.with_offset(offset)),
         }
     }
 
@@ -166,8 +166,8 @@ mod tests {
 
     #[test]
     fn test_map_0slaythespire() {
-        let seed: Seed = "0SLAYTHESPIRE".try_into().unwrap();
-        let map_act_1 = MapBuilder::from(&seed, Act::get(1)).build();
+        let seed = Seed::try_from("0SLAYTHESPIRE").unwrap();
+        let map_act_1 = MapBuilder::from(seed, Act::get(1)).build();
         assert_eq!(
             map_act_1.to_string(),
             [
@@ -210,10 +210,7 @@ mod tests {
     fn test_lots_of_maps() {
         let now = Instant::now();
         let node_grids = (2..10002) // (2..10000002)
-            .map(|i| {
-                let seed: Seed = i.into();
-                MapBuilder::from(&seed, Act::get(1)).build()
-            })
+            .map(|i| MapBuilder::from(Seed::from(i), Act::get(1)).build())
             .collect::<Vec<NodeGrid>>();
         println!(
             "Time taken to generate {} graph{}: {:?}",
@@ -242,7 +239,7 @@ mod tests {
                 // TODO: Offer a fix for the C++ implementation and remove this check.
                 continue;
             }
-            let seed: Seed = seed_as_u64.into();
+            let seed = Seed::from(seed_as_u64);
             let left = format!("{} {:?}", node_grid, seed);
             let right = format!("{} {:?}", vector, seed);
             assert_eq!(left, right);

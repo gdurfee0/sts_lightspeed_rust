@@ -59,7 +59,7 @@ impl Player {
     pub fn take_damage(&mut self, amount: u32) -> Result<(), Error> {
         self.hp = self.hp.saturating_sub(amount);
         self.output_tx
-            .send(StsMessage::HpChanged(self.hp, self.hp_max))?;
+            .send(StsMessage::HealthChanged(self.hp, self.hp_max))?;
         if self.hp == 0 {
             self.output_tx.send(StsMessage::GameOver(false))?;
             Err(anyhow!("Player died"))
@@ -72,7 +72,7 @@ impl Player {
         self.hp_max = self.hp_max.saturating_add(amount);
         self.hp = self.hp.saturating_add(amount);
         self.output_tx
-            .send(StsMessage::HpChanged(self.hp, self.hp_max))?;
+            .send(StsMessage::HealthChanged(self.hp, self.hp_max))?;
         Ok(())
     }
 
@@ -80,7 +80,7 @@ impl Player {
         self.hp_max = self.hp_max.saturating_sub(amount);
         self.hp = self.hp.min(self.hp_max);
         self.output_tx
-            .send(StsMessage::HpChanged(self.hp, self.hp_max))?;
+            .send(StsMessage::HealthChanged(self.hp, self.hp_max))?;
         Ok(())
     }
 

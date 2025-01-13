@@ -17,7 +17,7 @@ pub enum StsMessage {
     PotionObtained(Potion, usize),
     RelicObtained(Relic),
     GoldChanged(u32),
-    HpChanged(u32, u32),
+    HealthChanged(u32, u32), // "Health" always refers to the pair (current HP, max HP)
     GameOver(bool),
 
     /// A list of `Choice`s, each representing a possible action; the client must select one

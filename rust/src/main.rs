@@ -90,7 +90,7 @@ fn main_input_loop(
             StsMessage::GoldChanged(gold) => {
                 println!("GoldChanged({})", gold);
             }
-            StsMessage::HpChanged(hp, hp_max) => {
+            StsMessage::HealthChanged(hp, hp_max) => {
                 println!("HpChanged({}/{})", hp, hp_max);
             }
         }

@@ -13,7 +13,7 @@ use super::{Seed, StsRandom};
 /// encounter class (Monster, Elite, and Boss). But for rng fidelity to the original game,
 /// we need to share the same StsRandom generator across all encounter classes. This means that
 /// the different Iterator types would need to hold mutable references to the same underlying
-/// StsGenerator. This is an antipattern in Rust and would require use of RefCell or Mutex
+/// StsRandom. This is an antipattern in Rust and would require use of RefCell or Mutex
 /// to work around. So we're using a more manual approach here.
 pub struct EncounterGenerator {
     act: &'static Act,
@@ -27,11 +27,9 @@ impl EncounterGenerator {
     /// Constructs a new EncounterGenerator with the provided seed, prepopulating encounter
     /// queues for Act 1.
     pub fn new(seed: Seed) -> Self {
-        let act = Act::get(1);
-        let encounter_rng = StsRandom::from(seed);
         let mut result = Self {
-            act,
-            encounter_rng,
+            act: Act::get(1),
+            encounter_rng: StsRandom::from(seed),
             monster_queue: VecDeque::new(),
             elite_queue: VecDeque::new(),
             boss_queue: VecDeque::new(),

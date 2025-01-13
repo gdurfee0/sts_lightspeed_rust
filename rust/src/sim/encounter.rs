@@ -1,3 +1,5 @@
+use std::fmt;
+
 use anyhow::Error;
 
 use crate::data::{Encounter, EnemyTemplate, EnemyType, Intent};
@@ -12,15 +14,45 @@ pub struct EncounterSimulator<'a> {
     player: &'a mut Player,
 }
 
-pub struct Enemy {
-    enemy_type: EnemyType,
-    hp: u32,
-    hp_max: u32,
-    intent: Intent,
+pub trait Enemy: fmt::Debug {
+    fn intent(&self) -> Intent;
+    fn health(&self) -> (u32, u32);
 }
 
+macro_rules! impl_enemy {
+    ($name:ident, $hp:expr) => {
+        #[derive(Debug)]
+        pub struct $name {
+            hp: u32,
+            hp_max: u32,
+        }
+
+        impl $name {
+            pub fn new(hp_sts_random: &mut StsRandom) -> Self {
+                let hp = hp_sts_random.gen_range($hp);
+                Self { hp, hp_max: hp }
+            }
+        }
+
+        impl Enemy for $name {
+            fn intent(&self) -> Intent {
+                todo!()
+            }
+
+            fn health(&self) -> (u32, u32) {
+                (self.hp, self.hp_max)
+            }
+        }
+    };
+}
+
+impl_enemy!(AcidSlimeM, 28..=32);
+impl_enemy!(AcidSlimeS, 8..=12);
+impl_enemy!(SpikeSlimeM, 28..=32);
+impl_enemy!(SpikeSlimeS, 10..=14);
+
 pub struct EnemyParty {
-    enemies: [Option<Enemy>; 5],
+    enemies: [Option<Box<dyn Enemy>>; 5],
 }
 
 impl<'a> EncounterSimulator<'a> {
@@ -80,21 +112,19 @@ impl<'a> EncounterSimulator<'a> {
             Encounter::ShelledParasiteAndFungiBeast => todo!(),
             Encounter::SlimeBoss => todo!(),
             Encounter::SmallSlimes => {
-                let (e1, e2) = if self.misc_sts_random.next_bool() {
+                let (e1, e2): (Box<dyn Enemy>, Box<dyn Enemy>) = if self.misc_sts_random.next_bool()
+                {
                     (
-                        EnemyTemplate::from(EnemyType::SpikeSlimeS),
-                        EnemyTemplate::from(EnemyType::AcidSlimeM),
+                        Box::new(SpikeSlimeS::new(&mut self.enemy_hp_sts_random)),
+                        Box::new(AcidSlimeM::new(&mut self.enemy_hp_sts_random)),
                     )
                 } else {
                     (
-                        EnemyTemplate::from(EnemyType::AcidSlimeS),
-                        EnemyTemplate::from(EnemyType::SpikeSlimeM),
+                        Box::new(AcidSlimeS::new(&mut self.enemy_hp_sts_random)),
+                        Box::new(SpikeSlimeM::new(&mut self.enemy_hp_sts_random)),
                     )
                 };
-                println!("Enemy templates: {:?}, {:?}", e1, e2);
-                let hp1 = self.enemy_hp_sts_random.gen_range(e1.hp);
-                let hp2 = self.enemy_hp_sts_random.gen_range(e2.hp);
-                println!("Enemy HPs: {}, {}", hp1, hp2);
+                println!("Enemies: {:?}, {:?}", e1, e2);
             }
             Encounter::SnakePlant => todo!(),
             Encounter::Snecko => todo!(),

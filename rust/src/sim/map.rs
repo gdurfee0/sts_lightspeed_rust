@@ -1,15 +1,12 @@
 use anyhow::{anyhow, Error};
 
-use crate::data::{Act, Ascension};
+use crate::data::Act;
 use crate::map::{ExitBits, MapBuilder, MapHighlighter, NodeGrid, Room, ROW_COUNT};
 use crate::rng::Seed;
 
 use super::player::Player;
 
 pub struct MapSimulator {
-    // Game seed used to create maps for every act
-    seed: Seed,
-
     // Current player location (row, column) in the map
     player_row_col: Option<(usize, usize)>,
 
@@ -18,10 +15,9 @@ pub struct MapSimulator {
 }
 
 impl MapSimulator {
-    pub fn new(seed: &Seed, ascension: Ascension) -> Self {
-        let map = MapBuilder::from(seed, ascension, Act::get(1)).build();
+    pub fn new(seed: &Seed) -> Self {
+        let map = MapBuilder::from(seed, Act::get(1)).build();
         Self {
-            seed: seed.clone(),
             player_row_col: None,
             map,
         }

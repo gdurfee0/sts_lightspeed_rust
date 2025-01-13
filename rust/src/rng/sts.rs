@@ -150,6 +150,11 @@ impl StsRandom {
         }
     }
 
+    /// Generates a boolean value with equal probability of being true or false.
+    pub fn next_bool(&mut self) -> bool {
+        self.next_u64() & 1 == 1
+    }
+
     /// Shuffles the given slice in place using the Fisher-Yates algorithm, but via a detour
     /// through a JavaRandom instance seeded with the next u64 from this generator.
     ///
@@ -289,10 +294,6 @@ mod test {
 
         fn next_f32_range(&mut self, lbound: f32, ubound: f32) -> f32 {
             lbound + self.next_f32() * (ubound - lbound)
-        }
-
-        fn next_bool(&mut self) -> bool {
-            self.next_u64() & 1 == 1
         }
 
         fn gen_bool(&mut self, p: f32) -> bool {

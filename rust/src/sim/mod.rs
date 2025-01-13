@@ -1,3 +1,4 @@
+mod encounter;
 mod map;
 mod message;
 mod neow;

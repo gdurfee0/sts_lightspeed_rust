@@ -16,7 +16,6 @@ pub struct Player {
     relics: Vec<Relic>,
     deck: Vec<Card>,
     potions: Vec<Option<Potion>>,
-    potion_slots: usize,
 
     // Communication channels
     input_rx: Receiver<usize>,
@@ -32,7 +31,6 @@ impl Player {
     ) -> Self {
         let relics = vec![character.starting_relic];
         let deck = character.starting_deck.to_vec();
-        let potion_slots = 3; // TODO: ascension
         let potions = [None; 3].to_vec();
         Self {
             hp: character.starting_hp,
@@ -41,7 +39,6 @@ impl Player {
             relics,
             deck,
             potions,
-            potion_slots,
             input_rx,
             output_tx,
         }
@@ -135,7 +132,7 @@ impl Player {
             .map(Choice::NeowBlessing)
             .collect::<Vec<_>>();
         self.output_tx
-            .send(StsMessage::Choices(Prompt::NeowBlessing, choices.clone()))?;
+            .send(StsMessage::Choices(Prompt::ChooseNeow, choices.clone()))?;
         let choice_index = self.input_rx.recv()?;
         match choices.get(choice_index) {
             Some(Choice::NeowBlessing(blessing)) => Ok(*blessing),
@@ -157,7 +154,7 @@ impl Player {
         }
     }
 
-    pub fn choose_one_card(&mut self, card_vec: Vec<Card>) -> Result<(), Error> {
+    pub fn choose_card_to_obtain(&mut self, card_vec: Vec<Card>) -> Result<(), Error> {
         let choices = card_vec
             .into_iter()
             .map(Choice::ObtainCard)
@@ -176,7 +173,7 @@ impl Player {
         }
     }
 
-    pub fn choose_many_potions(&mut self, mut choices_vec: Vec<Potion>) -> Result<(), Error> {
+    pub fn choose_potions_to_obtain(&mut self, mut choices_vec: Vec<Potion>) -> Result<(), Error> {
         loop {
             let next_available_slot = self.potions.iter().position(Option::is_none);
             if let Some(slot) = next_available_slot {
@@ -209,7 +206,7 @@ impl Player {
         Ok(())
     }
 
-    pub fn remove_one_card(&mut self) -> Result<(), Error> {
+    pub fn choose_card_to_remove(&mut self) -> Result<(), Error> {
         let choices = self
             .deck
             .iter()

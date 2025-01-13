@@ -1,6 +1,6 @@
 use std::iter::repeat;
 
-use crate::data::{Act, Ascension};
+use crate::data::Act;
 use crate::rng::{Seed, StsRandom};
 
 use super::graph::GraphBuilder;
@@ -11,8 +11,7 @@ use super::ROW_COUNT;
 const SHOP_ROOM_CHANCE: f32 = 0.05;
 const REST_ROOM_CHANCE: f32 = 0.12;
 const TREASURE_ROOM_CHANCE: f32 = 0.0;
-const ELITE_ROOM_CHANCE_A0: f32 = 0.08;
-const ELITE_ROOM_CHANCE_A1: f32 = ELITE_ROOM_CHANCE_A0 * 1.6;
+const ELITE_ROOM_CHANCE: f32 = 0.08;
 const EVENT_ROOM_CHANCE: f32 = 0.22;
 const TREASURE_ROW_INDEX: usize = 8;
 const REST_ROW_INDEX: usize = ROW_COUNT - 1;
@@ -20,16 +19,14 @@ const MONSTER_ROW_INDEX: usize = 0;
 
 pub struct MapBuilder {
     act: &'static Act,
-    ascension: Ascension,
     sts_random: StsRandom,
 }
 
 impl MapBuilder {
-    pub fn from(seed: &Seed, ascension: Ascension, act: &'static Act) -> Self {
+    pub fn from(seed: &Seed, act: &'static Act) -> Self {
         let offset = act.map_seed_offset;
         Self {
             act,
-            ascension,
             sts_random: seed.with_offset(offset).into(),
         }
     }
@@ -39,27 +36,21 @@ impl MapBuilder {
             unimplemented!();
         }
         let node_grid = GraphBuilder::new(&mut self.sts_random).build();
-        RoomAssigner::new(node_grid, self.ascension, &mut self.sts_random)
+        RoomAssigner::new(node_grid, &mut self.sts_random)
             .assign_rooms()
             .finish()
     }
 }
 
 struct RoomAssigner<'a> {
-    ascension: Ascension,
     node_grid: NodeBuilderGrid,
     elite_rooms: Vec<(usize, usize)>,
     sts_random: &'a mut StsRandom,
 }
 
 impl<'a> RoomAssigner<'a> {
-    pub fn new(
-        node_grid: NodeBuilderGrid,
-        ascension: Ascension,
-        sts_random: &'a mut StsRandom,
-    ) -> Self {
+    pub fn new(node_grid: NodeBuilderGrid, sts_random: &'a mut StsRandom) -> Self {
         Self {
-            ascension,
             node_grid,
             elite_rooms: vec![],
             sts_random,
@@ -78,11 +69,8 @@ impl<'a> RoomAssigner<'a> {
         let shop_room_count = (SHOP_ROOM_CHANCE * room_total as f32).round() as usize;
         let rest_room_count = (REST_ROOM_CHANCE * room_total as f32).round() as usize;
         let treasure_room_count = (TREASURE_ROOM_CHANCE * room_total as f32).round() as usize;
-        let elite_room_count = if self.ascension.0 == 0 {
-            (ELITE_ROOM_CHANCE_A0 * room_total as f32).round() as usize
-        } else {
-            (ELITE_ROOM_CHANCE_A1 * room_total as f32).round() as usize
-        };
+        // TODO: ascension
+        let elite_room_count = (ELITE_ROOM_CHANCE * room_total as f32).round() as usize;
         let event_room_count = (EVENT_ROOM_CHANCE * room_total as f32).round() as usize;
         let mut unassigned_rooms = repeat(Room::Shop)
             .take(shop_room_count)
@@ -179,7 +167,7 @@ mod tests {
     #[test]
     fn test_map_0slaythespire() {
         let seed: Seed = "0SLAYTHESPIRE".try_into().unwrap();
-        let map_act_1 = MapBuilder::from(&seed, Ascension(0), Act::get(1)).build();
+        let map_act_1 = MapBuilder::from(&seed, Act::get(1)).build();
         assert_eq!(
             map_act_1.to_string(),
             [
@@ -224,7 +212,7 @@ mod tests {
         let node_grids = (2..10002) // (2..10000002)
             .map(|i| {
                 let seed: Seed = i.into();
-                MapBuilder::from(&seed, Ascension(0), Act::get(1)).build()
+                MapBuilder::from(&seed, Act::get(1)).build()
             })
             .collect::<Vec<NodeGrid>>();
         println!(

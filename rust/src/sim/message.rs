@@ -27,10 +27,10 @@ pub enum StsMessage {
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum Prompt {
-    ChooseNext, // Expectation is that the player may accept and and all of the Choices offered.
+    ChooseNeow,
+    ChooseNext, // Expectation is that the player may accept any and all of the Choices offered.
     ChooseOne,  // Expectation is that the player can pick at most one of the Choices offered.
     MoveTo,
-    NeowBlessing,
     RemoveCard,
 }
 
@@ -47,10 +47,10 @@ pub enum Choice {
 impl fmt::Display for Prompt {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
+            Prompt::ChooseNeow => write!(f, "Choose Neow's Blessing"),
             Prompt::ChooseNext => write!(f, "Choose the next item to obtain"),
             Prompt::ChooseOne => write!(f, "Choose an item to obtain"),
             Prompt::MoveTo => write!(f, "Move up into one of the following columns"),
-            Prompt::NeowBlessing => write!(f, "Choose Neow's Blessing"),
             Prompt::RemoveCard => write!(f, "Choose a card to remove"),
         }
     }

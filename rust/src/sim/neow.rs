@@ -2,9 +2,7 @@ use anyhow::Error;
 
 use super::player::Player;
 
-use crate::data::{
-    Character, NeowBlessing, NeowBonus, NeowPenalty, Relic, UNCOMMON_COLORLESS_CARDS,
-};
+use crate::data::{Character, NeowBlessing, NeowBonus, NeowPenalty, Relic};
 use crate::rng::{NeowGenerator, RelicGenerator, Seed, StsRandom};
 
 pub struct NeowSimulator<'a> {
@@ -49,10 +47,10 @@ impl<'a> NeowSimulator<'a> {
         match blessing {
             NeowBlessing::ChooseCard => self
                 .player
-                .choose_one_card(self.neow_generator.three_card_choices()),
+                .choose_card_to_obtain(self.neow_generator.three_card_choices()),
             NeowBlessing::ChooseColorlessCard => self
                 .player
-                .choose_one_card(self.neow_generator.three_colorless_card_choices()),
+                .choose_card_to_obtain(self.neow_generator.three_colorless_card_choices()),
             NeowBlessing::GainOneHundredGold => self.player.increase_gold(100),
             NeowBlessing::IncreaseMaxHpByTenPercent => {
                 self.player.increase_hp_max(self.player.hp_max() / 10)
@@ -64,11 +62,11 @@ impl<'a> NeowSimulator<'a> {
             NeowBlessing::ObtainRandomRareCard => self
                 .player
                 .obtain_card(self.neow_generator.one_random_rare_card()),
-            NeowBlessing::ObtainThreeRandomPotions => self.player.choose_many_potions(
+            NeowBlessing::ObtainThreeRandomPotions => self.player.choose_potions_to_obtain(
                 self.potion_sts_random
                     .sample_without_replacement(self.character.potion_pool, 3),
             ),
-            NeowBlessing::RemoveCard => self.player.remove_one_card(),
+            NeowBlessing::RemoveCard => self.player.choose_card_to_remove(),
             NeowBlessing::ReplaceStarterRelic => todo!(),
             NeowBlessing::TransformCard => todo!(),
             NeowBlessing::UpgradeCard => todo!(),

@@ -14,10 +14,10 @@ use crate::params::GameParameters;
 use crate::sim::{Choice, Prompt, StsMessage, StsSimulator};
 
 fn main() -> Result<(), anyhow::Error> {
-    let (seed, character, ascension) = GameParameters::from_command_line();
+    let (seed, character) = GameParameters::from_command_line();
     let (input_tx, input_rx) = channel();
     let (output_tx, output_rx) = channel();
-    let simulator = StsSimulator::new(seed, character, ascension, input_rx, output_tx);
+    let simulator = StsSimulator::new(seed, character, input_rx, output_tx);
     let simulator_handle = thread::spawn(move || {
         let _ = simulator.run();
     });

@@ -3,8 +3,9 @@ use std::sync::mpsc::{Receiver, Sender};
 
 use anyhow::{anyhow, Error};
 
-use crate::data::{Card, Character, NeowBlessing, Potion, Relic};
+use crate::data::{Card, Character, EnemyType, Intent, NeowBlessing, Potion, Relic};
 
+use super::action::{Debuff, Effect};
 use super::message::{Choice, Prompt, StsMessage};
 
 /// Encapsulates the state of the player in the game, e.g. HP, gold, deck, etc.
@@ -16,6 +17,12 @@ pub struct Player {
     relics: Vec<Relic>,
     deck: Vec<Card>,
     potions: Vec<Option<Potion>>,
+
+    // Combat state
+    debuffs: Vec<(Debuff, u32)>,
+    draw_pile: Vec<Card>,
+    discard_pile: Vec<Card>,
+    exhaust_pile: Vec<Card>,
 
     // Communication channels
     input_rx: Receiver<usize>,
@@ -39,6 +46,10 @@ impl Player {
             relics,
             deck,
             potions,
+            debuffs: Vec::new(),
+            draw_pile: Vec::new(),
+            discard_pile: Vec::new(),
+            exhaust_pile: Vec::new(),
             input_rx,
             output_tx,
         }
@@ -54,6 +65,36 @@ impl Player {
 
     pub fn gold(&self) -> u32 {
         self.gold
+    }
+
+    // TODO: Return any reaction that might have been triggered by this effect.
+    pub fn apply_effect(&mut self, effect: Effect) -> Result<(), Error> {
+        // TODO: Take into account any modifiers on the player's side, such as buffs, debuffs, etc.
+        match effect {
+            Effect::AddToDiscardPile(cards) => {
+                self.discard_pile.extend_from_slice(cards);
+                self.output_tx
+                    .send(StsMessage::DiscardPile(self.discard_pile.clone()))?;
+            }
+            Effect::DealDamage(amount, times) => {
+                for _ in 0..times {
+                    self.take_damage(amount)?;
+                }
+            }
+            Effect::Inflict(debuff, stacks) => self.apply_debuff(debuff, stacks)?,
+        }
+        Ok(())
+    }
+
+    pub fn apply_debuff(&mut self, debuff: Debuff, stacks: u32) -> Result<(), Error> {
+        if let Some((_, c)) = self.debuffs.iter_mut().find(|(d, _)| *d == debuff) {
+            *c += stacks;
+        } else {
+            self.debuffs.push((debuff, stacks));
+        }
+        self.output_tx
+            .send(StsMessage::DebuffsChanged(self.debuffs.clone()))?;
+        Ok(())
     }
 
     pub fn take_damage(&mut self, amount: u32) -> Result<(), Error> {
@@ -107,6 +148,15 @@ impl Player {
 
     pub fn send_map_string(&self, map_string: String) -> Result<(), anyhow::Error> {
         self.output_tx.send(StsMessage::Map(map_string))?;
+        Ok(())
+    }
+
+    pub fn send_enemy_party(
+        &self,
+        enemy_party_view: Vec<(EnemyType, u32, u32, Intent)>,
+    ) -> Result<(), anyhow::Error> {
+        self.output_tx
+            .send(StsMessage::EnemyParty(enemy_party_view))?;
         Ok(())
     }
 
@@ -190,7 +240,7 @@ impl Player {
                     Some(Choice::ObtainPotion(potion)) => {
                         self.potions[slot] = Some(*potion);
                         self.output_tx
-                            .send(StsMessage::PotionObtained(*potion, slot))?;
+                            .send(StsMessage::PotionObtained(*potion, slot as u32))?;
                     }
                     Some(Choice::Skip) => break,
                     _ => return Err(anyhow!("Invalid choice")),
@@ -224,7 +274,8 @@ impl Player {
                     .position(|&c| c == *card)
                     .expect("Card not found");
                 self.deck.remove(index);
-                self.output_tx.send(StsMessage::CardRemoved(*card, index))?;
+                self.output_tx
+                    .send(StsMessage::CardRemoved(*card, index as u32))?;
                 Ok(())
             }
             _ => Err(anyhow!("Invalid choice")),

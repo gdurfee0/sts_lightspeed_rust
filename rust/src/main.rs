@@ -44,6 +44,16 @@ fn main_input_loop(
             StsMessage::Choices(prompt, choices) => {
                 input_tx.send(collect_user_choice(prompt, choices)?)?;
             }
+            StsMessage::DebuffsChanged(debuffs) => {
+                println!(
+                    "DebuffsChanged([{}])",
+                    debuffs
+                        .iter()
+                        .map(|(debuff, stacks)| format!("{:?}({})", debuff, stacks))
+                        .collect::<Vec<_>>()
+                        .join(",")
+                );
+            }
             StsMessage::Deck(deck) => {
                 println!(
                     "Deck([{}])",
@@ -51,6 +61,28 @@ fn main_input_loop(
                         .map(|card| format!("{:?}", card))
                         .collect::<Vec<_>>()
                         .join(",")
+                );
+            }
+            StsMessage::DiscardPile(discard_pile) => {
+                println!(
+                    "DiscardPile([{}])",
+                    discard_pile
+                        .iter()
+                        .map(|card| format!("{:?}", card))
+                        .collect::<Vec<_>>()
+                        .join(",")
+                );
+            }
+            StsMessage::EnemyParty(enemies) => {
+                println!(
+                    "EnemyParty([{}])",
+                    enemies
+                        .iter()
+                        .map(|(enemy, hp, hp_max, intent)| {
+                            format!("{:?}({}/{}):{:?}", enemy, hp, hp_max, intent)
+                        })
+                        .collect::<Vec<_>>()
+                        .join("; ")
                 );
             }
             StsMessage::Map(map) => println!("{}\n", map),

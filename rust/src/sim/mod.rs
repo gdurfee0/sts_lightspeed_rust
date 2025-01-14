@@ -1,3 +1,4 @@
+mod action;
 mod encounter;
 mod map;
 mod message;

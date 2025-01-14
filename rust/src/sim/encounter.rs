@@ -2,10 +2,12 @@ use std::collections::VecDeque;
 use std::fmt;
 
 use anyhow::Error;
+use once_cell::sync::Lazy;
 
-use crate::data::{Encounter, EnemyType, Intent};
+use crate::data::{Card, Encounter, EnemyType, Intent};
 use crate::rng::{Seed, StsRandom};
 
+use super::action::{Action, Debuff};
 use super::player::Player;
 
 pub struct EncounterSimulator<'a> {
@@ -16,50 +18,103 @@ pub struct EncounterSimulator<'a> {
     player: &'a mut Player,
 }
 
-#[derive(Clone, Copy, Debug)]
-pub enum Action {
-    CorrosiveSpit,
-    FlameTackle,
-    Lick,
-    Tackle,
+fn not_thrice(action: &'static Action, past_actions: &VecDeque<&'static Action>) -> bool {
+    past_actions.len() < 2 || past_actions.iter().take(2).any(|&pa| pa != action)
 }
 
-pub trait Enemy: fmt::Debug {
-    fn next_action(&self) -> Action;
+fn not_twice(action: &'static Action, past_actions: &VecDeque<&'static Action>) -> bool {
+    past_actions.iter().last().map_or(true, |pa| *pa != action)
+}
+
+trait Enemy: fmt::Debug {
+    fn enemy_type(&self) -> EnemyType;
     fn health(&self) -> (u32, u32);
+    fn intent(&self) -> Intent;
+    fn act(&mut self, ai_rng: &mut StsRandom, player: &mut Player) -> Result<(), Error>;
 }
 
 #[derive(Debug)]
 struct AcidSlimeM {
     hp: u32,
     hp_max: u32,
-    next_action: Action,
+    past_actions: VecDeque<&'static Action>,
+    next_action: &'static Action,
 }
+
+static ACID_SLIME_M_CORROSIVE_SPIT: Lazy<Action> = Lazy::new(|| {
+    Action::deal_damage(11, 1)
+        .then()
+        .add_to_discard_pile(&[Card::Slimed, Card::Slimed])
+});
+static ACID_SLIME_M_LICK: Lazy<Action> = Lazy::new(|| Action::inflict(Debuff::Frail, 1));
+static ACID_SLIME_M_TACKLE: Lazy<Action> = Lazy::new(|| Action::deal_damage(16, 1));
 
 impl AcidSlimeM {
     pub fn new_boxed(hp_rng: &mut StsRandom, ai_rng: &mut StsRandom) -> Box<Self> {
         let hp = hp_rng.gen_range(28..=32);
         let hp_max = hp;
-        let next_action = match ai_rng.gen_range(0..100) {
-            0..30 => Action::CorrosiveSpit,
-            30..70 => Action::Tackle,
-            _ => Action::Lick,
-        };
+        let past_actions = VecDeque::with_capacity(2);
+        let next_action = Self::next_action(ai_rng.gen_range(0..100), ai_rng, &past_actions);
         Box::new(Self {
             hp,
             hp_max,
+            past_actions,
             next_action,
         })
+    }
+
+    #[allow(clippy::explicit_auto_deref)]
+    pub fn next_action(
+        roll: u8,
+        ai_rng: &mut StsRandom,
+        pa: &VecDeque<&'static Action>,
+    ) -> &'static Action {
+        match roll {
+            0..40 if not_thrice(&ACID_SLIME_M_CORROSIVE_SPIT, pa) => &ACID_SLIME_M_CORROSIVE_SPIT,
+            0..40 => {
+                if ai_rng.next_bool() {
+                    &ACID_SLIME_M_TACKLE
+                } else {
+                    &ACID_SLIME_M_LICK
+                }
+            }
+            40..80 if not_thrice(&ACID_SLIME_M_TACKLE, pa) => &ACID_SLIME_M_TACKLE,
+            40..80 => *ai_rng.weighted_choose(&[
+                (&*ACID_SLIME_M_CORROSIVE_SPIT, 0.5),
+                (&*ACID_SLIME_M_LICK, 0.5),
+            ]),
+            _ if not_twice(&ACID_SLIME_M_LICK, pa) => &ACID_SLIME_M_LICK,
+            _ => *ai_rng.weighted_choose(&[
+                (&*ACID_SLIME_M_CORROSIVE_SPIT, 0.4),
+                (&*ACID_SLIME_M_TACKLE, 0.6),
+            ]),
+        }
     }
 }
 
 impl Enemy for AcidSlimeM {
-    fn next_action(&self) -> Action {
-        self.next_action
+    fn enemy_type(&self) -> EnemyType {
+        EnemyType::AcidSlimeM
     }
 
     fn health(&self) -> (u32, u32) {
         (self.hp, self.hp_max)
+    }
+
+    fn intent(&self) -> Intent {
+        self.next_action.intent
+    }
+
+    fn act(&mut self, ai_rng: &mut StsRandom, player: &mut Player) -> Result<(), Error> {
+        if self.past_actions.len() >= 2 {
+            self.past_actions.pop_front();
+        }
+        for effect in self.next_action.effects.iter() {
+            player.apply_effect(*effect)?;
+        }
+        self.past_actions.push_back(self.next_action);
+        self.next_action = Self::next_action(ai_rng.gen_range(0..100), ai_rng, &self.past_actions);
+        Ok(())
     }
 }
 
@@ -67,33 +122,53 @@ impl Enemy for AcidSlimeM {
 struct AcidSlimeS {
     hp: u32,
     hp_max: u32,
-    next_action: Action,
+    next_action: &'static Action,
 }
+
+static ACID_SLIME_S_TACKLE: Lazy<Action> = Lazy::new(|| Action::deal_damage(3, 1));
+static ACID_SLIME_S_LICK: Lazy<Action> = Lazy::new(|| Action::inflict(Debuff::Weak, 1));
 
 impl AcidSlimeS {
     pub fn new_boxed(hp_rng: &mut StsRandom, ai_rng: &mut StsRandom) -> Box<Self> {
         let hp = hp_rng.gen_range(8..=12);
         let hp_max = hp;
-        let next_action = if ai_rng.next_bool() {
-            Action::Tackle
-        } else {
-            Action::Lick
-        };
+        let d100 = ai_rng.gen_range(0..100);
+        let next_action = Self::next_action(d100, ai_rng);
         Box::new(Self {
             hp,
             hp_max,
             next_action,
         })
     }
+
+    fn next_action(roll: u8, ai_rng: &mut StsRandom) -> &'static Action {
+        if ai_rng.next_bool() {
+            &ACID_SLIME_S_TACKLE
+        } else {
+            &ACID_SLIME_S_LICK
+        }
+    }
 }
 
 impl Enemy for AcidSlimeS {
-    fn next_action(&self) -> Action {
-        self.next_action
+    fn enemy_type(&self) -> EnemyType {
+        EnemyType::AcidSlimeS
     }
 
     fn health(&self) -> (u32, u32) {
         (self.hp, self.hp_max)
+    }
+
+    fn intent(&self) -> Intent {
+        self.next_action.intent
+    }
+
+    fn act(&mut self, ai_rng: &mut StsRandom, player: &mut Player) -> Result<(), Error> {
+        for effect in self.next_action.effects.iter() {
+            player.apply_effect(*effect)?;
+        }
+        self.next_action = Self::next_action(ai_rng.gen_range(0..100), ai_rng);
+        Ok(())
     }
 }
 
@@ -101,32 +176,70 @@ impl Enemy for AcidSlimeS {
 struct SpikeSlimeM {
     hp: u32,
     hp_max: u32,
-    next_action: Action,
+    past_actions: VecDeque<&'static Action>,
+    next_action: &'static Action,
 }
+
+static SPIKE_SLIME_M_FLAME_TACKLE: Lazy<Action> = Lazy::new(|| {
+    Action::deal_damage(8, 1)
+        .then()
+        .add_to_discard_pile(&[Card::Slimed])
+});
+static SPIKE_SLIME_M_LICK: Lazy<Action> = Lazy::new(|| Action::inflict(Debuff::Frail, 1));
 
 impl SpikeSlimeM {
     pub fn new_boxed(hp_rng: &mut StsRandom, ai_rng: &mut StsRandom) -> Box<Self> {
         let hp = hp_rng.gen_range(28..=32);
         let hp_max = hp;
-        let next_action = match ai_rng.gen_range(0..100) {
-            0..30 => Action::FlameTackle,
-            _ => Action::Lick,
-        };
+        let past_actions = VecDeque::with_capacity(2);
+        let d100 = ai_rng.gen_range(0..100);
+        let next_action = Self::next_action(d100, ai_rng, &past_actions);
         Box::new(Self {
             hp,
             hp_max,
+            past_actions,
             next_action,
         })
+    }
+
+    pub fn next_action(
+        d100: u8,
+        ai_rng: &mut StsRandom,
+        pa: &VecDeque<&'static Action>,
+    ) -> &'static Action {
+        println!("Roll for SpikeSlimeM: {}", d100);
+        match d100 {
+            0..30 if not_thrice(&SPIKE_SLIME_M_FLAME_TACKLE, pa) => &SPIKE_SLIME_M_FLAME_TACKLE,
+            0..30 => &SPIKE_SLIME_M_LICK,
+            _ if not_thrice(&SPIKE_SLIME_M_LICK, pa) => &SPIKE_SLIME_M_LICK,
+            _ => &SPIKE_SLIME_M_FLAME_TACKLE,
+        }
     }
 }
 
 impl Enemy for SpikeSlimeM {
-    fn next_action(&self) -> Action {
-        self.next_action
+    fn enemy_type(&self) -> EnemyType {
+        EnemyType::SpikeSlimeM
     }
 
     fn health(&self) -> (u32, u32) {
         (self.hp, self.hp_max)
+    }
+
+    fn intent(&self) -> Intent {
+        self.next_action.intent
+    }
+
+    fn act(&mut self, ai_rng: &mut StsRandom, player: &mut Player) -> Result<(), Error> {
+        if self.past_actions.len() >= 2 {
+            self.past_actions.pop_front();
+        }
+        for effect in self.next_action.effects.iter() {
+            player.apply_effect(*effect)?;
+        }
+        self.past_actions.push_back(self.next_action);
+        self.next_action = Self::next_action(ai_rng.gen_range(0..100), ai_rng, &self.past_actions);
+        Ok(())
     }
 }
 
@@ -134,29 +247,52 @@ impl Enemy for SpikeSlimeM {
 struct SpikeSlimeS {
     hp: u32,
     hp_max: u32,
-    next_action: Action,
+    next_action: &'static Action,
 }
+
+static SPIKE_SLIME_S_TACKLE: Lazy<Action> = Lazy::new(|| Action::deal_damage(5, 1));
 
 impl SpikeSlimeS {
     pub fn new_boxed(hp_rng: &mut StsRandom, ai_rng: &mut StsRandom) -> Box<Self> {
         let hp = hp_rng.gen_range(10..=14);
         let hp_max = hp;
-        let next_action = Action::Tackle;
+        let past_actions = VecDeque::with_capacity(2);
+        let d100 = ai_rng.gen_range(0..100);
+        let next_action = Self::next_action(d100, ai_rng, &past_actions);
         Box::new(Self {
             hp,
             hp_max,
             next_action,
         })
     }
+
+    pub fn next_action(
+        d100: u8,
+        ai_rng: &mut StsRandom,
+        pa: &VecDeque<&'static Action>,
+    ) -> &'static Action {
+        &SPIKE_SLIME_S_TACKLE
+    }
 }
 
 impl Enemy for SpikeSlimeS {
-    fn next_action(&self) -> Action {
-        self.next_action
+    fn enemy_type(&self) -> EnemyType {
+        EnemyType::SpikeSlimeS
     }
 
     fn health(&self) -> (u32, u32) {
         (self.hp, self.hp_max)
+    }
+
+    fn intent(&self) -> Intent {
+        self.next_action.intent
+    }
+
+    fn act(&mut self, ai_rng: &mut StsRandom, player: &mut Player) -> Result<(), Error> {
+        for effect in self.next_action.effects.iter() {
+            player.apply_effect(*effect)?;
+        }
+        Ok(())
     }
 }
 
@@ -205,10 +341,6 @@ impl_enemy!(SpikeSlimeS, 10..=14);
 
 */
 
-pub struct EnemyParty {
-    enemies: [Option<Box<dyn Enemy>>; 5],
-}
-
 impl<'a> EncounterSimulator<'a> {
     pub fn new(
         seed_for_floor: Seed,
@@ -232,7 +364,17 @@ impl<'a> EncounterSimulator<'a> {
             "[EncounterSimulator] Running encounter: {:?}",
             self.encounter
         );
-        match self.encounter {
+        macro_rules! enemy_party {
+            ( $( $enemy:ident ),* ) => {{
+                let enemies: Vec<Box<dyn Enemy>> = vec![
+                    $(
+                        $enemy::new_boxed(&mut self.hp_rng, &mut self.ai_rng),
+                    )*
+                ];
+                enemies
+            }};
+        }
+        let mut enemy_party = match self.encounter {
             Encounter::AwakenedOne => todo!(),
             Encounter::BlueSlaver => todo!(),
             Encounter::BookOfStabbing => todo!(),
@@ -268,18 +410,11 @@ impl<'a> EncounterSimulator<'a> {
             Encounter::ShelledParasiteAndFungiBeast => todo!(),
             Encounter::SlimeBoss => todo!(),
             Encounter::SmallSlimes => {
-                let (e1, e2): (Box<dyn Enemy>, Box<dyn Enemy>) = if self.misc_rng.next_bool() {
-                    (
-                        SpikeSlimeS::new_boxed(&mut self.hp_rng, &mut self.ai_rng),
-                        AcidSlimeM::new_boxed(&mut self.hp_rng, &mut self.ai_rng),
-                    )
+                if self.misc_rng.next_bool() {
+                    enemy_party!(SpikeSlimeS, AcidSlimeM)
                 } else {
-                    (
-                        AcidSlimeS::new_boxed(&mut self.hp_rng, &mut self.ai_rng),
-                        SpikeSlimeM::new_boxed(&mut self.hp_rng, &mut self.ai_rng),
-                    )
-                };
-                println!("Enemies: {:?}, {:?}", e1, e2);
+                    enemy_party!(AcidSlimeS, SpikeSlimeM)
+                }
             }
             Encounter::SnakePlant => todo!(),
             Encounter::Snecko => todo!(),
@@ -303,6 +438,24 @@ impl<'a> EncounterSimulator<'a> {
             Encounter::TwoLice => todo!(),
             Encounter::TwoThieves => todo!(),
             Encounter::WrithingMass => todo!(),
+        };
+        println!(
+            "Enemy party: {:?}, ai_rng: {}",
+            enemy_party,
+            self.ai_rng.get_counter()
+        );
+        loop {
+            let enemy_party_view: Vec<(EnemyType, u32, u32, Intent)> = enemy_party
+                .iter()
+                .map(|e| (e.enemy_type(), e.health().0, e.health().1, e.intent()))
+                .collect();
+            self.player.send_enemy_party(enemy_party_view)?;
+
+            // TODO: collect player's actions
+
+            for enemy in enemy_party.iter_mut() {
+                enemy.act(&mut self.ai_rng, self.player)?;
+            }
         }
         Ok(())
     }

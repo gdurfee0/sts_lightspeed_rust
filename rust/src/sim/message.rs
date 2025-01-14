@@ -1,6 +1,8 @@
 use std::fmt;
 
-use crate::data::{Card, NeowBlessing, Potion, Relic};
+use crate::data::{Card, EnemyType, Intent, NeowBlessing, Potion, Relic};
+
+use super::action::Debuff;
 
 /// Message type for communication from the Simualtor to a client (human operator or AI agent).
 /// The Simulator will send any number of these messages to the client, concluding with a
@@ -8,16 +10,23 @@ use crate::data::{Card, NeowBlessing, Potion, Relic};
 /// the Simulator waits for a response on the input channel.
 #[derive(Debug)]
 pub enum StsMessage {
+    // State updates for the main game loop, outside of an encounter or event.
     Map(String),
     Deck(Vec<Card>),
     Potions(Vec<Option<Potion>>),
     Relics(Vec<Relic>),
     CardObtained(Card),
-    CardRemoved(Card, usize),
-    PotionObtained(Potion, usize),
+    CardRemoved(Card, u32),
+    PotionObtained(Potion, u32),
     RelicObtained(Relic),
     GoldChanged(u32),
+
+    // Encounter / combat messages
+    EnemyParty(Vec<(EnemyType, u32, u32, Intent)>),
     HealthChanged(u32, u32), // "Health" always refers to the pair (current HP, max HP)
+    DebuffsChanged(Vec<(Debuff, u32)>),
+    DiscardPile(Vec<Card>),
+
     GameOver(bool),
 
     /// A list of `Choice`s, each representing a possible action; the client must select one

@@ -1,4 +1,3 @@
-use std::collections::HashSet;
 use std::iter::once;
 use std::sync::mpsc::{Receiver, Sender};
 
@@ -355,15 +354,18 @@ impl<'a> PlayerInCombat<'a> {
     }
 
     pub fn choose_next_action(&mut self) -> Result<PlayerAction, Error> {
-        // TODO: potions drink, potion discard
-        // card play
-        let mut not_yet_offered = self.hand.iter().copied().collect::<HashSet<_>>();
-        let mut choices = Vec::new();
-        for card in self.hand.iter().copied() {
-            if not_yet_offered.remove(&card) {
-                choices.push(Choice::PlayCard(card));
-            }
-        }
+        // TODO: drink a potion, discard a potion
+
+        // Playable cards
+        let mut choices = self
+            .hand
+            .iter()
+            .copied()
+            .map(Choice::PlayCard)
+            .collect::<Vec<_>>();
+
+        // TODO: check for unwinnable situations
+
         choices.push(Choice::EndTurn);
         self.player
             .output_tx

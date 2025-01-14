@@ -8,7 +8,7 @@ use super::player::Player;
 
 pub struct MapSimulator {
     // Current player location (row, column) in the map
-    player_row_col: Option<(usize, usize)>,
+    player_row_col: Option<(u8, u8)>,
 
     // Computed map for this act
     map: NodeGrid,
@@ -39,7 +39,7 @@ impl MapSimulator {
                     .collect::<Vec<_>>(),
             ),
             // Player is at the top of the map, and will move to the boss next.
-            Some((row, _)) if row == ROW_COUNT - 1 => {
+            Some((row, _)) if row == ROW_COUNT as u8 - 1 => {
                 self.player_row_col = None;
                 // TODO: something about advancing to the next Act
                 player.send_map_string(self.map_string())?;
@@ -95,10 +95,10 @@ impl MapSimulator {
         )
     }
 
-    fn highlighted_map_string(&self, row_col_highlights: &[(usize, usize)]) -> String {
+    fn highlighted_map_string(&self, row_col_highlights: &[(u8, u8)]) -> String {
         let mut suffix = String::new();
         for (i, c) in ('a'..'g').enumerate() {
-            if row_col_highlights.iter().any(|(_, col)| i == *col) {
+            if row_col_highlights.iter().any(|(_, col)| i as u8 == *col) {
                 suffix.push('{');
                 suffix.push(c);
                 suffix.push('}');
@@ -119,12 +119,12 @@ impl MapSimulator {
 }
 
 struct StsMapHighlighter<'a> {
-    player_row_col: Option<(usize, usize)>,
-    row_col_highlights: &'a [(usize, usize)],
+    player_row_col: Option<(u8, u8)>,
+    row_col_highlights: &'a [(u8, u8)],
 }
 
 impl MapHighlighter for StsMapHighlighter<'_> {
-    fn left(&self, row: usize, col: usize) -> char {
+    fn left(&self, row: u8, col: u8) -> char {
         if self.row_col_highlights.contains(&(row, col)) {
             '{'
         } else if let Some((player_row, player_col)) = self.player_row_col {
@@ -138,7 +138,7 @@ impl MapHighlighter for StsMapHighlighter<'_> {
         }
     }
 
-    fn right(&self, row: usize, col: usize) -> char {
+    fn right(&self, row: u8, col: u8) -> char {
         if self.row_col_highlights.contains(&(row, col)) {
             '}'
         } else if let Some((player_row, player_col)) = self.player_row_col {

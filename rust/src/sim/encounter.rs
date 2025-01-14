@@ -8,13 +8,12 @@ use crate::data::{Card, Encounter, EnemyType, Intent};
 use crate::rng::{Seed, StsRandom};
 
 use super::action::{Action, Debuff};
-use super::player::{Player, PlayerAction, PlayerInCombat};
+use super::player::{Player, PlayerAction};
 
 pub struct EncounterSimulator<'a> {
     encounter: Encounter,
+    seed_for_floor: Seed,
     misc_rng: &'a mut StsRandom,
-    hp_rng: StsRandom,
-    ai_rng: StsRandom,
     player: &'a mut Player,
 }
 
@@ -30,7 +29,7 @@ trait Enemy: fmt::Debug {
     fn enemy_type(&self) -> EnemyType;
     fn health(&self) -> (u32, u32);
     fn intent(&self) -> Intent;
-    fn act(&mut self, ai_rng: &mut StsRandom, player: &mut PlayerInCombat) -> Result<(), Error>;
+    fn act(&mut self, ai_rng: &mut StsRandom) -> &'static Action;
 }
 
 #[derive(Debug)]
@@ -42,19 +41,19 @@ struct AcidSlimeM {
 }
 
 static ACID_SLIME_M_CORROSIVE_SPIT: Lazy<Action> = Lazy::new(|| {
-    Action::deal_damage(11, 1)
+    Action::deal_damage(7, 1)
         .then()
-        .add_to_discard_pile(&[Card::Slimed, Card::Slimed])
+        .add_to_discard_pile(&[Card::Slimed])
 });
-static ACID_SLIME_M_LICK: Lazy<Action> = Lazy::new(|| Action::inflict(Debuff::Frail, 1));
-static ACID_SLIME_M_TACKLE: Lazy<Action> = Lazy::new(|| Action::deal_damage(16, 1));
+static ACID_SLIME_M_LICK: Lazy<Action> = Lazy::new(|| Action::inflict(Debuff::Weak, 1));
+static ACID_SLIME_M_TACKLE: Lazy<Action> = Lazy::new(|| Action::deal_damage(10, 1));
 
 impl AcidSlimeM {
     pub fn new_boxed(hp_rng: &mut StsRandom, ai_rng: &mut StsRandom) -> Box<Self> {
         let hp = hp_rng.gen_range(28..=32);
         let hp_max = hp;
         let past_actions = VecDeque::with_capacity(2);
-        let next_action = Self::next_action(ai_rng.gen_range(0..100), ai_rng, &past_actions);
+        let next_action = Self::next_action(ai_rng, &past_actions);
         Box::new(Self {
             hp,
             hp_max,
@@ -63,32 +62,46 @@ impl AcidSlimeM {
         })
     }
 
-    #[allow(clippy::explicit_auto_deref)]
-    pub fn next_action(
-        d100: u8,
-        ai_rng: &mut StsRandom,
-        pa: &VecDeque<&'static Action>,
-    ) -> &'static Action {
-        match d100 {
-            0..40 if not_thrice(&ACID_SLIME_M_CORROSIVE_SPIT, pa) => &ACID_SLIME_M_CORROSIVE_SPIT,
-            0..40 => {
+    fn next_action(ai_rng: &mut StsRandom, pa: &VecDeque<&'static Action>) -> &'static Action {
+        let d100 = ai_rng.gen_range(0..100);
+        let (debug_str, result) = match d100 {
+            0..30 if not_thrice(&ACID_SLIME_M_CORROSIVE_SPIT, pa) => {
+                ("ACID_SLIME_M_CORROSIVE_SPIT", &ACID_SLIME_M_CORROSIVE_SPIT)
+            }
+            0..30 => {
                 if ai_rng.next_bool() {
-                    &ACID_SLIME_M_TACKLE
+                    ("ACID_SLIME_M_TACKLE(CS)", &ACID_SLIME_M_TACKLE)
                 } else {
-                    &ACID_SLIME_M_LICK
+                    ("ACID_SLIME_M_LICK(CS)", &ACID_SLIME_M_LICK)
                 }
             }
-            40..80 if not_thrice(&ACID_SLIME_M_TACKLE, pa) => &ACID_SLIME_M_TACKLE,
-            40..80 => *ai_rng.weighted_choose(&[
-                (&*ACID_SLIME_M_CORROSIVE_SPIT, 0.5),
-                (&*ACID_SLIME_M_LICK, 0.5),
+            30..70 if not_twice(&ACID_SLIME_M_TACKLE, pa) => {
+                ("ACID_SLIME_M_TACKLE", &ACID_SLIME_M_TACKLE)
+            }
+            30..70 => *ai_rng.weighted_choose(&[
+                (
+                    (
+                        "ACID_SLIME_M_CORROSIVE_SPIT(T)",
+                        &ACID_SLIME_M_CORROSIVE_SPIT,
+                    ),
+                    0.5,
+                ),
+                (("ACID_SLIME_M_CORROSIVE_LICK(T)", &ACID_SLIME_M_LICK), 0.5),
             ]),
-            _ if not_twice(&ACID_SLIME_M_LICK, pa) => &ACID_SLIME_M_LICK,
+            _ if not_thrice(&ACID_SLIME_M_LICK, pa) => ("ACID_SLIME_M_LICK", &ACID_SLIME_M_LICK),
             _ => *ai_rng.weighted_choose(&[
-                (&*ACID_SLIME_M_CORROSIVE_SPIT, 0.4),
-                (&*ACID_SLIME_M_TACKLE, 0.6),
+                (
+                    (
+                        "ACID_SLIME_M_CORROSIVE_SPIT(L)",
+                        &ACID_SLIME_M_CORROSIVE_SPIT,
+                    ),
+                    0.4,
+                ),
+                (("ACID_SLIME_M_TACKLE(L)", &ACID_SLIME_M_TACKLE), 0.6),
             ]),
-        }
+        };
+        println!("{}: {}: {}", debug_str, ai_rng.get_counter(), d100);
+        result
     }
 }
 
@@ -105,16 +118,14 @@ impl Enemy for AcidSlimeM {
         self.next_action.intent
     }
 
-    fn act(&mut self, ai_rng: &mut StsRandom, player: &mut PlayerInCombat) -> Result<(), Error> {
+    fn act(&mut self, ai_rng: &mut StsRandom) -> &'static Action {
         if self.past_actions.len() >= 2 {
             self.past_actions.pop_front();
         }
-        for effect in self.next_action.effects.iter() {
-            player.apply_effect(*effect)?;
-        }
         self.past_actions.push_back(self.next_action);
-        self.next_action = Self::next_action(ai_rng.gen_range(0..100), ai_rng, &self.past_actions);
-        Ok(())
+        let result = self.next_action;
+        self.next_action = Self::next_action(ai_rng, &self.past_actions);
+        result
     }
 }
 
@@ -123,6 +134,7 @@ struct AcidSlimeS {
     hp: u32,
     hp_max: u32,
     next_action: &'static Action,
+    past_actions: VecDeque<&'static Action>,
 }
 
 static ACID_SLIME_S_TACKLE: Lazy<Action> = Lazy::new(|| Action::deal_damage(3, 1));
@@ -132,21 +144,35 @@ impl AcidSlimeS {
     pub fn new_boxed(hp_rng: &mut StsRandom, ai_rng: &mut StsRandom) -> Box<Self> {
         let hp = hp_rng.gen_range(8..=12);
         let hp_max = hp;
-        let d100 = ai_rng.gen_range(0..100);
-        let next_action = Self::next_action(d100, ai_rng);
+        let _ = ai_rng.gen_range(0..100);
+        let past_actions = VecDeque::with_capacity(2);
+        let next_action = Self::next_action(ai_rng, &past_actions);
         Box::new(Self {
             hp,
             hp_max,
+            past_actions,
             next_action,
         })
     }
 
-    fn next_action(d100: u8, ai_rng: &mut StsRandom) -> &'static Action {
-        if ai_rng.next_bool() {
-            &ACID_SLIME_S_TACKLE
+    fn next_action(
+        ai_rng: &mut StsRandom,
+        past_actions: &VecDeque<&'static Action>,
+    ) -> &'static Action {
+        // Does not seem to burn an extra random number.
+        let (debug_str, result) = if past_actions.is_empty() {
+            if ai_rng.next_bool() {
+                ("ACID_SLIME_S_TACKLE", &ACID_SLIME_S_TACKLE)
+            } else {
+                ("ACID_SLIME_S_LICK", &ACID_SLIME_S_LICK)
+            }
+        } else if not_twice(&ACID_SLIME_S_TACKLE, past_actions) {
+            ("ACID_SLIME_S_TACKLE", &ACID_SLIME_S_TACKLE)
         } else {
-            &ACID_SLIME_S_LICK
-        }
+            ("ACID_SLIME_S_LICK", &ACID_SLIME_S_LICK)
+        };
+        println!("{}: {}", debug_str, ai_rng.get_counter());
+        result
     }
 }
 
@@ -163,12 +189,14 @@ impl Enemy for AcidSlimeS {
         self.next_action.intent
     }
 
-    fn act(&mut self, ai_rng: &mut StsRandom, player: &mut PlayerInCombat) -> Result<(), Error> {
-        for effect in self.next_action.effects.iter() {
-            player.apply_effect(*effect)?;
+    fn act(&mut self, ai_rng: &mut StsRandom) -> &'static Action {
+        if self.past_actions.len() >= 2 {
+            self.past_actions.pop_front();
         }
-        self.next_action = Self::next_action(ai_rng.gen_range(0..100), ai_rng);
-        Ok(())
+        self.past_actions.push_back(self.next_action);
+        let result = self.next_action;
+        self.next_action = Self::next_action(ai_rng, &self.past_actions);
+        result
     }
 }
 
@@ -192,8 +220,7 @@ impl SpikeSlimeM {
         let hp = hp_rng.gen_range(28..=32);
         let hp_max = hp;
         let past_actions = VecDeque::with_capacity(2);
-        let d100 = ai_rng.gen_range(0..100);
-        let next_action = Self::next_action(d100, ai_rng, &past_actions);
+        let next_action = Self::next_action(ai_rng, &past_actions);
         Box::new(Self {
             hp,
             hp_max,
@@ -202,17 +229,18 @@ impl SpikeSlimeM {
         })
     }
 
-    pub fn next_action(
-        d100: u8,
-        ai_rng: &mut StsRandom,
-        pa: &VecDeque<&'static Action>,
-    ) -> &'static Action {
-        match d100 {
-            0..30 if not_thrice(&SPIKE_SLIME_M_FLAME_TACKLE, pa) => &SPIKE_SLIME_M_FLAME_TACKLE,
-            0..30 => &SPIKE_SLIME_M_LICK,
-            _ if not_thrice(&SPIKE_SLIME_M_LICK, pa) => &SPIKE_SLIME_M_LICK,
-            _ => &SPIKE_SLIME_M_FLAME_TACKLE,
-        }
+    fn next_action(ai_rng: &mut StsRandom, pa: &VecDeque<&'static Action>) -> &'static Action {
+        let d100 = ai_rng.gen_range(0..100);
+        let (debug_str, result) = match d100 {
+            0..30 if not_thrice(&SPIKE_SLIME_M_FLAME_TACKLE, pa) => {
+                ("SPIKE_SLIME_M_FLAME_TACKLE", &SPIKE_SLIME_M_FLAME_TACKLE)
+            }
+            0..30 => ("SPIKE_SLIME_M_LICK(T)", &SPIKE_SLIME_M_LICK),
+            _ if not_thrice(&SPIKE_SLIME_M_LICK, pa) => ("SPIKE_SLIME_M_LICK", &SPIKE_SLIME_M_LICK),
+            _ => ("SPIKE_SLIME_M_FLAME_TACKLE(L)", &SPIKE_SLIME_M_FLAME_TACKLE),
+        };
+        println!("{}: {}: {}", debug_str, ai_rng.get_counter(), d100);
+        result
     }
 }
 
@@ -229,16 +257,14 @@ impl Enemy for SpikeSlimeM {
         self.next_action.intent
     }
 
-    fn act(&mut self, ai_rng: &mut StsRandom, player: &mut PlayerInCombat) -> Result<(), Error> {
+    fn act(&mut self, ai_rng: &mut StsRandom) -> &'static Action {
         if self.past_actions.len() >= 2 {
             self.past_actions.pop_front();
         }
-        for effect in self.next_action.effects.iter() {
-            player.apply_effect(*effect)?;
-        }
         self.past_actions.push_back(self.next_action);
-        self.next_action = Self::next_action(ai_rng.gen_range(0..100), ai_rng, &self.past_actions);
-        Ok(())
+        let result = self.next_action;
+        self.next_action = Self::next_action(ai_rng, &self.past_actions);
+        result
     }
 }
 
@@ -247,6 +273,7 @@ struct SpikeSlimeS {
     hp: u32,
     hp_max: u32,
     next_action: &'static Action,
+    past_actions: VecDeque<&'static Action>,
 }
 
 static SPIKE_SLIME_S_TACKLE: Lazy<Action> = Lazy::new(|| Action::deal_damage(5, 1));
@@ -256,20 +283,18 @@ impl SpikeSlimeS {
         let hp = hp_rng.gen_range(10..=14);
         let hp_max = hp;
         let past_actions = VecDeque::with_capacity(2);
-        let d100 = ai_rng.gen_range(0..100);
-        let next_action = Self::next_action(d100, ai_rng, &past_actions);
+        let next_action = Self::next_action(ai_rng, &past_actions);
         Box::new(Self {
             hp,
             hp_max,
             next_action,
+            past_actions,
         })
     }
 
-    pub fn next_action(
-        d100: u8,
-        ai_rng: &mut StsRandom,
-        pa: &VecDeque<&'static Action>,
-    ) -> &'static Action {
+    fn next_action(ai_rng: &mut StsRandom, pa: &VecDeque<&'static Action>) -> &'static Action {
+        let d100 = ai_rng.gen_range(0..100); // Burn a random number for consistency with the game
+        println!("SPIKE_SLIME_S_TACKLE: {}: {}", ai_rng.get_counter(), d100);
         &SPIKE_SLIME_S_TACKLE
     }
 }
@@ -287,11 +312,14 @@ impl Enemy for SpikeSlimeS {
         self.next_action.intent
     }
 
-    fn act(&mut self, ai_rng: &mut StsRandom, player: &mut PlayerInCombat) -> Result<(), Error> {
-        for effect in self.next_action.effects.iter() {
-            player.apply_effect(*effect)?;
+    fn act(&mut self, ai_rng: &mut StsRandom) -> &'static Action {
+        if self.past_actions.len() >= 2 {
+            self.past_actions.pop_front();
         }
-        Ok(())
+        self.past_actions.push_back(self.next_action);
+        let result = self.next_action;
+        self.next_action = Self::next_action(ai_rng, &self.past_actions);
+        result
     }
 }
 
@@ -347,13 +375,10 @@ impl<'a> EncounterSimulator<'a> {
         misc_rng: &'a mut StsRandom,
         player: &'a mut Player,
     ) -> Self {
-        let hp_rng = StsRandom::from(seed_for_floor);
-        let ai_rng = StsRandom::from(seed_for_floor);
         Self {
             encounter,
+            seed_for_floor,
             misc_rng,
-            hp_rng,
-            ai_rng,
             player,
         }
     }
@@ -363,11 +388,13 @@ impl<'a> EncounterSimulator<'a> {
             "[EncounterSimulator] Running encounter: {:?}",
             self.encounter
         );
+        let mut hp_rng = StsRandom::from(self.seed_for_floor);
+        let mut ai_rng = StsRandom::from(self.seed_for_floor);
         macro_rules! enemy_party {
             ( $( $enemy:ident ),* ) => {{
                 let enemies: Vec<Box<dyn Enemy>> = vec![
                     $(
-                        $enemy::new_boxed(&mut self.hp_rng, &mut self.ai_rng),
+                        $enemy::new_boxed(&mut hp_rng, &mut ai_rng),
                     )*
                 ];
                 enemies
@@ -439,24 +466,30 @@ impl<'a> EncounterSimulator<'a> {
             Encounter::WrithingMass => todo!(),
         };
 
-        let mut player_in_combat = PlayerInCombat::new(self.player);
+        let shuffle_rng = StsRandom::from(self.seed_for_floor);
+        let enemy_party_view = enemy_party
+            .iter()
+            .map(|e| (e.enemy_type(), e.intent(), e.health()))
+            .collect();
+        let mut player_in_combat = self.player.enter_combat(shuffle_rng, enemy_party_view)?;
 
-        #[allow(clippy::never_loop)]
+        #[allow(clippy::never_loop, clippy::while_let_loop)]
         loop {
             player_in_combat.start_turn()?;
             loop {
-                let enemy_party_view = enemy_party
-                    .iter()
-                    .map(|e| (e.enemy_type(), e.intent(), e.health()))
-                    .collect();
-                match player_in_combat.choose_next_action(enemy_party_view)? {
+                match player_in_combat.choose_next_action()? {
+                    PlayerAction::PlayCard(card) => {
+                        println!("Player plays card: {:?}", card);
+                    }
                     PlayerAction::EndTurn => break,
                 }
             }
             for enemy in enemy_party.iter_mut() {
-                enemy.act(&mut self.ai_rng, &mut player_in_combat)?;
+                let enemy_action = enemy.act(&mut ai_rng);
+                for effect in enemy_action.effects.iter() {
+                    player_in_combat.apply_effect(*effect)?;
+                }
             }
         }
-        Ok(())
     }
 }

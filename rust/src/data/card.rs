@@ -36,7 +36,7 @@ pub const CURSE_CARD_POOL: &[Card] = &[
     Card::Clumsy,
 ];
 
-#[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
+#[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
 pub enum Card {
     Accuracy,
     Acrobatics,

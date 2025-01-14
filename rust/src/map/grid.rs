@@ -40,8 +40,8 @@ pub struct NodeBuilderGrid {
 
 // Convenience trait for highlighting the a node grid for its string representation.
 pub trait MapHighlighter {
-    fn left(&self, row: usize, col: usize) -> char;
-    fn right(&self, row: usize, col: usize) -> char;
+    fn left(&self, row: u8, col: u8) -> char;
+    fn right(&self, row: u8, col: u8) -> char;
 }
 
 impl NodeGrid {
@@ -49,16 +49,16 @@ impl NodeGrid {
         Self { grid }
     }
 
-    pub fn get(&self, row: usize, col: usize) -> Option<&Node> {
-        self.grid[row][col].as_ref()
+    pub fn get(&self, row: u8, col: u8) -> Option<&Node> {
+        self.grid[row as usize][col as usize].as_ref()
     }
 
-    /// Returns a Vec<usize> holding column indices of nodes in the given row that are not empty.
-    pub fn nonempty_cols_for_row(&self, row: usize) -> Vec<usize> {
-        self.grid[row]
+    /// Returns a Vec<u8> holding column indices of nodes in the given row that are not empty.
+    pub fn nonempty_cols_for_row(&self, row: u8) -> Vec<u8> {
+        self.grid[row as usize]
             .iter()
             .enumerate()
-            .filter_map(|(col, maybe_node)| maybe_node.as_ref().map(|_| col))
+            .filter_map(|(col, maybe_node)| maybe_node.as_ref().map(|_| col as u8))
             .collect()
     }
 
@@ -82,9 +82,9 @@ impl NodeGrid {
             for (col, maybe_node) in row_slice.iter().enumerate() {
                 match maybe_node {
                     Some(node) => {
-                        result.push(highlighter.left(row, col));
+                        result.push(highlighter.left(row as u8, col as u8));
                         result.push_str(node.room.to_string().as_str());
-                        result.push(highlighter.right(row, col));
+                        result.push(highlighter.right(row as u8, col as u8));
                     }
                     None => {
                         result.push_str("   ");
@@ -103,11 +103,11 @@ impl NodeGrid {
 struct DummyHighlighter;
 
 impl MapHighlighter for DummyHighlighter {
-    fn left(&self, _: usize, _: usize) -> char {
+    fn left(&self, _: u8, _: u8) -> char {
         ' '
     }
 
-    fn right(&self, _: usize, _: usize) -> char {
+    fn right(&self, _: u8, _: u8) -> char {
         ' '
     }
 }
@@ -381,12 +381,12 @@ mod test {
     }
 
     struct SimpleHighlighter {
-        pub row: usize,
-        pub col: usize,
+        pub row: u8,
+        pub col: u8,
     }
 
     impl MapHighlighter for SimpleHighlighter {
-        fn left(&self, row: usize, col: usize) -> char {
+        fn left(&self, row: u8, col: u8) -> char {
             if row == self.row && col == self.col {
                 '['
             } else {
@@ -394,7 +394,7 @@ mod test {
             }
         }
 
-        fn right(&self, row: usize, col: usize) -> char {
+        fn right(&self, row: u8, col: u8) -> char {
             if row == self.row && col == self.col {
                 ']'
             } else {

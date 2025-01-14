@@ -1,9 +1,11 @@
+use std::collections::HashSet;
 use std::iter::once;
 use std::sync::mpsc::{Receiver, Sender};
 
 use anyhow::{anyhow, Error};
 
 use crate::data::{Card, Character, EnemyType, Intent, NeowBlessing, Potion, Relic};
+use crate::rng::StsRandom;
 
 use super::action::{Debuff, Effect};
 use super::message::{Choice, Prompt, StsMessage};
@@ -27,6 +29,7 @@ pub struct Player {
 #[derive(Debug)]
 pub struct PlayerInCombat<'a> {
     player: &'a mut Player,
+    shuffle_rng: StsRandom,
 
     // Combat state
     energy: u32,
@@ -40,6 +43,7 @@ pub struct PlayerInCombat<'a> {
 #[derive(Clone, Debug)]
 pub enum PlayerAction {
     EndTurn,
+    PlayCard(Card),
 }
 
 /// Some convenience methods for Player interaction.
@@ -160,7 +164,7 @@ impl Player {
         }
     }
 
-    pub fn choose_movement_option(&mut self, options: Vec<usize>) -> Result<usize, Error> {
+    pub fn choose_movement_option(&mut self, options: Vec<u8>) -> Result<u8, Error> {
         let choices = options
             .iter()
             .map(|col| Choice::MoveTo(*col))
@@ -210,7 +214,7 @@ impl Player {
                     Some(Choice::ObtainPotion(potion)) => {
                         self.potions[slot] = Some(*potion);
                         self.output_tx
-                            .send(StsMessage::PotionObtained(*potion, slot as u32))?;
+                            .send(StsMessage::PotionObtained(*potion, slot as u8))?;
                     }
                     Some(Choice::Skip) => break,
                     _ => return Err(anyhow!("Invalid choice")),
@@ -251,49 +255,131 @@ impl Player {
             _ => Err(anyhow!("Invalid choice")),
         }
     }
+
+    pub fn enter_combat(
+        &mut self,
+        shuffle_rng: StsRandom,
+        enemy_party_view: Vec<(EnemyType, Intent, (u32, u32))>,
+    ) -> Result<PlayerInCombat, Error> {
+        PlayerInCombat::begin_combat(self, shuffle_rng, enemy_party_view)
+    }
 }
 
 impl<'a> PlayerInCombat<'a> {
-    pub fn new(player: &'a mut Player) -> Self {
+    fn begin_combat(
+        player: &'a mut Player,
+        mut shuffle_rng: StsRandom,
+        enemy_party_view: Vec<(EnemyType, Intent, (u32, u32))>,
+    ) -> Result<Self, Error> {
         let hand = Vec::new();
-        let draw_pile = Vec::new();
+        let mut draw_pile = player.deck.clone();
+        shuffle_rng.java_compat_shuffle(&mut draw_pile);
         let discard_pile = Vec::new();
         let exhaust_pile = Vec::new();
         let debuffs = Vec::new();
-        Self {
+        player
+            .output_tx
+            .send(StsMessage::EnemyParty(enemy_party_view))?;
+        Ok(Self {
             player,
+            shuffle_rng,
             hand,
             draw_pile,
             discard_pile,
             exhaust_pile,
             debuffs,
             energy: 3,
-        }
+        })
     }
 
     pub fn start_turn(&mut self) -> Result<(), Error> {
+        println!(
+            "Player starting turn; draw pile: {:?} and discard pile: {:?}",
+            self.draw_pile, self.discard_pile
+        );
+
         // Reset energy
         self.energy = 3;
 
-        // Draw new cards
+        // Draw cards
+        self.draw_cards()?;
+
         // Tick down debuffs
         for (_, stacks) in self.debuffs.iter_mut() {
             *stacks = stacks.saturating_sub(1);
         }
         self.debuffs.retain(|(_, stacks)| *stacks > 0);
+        self.player
+            .output_tx
+            .send(StsMessage::DebuffsChanged(self.debuffs.clone()))?;
 
         // Apply any other start-of-turn effects
         Ok(())
     }
 
-    pub fn choose_next_action(
-        &mut self,
-        enemy_party_view: Vec<(EnemyType, Intent, (u32, u32))>,
-    ) -> Result<PlayerAction, Error> {
+    fn draw_cards(&mut self) -> Result<(), Error> {
+        // Draw new cards
+        let draw_count = 5;
+        for i in 0..draw_count {
+            if let Some(card) = self.draw_pile.pop() {
+                self.hand.push(card);
+                self.player.output_tx.send(StsMessage::CardDrawn(card, i))?;
+            } else {
+                // Shuffle discard pile into draw pile
+                self.player
+                    .output_tx
+                    .send(StsMessage::ShufflingDiscardToDraw)?;
+                self.shuffle_rng.java_compat_shuffle(&mut self.discard_pile);
+                println!(
+                    "Shuffled discard pile, rng {}: {:?}",
+                    self.shuffle_rng.get_counter(),
+                    self.discard_pile
+                );
+                self.draw_pile.append(&mut self.discard_pile);
+                if let Some(card) = self.draw_pile.pop() {
+                    self.hand.push(card);
+                    self.player.output_tx.send(StsMessage::CardDrawn(card, i))?;
+                }
+            }
+        }
+        Ok(())
+    }
+
+    fn discard_hand(&mut self) -> Result<(), Error> {
+        // Emulating the game's behavior
+        while let Some(card) = self.hand.pop() {
+            self.discard_pile.push(card);
+        }
+        self.player.output_tx.send(StsMessage::HandDiscarded)?;
+        Ok(())
+    }
+
+    pub fn choose_next_action(&mut self) -> Result<PlayerAction, Error> {
+        // TODO: potions drink, potion discard
+        // card play
+        let mut not_yet_offered = self.hand.iter().copied().collect::<HashSet<_>>();
+        let mut choices = Vec::new();
+        for card in self.hand.iter().copied() {
+            if not_yet_offered.remove(&card) {
+                choices.push(Choice::PlayCard(card));
+            }
+        }
+        choices.push(Choice::EndTurn);
         self.player
             .output_tx
-            .send(StsMessage::EnemyParty(enemy_party_view))?;
-        Ok(PlayerAction::EndTurn)
+            .send(StsMessage::Choices(Prompt::CombatAction, choices.clone()))?;
+        let choice_index = self.player.input_rx.recv()?;
+        match choices.get(choice_index) {
+            Some(Choice::PlayCard(card)) => {
+                // Send to discard pile, etc
+                Ok(PlayerAction::PlayCard(*card))
+            }
+            Some(Choice::EndTurn) => {
+                self.discard_hand()?;
+                Ok(PlayerAction::EndTurn)
+            }
+            _ => Err(anyhow!("Invalid choice")),
+        }
     }
 
     // TODO: Return any reaction that might have been triggered by this effect.

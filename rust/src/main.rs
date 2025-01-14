@@ -35,6 +35,9 @@ fn main_input_loop(
 ) -> Result<(), anyhow::Error> {
     loop {
         match output_rx.recv()? {
+            StsMessage::CardDrawn(card, index) => {
+                println!("CardDrawn({:?}@{})", card, index);
+            }
             StsMessage::CardObtained(card) => {
                 println!("CardObtained({:?})", card);
             }
@@ -85,6 +88,9 @@ fn main_input_loop(
                         .join("; ")
                 );
             }
+            StsMessage::HandDiscarded => {
+                println!("HandDiscarded");
+            }
             StsMessage::Map(map) => println!("{}\n", map),
             StsMessage::PotionObtained(potion, slot) => {
                 println!("PotionObtained({:?}@{})", potion, slot);
@@ -108,6 +114,9 @@ fn main_input_loop(
                         .collect::<Vec<_>>()
                         .join(",")
                 );
+            }
+            StsMessage::ShufflingDiscardToDraw => {
+                println!("ShufflingDiscardToDraw");
             }
             StsMessage::GameOver(result) => {
                 println!(

@@ -180,11 +180,21 @@ Action Actions::DrawCards(int amount) {
 
 Action Actions::EmptyDeckShuffle() {
     return {[=] (BattleContext &bc) {
+        std::cout << "Before shuffling discard pile: ";
+        for (const auto &c : bc.cards.discardPile) {
+            std::cout << c << " ";
+        }
+        std::cout << std::endl;
         java::Collections::shuffle(
                 bc.cards.discardPile.begin(),
                 bc.cards.discardPile.end(),
                 java::Random(bc.shuffleRng.randomLong())
         );
+        std::cout << "Shuffled discard pile: ";
+        for (const auto &c : bc.cards.discardPile) {
+            std::cout << c << " ";
+        }
+        std::cout << std::endl;
 
         bc.cards.moveDiscardPileIntoToDrawPile();
     }};

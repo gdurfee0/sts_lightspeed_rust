@@ -1679,7 +1679,7 @@ void Monster::takeTurn(BattleContext &bc) {     // todo, maybe for monsters that
 
         case MMID::AWAKENED_ONE_DARK_ECHO:
             if (halfDead) {
-                std::cerr << bc << std::endl;
+                std::cout << bc << std::endl;
                 assert(false);
             }
             attackPlayerHelper(bc, 40);
@@ -1701,7 +1701,7 @@ void Monster::takeTurn(BattleContext &bc) {     // todo, maybe for monsters that
 
         case MMID::AWAKENED_ONE_SLASH:
             if (halfDead) {
-                std::cerr << bc << std::endl;
+                std::cout << bc << std::endl;
                 assert(false);
             }
             attackPlayerHelper(bc, 20);
@@ -1710,7 +1710,7 @@ void Monster::takeTurn(BattleContext &bc) {     // todo, maybe for monsters that
 
         case MMID::AWAKENED_ONE_SLUDGE:
             if (halfDead) {
-                std::cerr << bc << std::endl;
+                std::cout << bc << std::endl;
                 assert(false);
             }
             attackPlayerHelper(bc, 18);
@@ -1720,7 +1720,7 @@ void Monster::takeTurn(BattleContext &bc) {     // todo, maybe for monsters that
 
         case MMID::AWAKENED_ONE_SOUL_STRIKE:
             if (halfDead) {
-                std::cerr << bc << std::endl;
+                std::cout << bc << std::endl;
                 assert(false);
             }
             attackPlayerHelper(bc, 6, 4);
@@ -1729,7 +1729,7 @@ void Monster::takeTurn(BattleContext &bc) {     // todo, maybe for monsters that
 
         case MMID::AWAKENED_ONE_TACKLE:
             if (halfDead) {
-                std::cerr << bc << std::endl;
+                std::cout << bc << std::endl;
                 assert(false);
             }
             attackPlayerHelper(bc, 10, 3);
@@ -1865,10 +1865,10 @@ void Monster::takeTurn(BattleContext &bc) {     // todo, maybe for monsters that
         case MMID::INVALID:
 #ifdef sts_asserts
         {
-            std::cerr << bc.seed << " ";
+            std::cout << bc.seed << " ";
             auto x = static_cast<int>(moveHistory[0]);
             if (x >= 0 && x <= static_cast<int>(MMID::WRITHING_MASS_STRONG_STRIKE)) {
-                std::cerr << monsterIdStrings[static_cast<int>(id)] << " " << monsterMoveStrings[x] << std::endl;
+                std::cout << monsterIdStrings[static_cast<int>(id)] << " " << monsterMoveStrings[x] << std::endl;
             }
             assert(false);
         }
@@ -1891,9 +1891,11 @@ MMID Monster::getMoveForRoll(BattleContext &bc, int &monsterData, const int roll
                 return (MMID::ACID_SLIME_S_LICK);
 
             } else if (bc.aiRng.randomBoolean()) {
+                std::cout << "ACID_SLIME_S_TACKLE " << bc.aiRng.counter << ": " << roll << std::endl;
                 return (MMID::ACID_SLIME_S_TACKLE);
 
             } else {
+                std::cout << "ACID_SLIME_S_LICK " << bc.aiRng.counter << ": " << roll << std::endl;
                 return (MMID::ACID_SLIME_S_LICK);
 
             }
@@ -1942,32 +1944,41 @@ MMID Monster::getMoveForRoll(BattleContext &bc, int &monsterData, const int roll
             } else if (roll < 30) {
                 if (lastTwoMoves(MMID::ACID_SLIME_M_CORROSIVE_SPIT)) {
                     if (bc.aiRng.randomBoolean()) {
+                        std::cout << "ACID_SLIME_M_TACKLE(CS) " << bc.aiRng.counter << ": " << roll << std::endl;
                         return (MMID::ACID_SLIME_M_TACKLE);
                     } else {
                         return (MMID::ACID_SLIME_M_LICK);
+                        std::cout << "ACID_SLIME_M_LICK(CS) " << bc.aiRng.counter << ": " << roll << std::endl;
                     }
                 } else {
+                    std::cout << "ACID_SLIME_M_CORROSIVE_SPIT " << bc.aiRng.counter << ": " << roll << std::endl;
                     return (MMID::ACID_SLIME_M_CORROSIVE_SPIT);
                 }
 
             } else if (roll < 70) {
                 if (lastMove(MMID::ACID_SLIME_M_TACKLE)) {
                     if (bc.aiRng.randomBoolean(0.4f)) {
+                        std::cout << "ACID_SLIME_M_CORROSIVE_SPIT(T) " << bc.aiRng.counter << ": " << roll << std::endl;
                         return (MMID::ACID_SLIME_M_CORROSIVE_SPIT);
                     } else {
+                        std::cout << "ACID_SLIME_M_LICK(T) " << bc.aiRng.counter << ": " << roll << std::endl;
                         return (MMID::ACID_SLIME_M_LICK);
                     }
                 } else {
+                    std::cout << "ACID_SLIME_M_TACKLE " << bc.aiRng.counter << ": " << roll << std::endl;
                     return (MMID::ACID_SLIME_M_TACKLE);
                 }
 
             } else if (lastTwoMoves(MMID::ACID_SLIME_M_LICK)) {
                 if (bc.aiRng.randomBoolean(0.4F)) {
+                    std::cout << "ACID_SLIME_M_CORROSIVE_SPIT(L) " << bc.aiRng.counter << ": " << roll << std::endl;
                     return (MMID::ACID_SLIME_M_CORROSIVE_SPIT);
                 } else {
+                    std::cout << "ACID_SLIME_M_TACKLE(L) " << bc.aiRng.counter << ": " << roll << std::endl;
                     return (MMID::ACID_SLIME_M_TACKLE);
                 }
             } else {
+                std::cout << "ACID_SLIME_M_LICK " << bc.aiRng.counter << ": " << roll << std::endl;
                 return (MMID::ACID_SLIME_M_LICK);
             }
             break;
@@ -2767,7 +2778,8 @@ MMID Monster::getMoveForRoll(BattleContext &bc, int &monsterData, const int roll
             break;
 
         case MonsterId::SPIKE_SLIME_S:
-            return (MMID::SPIKE_SLIME_S_TACKLE);
+             std::cout << "SPIKE_SLIME_S_TACKLE " << bc.aiRng.counter << ": " << roll << std::endl;
+             return (MMID::SPIKE_SLIME_S_TACKLE);
             break;
 
         case MonsterId::RED_SLAVER: {
@@ -2822,13 +2834,17 @@ MMID Monster::getMoveForRoll(BattleContext &bc, int &monsterData, const int roll
             // 4 SPIKE_SLIME_M_LICK
             if (roll < 30) {
                 if (lastTwoMoves(MMID::SPIKE_SLIME_M_FLAME_TACKLE)) {
+                    std::cout << "SPIKE_SLIME_M_LICK(FT) " << bc.aiRng.counter << ": " << roll << std::endl;
                     return (MMID::SPIKE_SLIME_M_LICK);
                 } else {
+                    std::cout << "SPIKE_SLIME_M_FLAME_TACKLE " << bc.aiRng.counter << ": " << roll << std::endl;
                     return (MMID::SPIKE_SLIME_M_FLAME_TACKLE);
                 }
             } else if (lastTwoMoves(MMID::SPIKE_SLIME_M_LICK) || (asc17 && lastMove(MMID::SPIKE_SLIME_M_LICK))) {
+                std::cout << "SPIKE_SLIME_M_FLAME_TACKLE(L) " << bc.aiRng.counter << ": " << roll << std::endl;
                 return (MMID::SPIKE_SLIME_M_FLAME_TACKLE);
             } else {
+                std::cout << "SPIKE_SLIME_M_LICK " << bc.aiRng.counter << ": " << roll << std::endl;
                 return (MMID::SPIKE_SLIME_M_LICK);
             }
             break;
@@ -3316,7 +3332,7 @@ MMID Monster::getMoveForRoll(BattleContext &bc, int &monsterData, const int roll
             break;
     }
 #ifdef sts_asserts
-    std::cerr << "getMove did not return a value " << bc.seed << " " << static_cast<int>(id) << std::endl;
+    std::cout << "getMove did not return a value " << bc.seed << " " << static_cast<int>(id) << std::endl;
     assert(false);
 #endif
     return MMID::INVALID;
@@ -3491,7 +3507,7 @@ void Monster::stasisAction(BattleContext &bc) {
 
 #ifdef sts_asserts
     if (stasisCard.getId() == CardId::INVALID) {
-        std::cerr << bc << std::endl;
+        std::cout << bc << std::endl;
         assert(false);
     }
 #endif
@@ -3504,7 +3520,7 @@ void Monster::returnStasisCard(BattleContext &bc) {
 
 #ifdef sts_asserts
     if (stasisCard.id == CardId::INVALID) {
-        std::cerr << bc.seed << " " << bc.loopCount << " stasis card invalid" << idx << "\n" << bc << std::endl;
+        std::cout << bc.seed << " " << bc.loopCount << " stasis card invalid" << idx << "\n" << bc << std::endl;
     }
     assert(stasisCard.id != CardId::INVALID);
 #endif

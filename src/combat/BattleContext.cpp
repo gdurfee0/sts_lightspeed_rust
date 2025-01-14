@@ -2437,6 +2437,7 @@ void BattleContext::drinkPotion(int idx, int target) {
 }
 
 void BattleContext::drawCards(int count) {
+    std::cout << "drawCards begin " << shuffleRng.counter << std::endl;
     if (count <= 0 ||
         player.hasStatus<PS::NO_DRAW>() ||
          cards.drawPile.size() + cards.discardPile.size() == 0 ||
@@ -2456,10 +2457,12 @@ void BattleContext::drawCards(int count) {
             drawCards(static_cast<int>(cards.drawPile.size())); // the game adds this to top
         }
         return;
+        std::cout << "drawCards middle " << shuffleRng.counter << std::endl;
     }
 
     cardsDrawn += amountToDraw; // statistic for monte carlo search
     cards.draw(*this, amountToDraw);
+    std::cout << "drawCards end " << shuffleRng.counter << std::endl;
 }
 
 void BattleContext::discardAtEndOfTurn() {

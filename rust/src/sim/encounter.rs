@@ -8,7 +8,7 @@ use crate::data::{Card, Encounter, EnemyType, Intent};
 use crate::rng::{Seed, StsRandom};
 
 use super::action::{Action, Debuff};
-use super::player::Player;
+use super::player::{Player, PlayerAction, PlayerInCombat};
 
 pub struct EncounterSimulator<'a> {
     encounter: Encounter,
@@ -30,7 +30,7 @@ trait Enemy: fmt::Debug {
     fn enemy_type(&self) -> EnemyType;
     fn health(&self) -> (u32, u32);
     fn intent(&self) -> Intent;
-    fn act(&mut self, ai_rng: &mut StsRandom, player: &mut Player) -> Result<(), Error>;
+    fn act(&mut self, ai_rng: &mut StsRandom, player: &mut PlayerInCombat) -> Result<(), Error>;
 }
 
 #[derive(Debug)]
@@ -65,11 +65,11 @@ impl AcidSlimeM {
 
     #[allow(clippy::explicit_auto_deref)]
     pub fn next_action(
-        roll: u8,
+        d100: u8,
         ai_rng: &mut StsRandom,
         pa: &VecDeque<&'static Action>,
     ) -> &'static Action {
-        match roll {
+        match d100 {
             0..40 if not_thrice(&ACID_SLIME_M_CORROSIVE_SPIT, pa) => &ACID_SLIME_M_CORROSIVE_SPIT,
             0..40 => {
                 if ai_rng.next_bool() {
@@ -105,7 +105,7 @@ impl Enemy for AcidSlimeM {
         self.next_action.intent
     }
 
-    fn act(&mut self, ai_rng: &mut StsRandom, player: &mut Player) -> Result<(), Error> {
+    fn act(&mut self, ai_rng: &mut StsRandom, player: &mut PlayerInCombat) -> Result<(), Error> {
         if self.past_actions.len() >= 2 {
             self.past_actions.pop_front();
         }
@@ -141,7 +141,7 @@ impl AcidSlimeS {
         })
     }
 
-    fn next_action(roll: u8, ai_rng: &mut StsRandom) -> &'static Action {
+    fn next_action(d100: u8, ai_rng: &mut StsRandom) -> &'static Action {
         if ai_rng.next_bool() {
             &ACID_SLIME_S_TACKLE
         } else {
@@ -163,7 +163,7 @@ impl Enemy for AcidSlimeS {
         self.next_action.intent
     }
 
-    fn act(&mut self, ai_rng: &mut StsRandom, player: &mut Player) -> Result<(), Error> {
+    fn act(&mut self, ai_rng: &mut StsRandom, player: &mut PlayerInCombat) -> Result<(), Error> {
         for effect in self.next_action.effects.iter() {
             player.apply_effect(*effect)?;
         }
@@ -207,7 +207,6 @@ impl SpikeSlimeM {
         ai_rng: &mut StsRandom,
         pa: &VecDeque<&'static Action>,
     ) -> &'static Action {
-        println!("Roll for SpikeSlimeM: {}", d100);
         match d100 {
             0..30 if not_thrice(&SPIKE_SLIME_M_FLAME_TACKLE, pa) => &SPIKE_SLIME_M_FLAME_TACKLE,
             0..30 => &SPIKE_SLIME_M_LICK,
@@ -230,7 +229,7 @@ impl Enemy for SpikeSlimeM {
         self.next_action.intent
     }
 
-    fn act(&mut self, ai_rng: &mut StsRandom, player: &mut Player) -> Result<(), Error> {
+    fn act(&mut self, ai_rng: &mut StsRandom, player: &mut PlayerInCombat) -> Result<(), Error> {
         if self.past_actions.len() >= 2 {
             self.past_actions.pop_front();
         }
@@ -288,7 +287,7 @@ impl Enemy for SpikeSlimeS {
         self.next_action.intent
     }
 
-    fn act(&mut self, ai_rng: &mut StsRandom, player: &mut Player) -> Result<(), Error> {
+    fn act(&mut self, ai_rng: &mut StsRandom, player: &mut PlayerInCombat) -> Result<(), Error> {
         for effect in self.next_action.effects.iter() {
             player.apply_effect(*effect)?;
         }
@@ -439,22 +438,23 @@ impl<'a> EncounterSimulator<'a> {
             Encounter::TwoThieves => todo!(),
             Encounter::WrithingMass => todo!(),
         };
-        println!(
-            "Enemy party: {:?}, ai_rng: {}",
-            enemy_party,
-            self.ai_rng.get_counter()
-        );
+
+        let mut player_in_combat = PlayerInCombat::new(self.player);
+
+        #[allow(clippy::never_loop)]
         loop {
-            let enemy_party_view: Vec<(EnemyType, u32, u32, Intent)> = enemy_party
-                .iter()
-                .map(|e| (e.enemy_type(), e.health().0, e.health().1, e.intent()))
-                .collect();
-            self.player.send_enemy_party(enemy_party_view)?;
-
-            // TODO: collect player's actions
-
+            player_in_combat.start_turn()?;
+            loop {
+                let enemy_party_view = enemy_party
+                    .iter()
+                    .map(|e| (e.enemy_type(), e.intent(), e.health()))
+                    .collect();
+                match player_in_combat.choose_next_action(enemy_party_view)? {
+                    PlayerAction::EndTurn => break,
+                }
+            }
             for enemy in enemy_party.iter_mut() {
-                enemy.act(&mut self.ai_rng, self.player)?;
+                enemy.act(&mut self.ai_rng, &mut player_in_combat)?;
             }
         }
         Ok(())

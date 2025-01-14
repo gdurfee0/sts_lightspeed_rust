@@ -78,7 +78,7 @@ fn main_input_loop(
                     "EnemyParty([{}])",
                     enemies
                         .iter()
-                        .map(|(enemy, hp, hp_max, intent)| {
+                        .map(|(enemy, intent, (hp, hp_max))| {
                             format!("{:?}({}/{}):{:?}", enemy, hp, hp_max, intent)
                         })
                         .collect::<Vec<_>>()

@@ -22,7 +22,7 @@ pub enum StsMessage {
     GoldChanged(u32),
 
     // Encounter / combat messages
-    EnemyParty(Vec<(EnemyType, u32, u32, Intent)>),
+    EnemyParty(Vec<(EnemyType, Intent, (u32, u32))>),
     HealthChanged(u32, u32), // "Health" always refers to the pair (current HP, max HP)
     DebuffsChanged(Vec<(Debuff, u32)>),
     DiscardPile(Vec<Card>),

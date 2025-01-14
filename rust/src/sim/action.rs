@@ -14,7 +14,7 @@ pub struct Action {
 #[derive(Clone, Copy, Debug)]
 pub enum Effect {
     AddToDiscardPile(&'static [Card]),
-    DealDamage(u32, u32),
+    DealDamage(u32),
     Inflict(Debuff, u32),
 }
 
@@ -32,14 +32,14 @@ pub struct ActionChain {
 impl Action {
     pub fn deal_damage(amount: u32, times: u32) -> Action {
         Action {
-            effects: vec![Effect::DealDamage(amount, times)],
+            effects: (0..times).map(|_| Effect::DealDamage(amount)).collect(),
             intent: Intent::Aggressive(amount, times),
         }
     }
 
-    pub fn inflict(debuff: Debuff, count: u32) -> Action {
+    pub fn inflict(debuff: Debuff, stacks: u32) -> Action {
         Action {
-            effects: vec![Effect::Inflict(debuff, count)],
+            effects: vec![Effect::Inflict(debuff, stacks)],
             intent: Intent::StrategicDebuff,
         }
     }

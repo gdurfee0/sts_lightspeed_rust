@@ -29,12 +29,6 @@ impl Act {
         <&'static Act>::try_from(n).unwrap()
     }
 
-    /// Obtains an Act from a string representation of its number. Returns an error if the string is
-    /// not a valid number or if the number is out of bounds.
-    pub fn from_str(s: &str) -> Result<&'static Act, anyhow::Error> {
-        <&'static Act>::try_from(s)
-    }
-
     /// Returns the Act that follows this one. Panics if this is Act 4.
     pub fn next_act(&self) -> &'static Act {
         if self == &ACTS[0] {
@@ -46,14 +40,6 @@ impl Act {
         } else {
             panic!("No act after Act 4");
         }
-    }
-}
-
-impl TryFrom<&str> for &'static Act {
-    type Error = anyhow::Error;
-
-    fn try_from(value: &str) -> Result<Self, Self::Error> {
-        <&'static Act>::try_from(value.parse::<i8>()?)
     }
 }
 
@@ -178,17 +164,6 @@ static ACTS: &[Act] = &[
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn test_ascension_from_str() {
-        assert_eq!(Act::from_str("1").unwrap(), Act::get(1));
-        assert_eq!(Act::from_str("4").unwrap(), Act::get(4));
-        assert!(Act::from_str("0").is_err());
-        assert!(Act::from_str("5").is_err());
-        assert!(Act::from_str("").is_err());
-        assert!(Act::from_str("-1").is_err());
-        assert!(Act::from_str("ZZZ").is_err());
-    }
 
     #[test]
     fn test_array_indexing() {

@@ -86,10 +86,10 @@ impl fmt::Display for Choice {
             Choice::ClimbFloor(col) => write!(f, "Column {}", (b'a' + *col) as char),
             Choice::EndTurn => write!(f, "(End Turn)"),
             Choice::NeowBlessing(blessing) => write!(f, "{}", blessing),
-            Choice::ObtainCard(card) => write!(f, "{}", card),
+            Choice::ObtainCard(card) => write!(f, "{:?}", card),
             Choice::ObtainPotion(potion) => write!(f, "{}", potion),
-            Choice::PlayCardFromHand(card, _) => write!(f, "Play card \"{}\"", card),
-            Choice::RemoveCard(card) => write!(f, "{}", card),
+            Choice::PlayCardFromHand(card, _) => write!(f, "Play card \"{:?}\"", card),
+            Choice::RemoveCard(card) => write!(f, "{:?}", card),
             Choice::Skip => write!(f, "(Skip)"),
             Choice::TargetEnemy(enemy, _) => write!(f, "Target \"{:?}\"", enemy), // TODO: Index?
         }

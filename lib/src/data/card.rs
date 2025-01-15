@@ -1,5 +1,3 @@
-use std::fmt;
-
 pub const UNCOMMON_COLORLESS_CARDS: &[Card] = &[
     Card::BandageUp,
     Card::Blind,
@@ -399,11 +397,4 @@ pub enum Card {
     WreathOfFlame,
     Writhe,
     Zap,
-}
-
-impl fmt::Display for Card {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        // TODO: add en-us names for my convenience
-        write!(f, "{:?}", self)
-    }
 }

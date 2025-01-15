@@ -34,6 +34,7 @@ pub struct NodeGrid {
     grid: [[Option<Node>; COLUMN_COUNT]; ROW_COUNT],
 }
 
+#[derive(Default)]
 pub struct NodeBuilderGrid {
     grid: [[Option<NodeBuilder>; COLUMN_COUNT]; ROW_COUNT],
 }
@@ -119,12 +120,6 @@ impl fmt::Display for NodeGrid {
 }
 
 impl NodeBuilderGrid {
-    pub fn new() -> Self {
-        Self {
-            grid: Default::default(),
-        }
-    }
-
     pub fn remove(&mut self, row: usize, col: usize) -> Option<NodeBuilder> {
         self.grid[row][col].take()
     }

@@ -16,7 +16,7 @@ impl<'a> GraphBuilder<'a> {
     pub fn new(map_rng: &'a mut StsRandom) -> Self {
         Self {
             map_rng,
-            node_grid: NodeBuilderGrid::new(),
+            node_grid: NodeBuilderGrid::default(),
         }
     }
 

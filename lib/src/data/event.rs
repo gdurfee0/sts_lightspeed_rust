@@ -1,5 +1,4 @@
 #[derive(Clone, Copy, Debug, PartialEq)]
-#[allow(dead_code)] // TODO: remove this
 pub enum Event {
     AncientWriting,
     ANoteForYourself,

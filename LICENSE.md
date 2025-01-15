@@ -1,6 +1,21 @@
-MIT License
+# License Information
 
-Copyright (c) 2021 gamerpuppy
+This repository contains two categories of code:
+
+1. **Original code** by Glenn Durfee, licensed under MIT (see Section A below).
+2. **Reference implementation** by gamerpuppy, also under MIT (see Section B below).
+
+Parts of the first category contain information sourced from the
+[Slay The Spire Wiki](https://slay-the-spire.fandom.com/wiki/Slay_the_Spire_Wiki). See Section C
+for license details.
+
+
+---
+
+
+## Section A: MIT License
+
+MIT License
 
 Copyright (c) 2025 Glenn Durfee
 
@@ -22,7 +37,13 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
-## Attribution of Third-Party Content
+## Section B: MIT License for gamerpuppy's Reference Implementation
+
+The contents of the `reference-impl` directory are authored by gamerpuppy.
+That code is distributed under a separate MIT License 
+(see [reference-impl/LICENSE.md](reference-impl/LICENSE.md) for details).
+
+## Section C: Attribution of Third-Party Content
 
 Portions of the documentation/content in this repository are derived from the 
 [Slay The Spire Wiki](https://slay-the-spire.fandom.com/wiki/Slay_the_Spire_Wiki) 

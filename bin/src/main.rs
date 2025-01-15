@@ -5,7 +5,7 @@ use std::thread;
 mod params;
 
 use anyhow::anyhow;
-use lib::sim::{Choice, Prompt, StsMessage, StsSimulator};
+use lib::{Choice, Prompt, StsMessage, StsSimulator};
 
 use crate::params::GameParameters;
 

@@ -1,4 +1,4 @@
-use std::iter::once;
+use std::iter::{once, repeat};
 use std::sync::mpsc::{Receiver, Sender};
 
 use anyhow::{anyhow, Error};
@@ -42,7 +42,7 @@ pub struct PlayerInCombat<'a> {
 #[derive(Clone, Debug)]
 pub enum PlayerAction {
     EndTurn,
-    PlayCard(Card),
+    PlayCardFromHand(Card, u8),
 }
 
 /// Some convenience methods for Player interaction.
@@ -255,31 +255,20 @@ impl Player {
         }
     }
 
-    pub fn enter_combat(
-        &mut self,
-        shuffle_rng: StsRandom,
-        enemy_party_view: Vec<(EnemyType, Intent, (u32, u32))>,
-    ) -> Result<PlayerInCombat, Error> {
-        PlayerInCombat::begin_combat(self, shuffle_rng, enemy_party_view)
+    pub fn enter_combat(&mut self, shuffle_rng: StsRandom) -> PlayerInCombat {
+        PlayerInCombat::begin_combat(self, shuffle_rng)
     }
 }
 
 impl<'a> PlayerInCombat<'a> {
-    fn begin_combat(
-        player: &'a mut Player,
-        mut shuffle_rng: StsRandom,
-        enemy_party_view: Vec<(EnemyType, Intent, (u32, u32))>,
-    ) -> Result<Self, Error> {
+    fn begin_combat(player: &'a mut Player, mut shuffle_rng: StsRandom) -> Self {
         let hand = Vec::new();
         let mut draw_pile = player.deck.clone();
         shuffle_rng.java_compat_shuffle(&mut draw_pile);
         let discard_pile = Vec::new();
         let exhaust_pile = Vec::new();
         let debuffs = Vec::new();
-        player
-            .output_tx
-            .send(StsMessage::EnemyParty(enemy_party_view))?;
-        Ok(Self {
+        Self {
             player,
             shuffle_rng,
             hand,
@@ -288,14 +277,20 @@ impl<'a> PlayerInCombat<'a> {
             exhaust_pile,
             debuffs,
             energy: 3,
-        })
+        }
     }
 
-    pub fn start_turn(&mut self) -> Result<(), Error> {
+    pub fn start_turn(
+        &mut self,
+        enemy_party_view: Vec<(EnemyType, Intent, (u32, u32))>,
+    ) -> Result<(), Error> {
         println!(
             "Player starting turn; draw pile: {:?} and discard pile: {:?}",
             self.draw_pile, self.discard_pile
         );
+        self.player
+            .output_tx
+            .send(StsMessage::EnemyParty(enemy_party_view))?;
 
         // Reset energy
         self.energy = 3;
@@ -361,7 +356,8 @@ impl<'a> PlayerInCombat<'a> {
             .hand
             .iter()
             .copied()
-            .map(Choice::PlayCard)
+            .enumerate()
+            .map(|(idx, card)| Choice::PlayCardFromHand(card, idx as u8))
             .collect::<Vec<_>>();
 
         // TODO: check for unwinnable situations
@@ -372,9 +368,9 @@ impl<'a> PlayerInCombat<'a> {
             .send(StsMessage::Choices(Prompt::CombatAction, choices.clone()))?;
         let choice_index = self.player.input_rx.recv()?;
         match choices.get(choice_index) {
-            Some(Choice::PlayCard(card)) => {
+            Some(Choice::PlayCardFromHand(card, idx)) => {
                 // Send to discard pile, etc
-                Ok(PlayerAction::PlayCard(*card))
+                Ok(PlayerAction::PlayCardFromHand(*card, *idx))
             }
             Some(Choice::EndTurn) => {
                 self.discard_hand()?;
@@ -398,6 +394,7 @@ impl<'a> PlayerInCombat<'a> {
                 self.player.take_damage(amount)?;
             }
             Effect::Inflict(debuff, stacks) => self.apply_debuff(debuff, stacks)?,
+            Effect::GainBlock(_) => todo!(),
         }
         Ok(())
     }
@@ -414,3 +411,73 @@ impl<'a> PlayerInCombat<'a> {
         Ok(())
     }
 }
+
+pub enum Target {
+    AllEnemies,
+    OneEnemy,
+    Player,
+}
+
+pub struct PlayerMove {
+    pub effects: Vec<Effect>,
+    pub target: Target,
+}
+
+impl PlayerMove {
+    fn deal_damage(amount: u32, times: u32) -> PlayerMoveBuilder {
+        PlayerMoveBuilder {
+            effects: repeat(Effect::DealDamage(amount))
+                .take(times as usize)
+                .collect(),
+        }
+    }
+
+    fn gain_block(amount: u32) -> PlayerMove {
+        PlayerMove {
+            effects: vec![Effect::GainBlock(amount)],
+            target: Target::Player,
+        }
+    }
+}
+
+struct PlayerMoveBuilder {
+    effects: Vec<Effect>,
+}
+
+impl PlayerMoveBuilder {
+    fn then_inflict(mut self, debuff: Debuff, stacks: u32) -> Self {
+        self.effects.push(Effect::Inflict(debuff, stacks));
+        self
+    }
+
+    fn to_all_enemies(&self) -> PlayerMove {
+        PlayerMove {
+            effects: self.effects.clone(),
+            target: Target::AllEnemies,
+        }
+    }
+
+    fn to_one_enemy(&self) -> PlayerMove {
+        PlayerMove {
+            effects: self.effects.clone(),
+            target: Target::OneEnemy,
+        }
+    }
+}
+
+// Convenience macros
+macro_rules! define_move {
+    ($name:ident, $player_move:expr) => {
+        static $name: once_cell::sync::Lazy<PlayerMove> =
+            once_cell::sync::Lazy::new(|| $player_move);
+    };
+}
+
+define_move!(
+    BASH,
+    PlayerMove::deal_damage(8, 1)
+        .then_inflict(Debuff::Vulnerable, 2)
+        .to_one_enemy()
+);
+define_move!(DEFEND, PlayerMove::gain_block(5));
+define_move!(STRIKE, PlayerMove::deal_damage(6, 1).to_one_enemy());

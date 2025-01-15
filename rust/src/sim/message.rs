@@ -54,8 +54,7 @@ pub enum Choice {
     ObtainCard(Card),
     ObtainPotion(Potion),
     RemoveCard(Card),
-    PlayCard(Card),
-    PlayCardAgainstEnemy(Card, u8),
+    PlayCardFromHand(Card, u8), // Card and card index in hand
     Skip,
 }
 
@@ -80,8 +79,7 @@ impl fmt::Display for Choice {
             Choice::NeowBlessing(blessing) => write!(f, "{}", blessing),
             Choice::ObtainCard(card) => write!(f, "{}", card),
             Choice::ObtainPotion(potion) => write!(f, "{}", potion),
-            Choice::PlayCard(card) => write!(f, "{}", card),
-            Choice::PlayCardAgainstEnemy(card, idx) => write!(f, "{} against enemy {}", card, idx),
+            Choice::PlayCardFromHand(card, _) => write!(f, "{}", card),
             Choice::RemoveCard(card) => write!(f, "{}", card),
             Choice::Skip => write!(f, "(Skip)"),
         }

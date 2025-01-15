@@ -35,18 +35,6 @@ impl<'a> EncounterSimulator<'a> {
         );
         let mut hp_rng = StsRandom::from(self.seed_for_floor);
         let mut ai_rng = StsRandom::from(self.seed_for_floor);
-        /*
-        macro_rules! enemy_party {
-            ( $( $enemy:ident ),* ) => {{
-                let enemies: Vec<Box<dyn Enemy>> = vec![
-                    $(
-                        $enemy::new_boxed(&mut hp_rng, &mut ai_rng),
-                    )*
-                ];
-                enemies
-            }};
-        }
-        */
         macro_rules! enemy_party {
             ( $( $enemy:ident ),* ) => {{
                 let enemies: Vec<Enemy> = vec![
@@ -124,25 +112,27 @@ impl<'a> EncounterSimulator<'a> {
         };
 
         let shuffle_rng = StsRandom::from(self.seed_for_floor);
-        let enemy_party_view = enemy_party
-            .iter()
-            .map(|e| (e.enemy_type(), e.intent(), e.health()))
-            .collect();
-        let mut player_in_combat = self.player.enter_combat(shuffle_rng, enemy_party_view)?;
+        let mut player_in_combat = self.player.enter_combat(shuffle_rng);
 
         #[allow(clippy::never_loop, clippy::while_let_loop)]
         loop {
-            player_in_combat.start_turn()?;
+            let enemy_party_view = enemy_party
+                .iter()
+                .map(|e| (e.enemy_type(), e.intent(), e.health()))
+                .collect();
+            player_in_combat.start_turn(enemy_party_view)?;
             loop {
                 match player_in_combat.choose_next_action()? {
-                    PlayerAction::PlayCard(card) => {
-                        println!("Player plays card: {:?}", card);
+                    PlayerAction::PlayCardFromHand(card, idx) => {
+                        // Determine if the card requires a target, and if so, prompt the player to
+                        // select one.
+                        println!("Player plays card: {:?} at index {}", card, idx);
                     }
                     PlayerAction::EndTurn => break,
                 }
             }
             for enemy in enemy_party.iter_mut() {
-                let enemy_action = enemy.next_action(&mut ai_rng);
+                let enemy_action = enemy.next_move(&mut ai_rng);
                 for effect in enemy_action.effects.iter() {
                     player_in_combat.apply_effect(*effect)?;
                 }

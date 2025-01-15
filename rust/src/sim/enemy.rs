@@ -1,22 +1,61 @@
+use std::iter::repeat;
 use std::ops::RangeInclusive;
-
-use once_cell::sync::Lazy;
 
 use crate::data::{Card, EnemyType, Intent};
 use crate::rng::StsRandom;
 
-use super::action::{Action, Debuff};
+use super::action::{Debuff, Effect};
+
+/// This file introduces the basic datastructures for enemies and enemy action.
+///
+/// An `EnemyMove` consists of a list of `Effect`s which are enacted in order.
+/// An `EnemyMove` can be resolved to an `Intent` (depending on context, such as player debuffs)
+/// which can be displayed to the user.
+#[derive(Debug)]
+pub struct EnemyMove {
+    pub effects: Vec<Effect>,
+    pub intent: Intent,
+}
 
 // rng, last_action, run_length
-type NextActionFn = fn(&mut StsRandom, Option<&'static Action>, u8) -> &'static Action;
+type NextMoveFn = fn(&mut StsRandom, Option<&'static EnemyMove>, u8) -> &'static EnemyMove;
 
+/// The `Enemy` is the basic unit representing enemy combatants in the game. Callers will be
+/// primarily interested in the class-level `Enemy::new` constructor and the instance-level
+/// `Enemy::next_move` method, which advances the enemy's AI state machine according to the
+/// official game mechanics, returning the enemy's next move to be performed.
 pub struct Enemy {
     enemy_type: EnemyType,
     hp: u32,
     hp_max: u32,
-    next_action_fn: NextActionFn,
-    next_action: &'static Action,
+    next_move_fn: NextMoveFn,
+    next_move: &'static EnemyMove,
     run_length: u8,
+}
+
+impl EnemyMove {
+    fn deal_damage(amount: u32, times: u32) -> EnemyMove {
+        EnemyMove {
+            effects: repeat(Effect::DealDamage(amount))
+                .take(times as usize)
+                .collect(),
+            intent: Intent::Aggressive(amount, times),
+        }
+    }
+
+    fn inflict(debuff: Debuff, stacks: u32) -> EnemyMove {
+        EnemyMove {
+            effects: vec![Effect::Inflict(debuff, stacks)],
+            intent: Intent::StrategicDebuff,
+        }
+    }
+
+    fn then(self) -> EnemyMoveBuilder {
+        EnemyMoveBuilder {
+            effects: self.effects,
+            intent: self.intent,
+        }
+    }
 }
 
 impl Enemy {
@@ -35,8 +74,8 @@ impl Enemy {
             enemy_type,
             hp,
             hp_max,
-            next_action_fn,
-            next_action,
+            next_move_fn: next_action_fn,
+            next_move: next_action,
             run_length: 1,
         }
     }
@@ -50,24 +89,67 @@ impl Enemy {
     }
 
     pub fn intent(&self) -> Intent {
-        self.next_action.intent
+        self.next_move.intent
     }
 
-    pub fn next_action(&mut self, ai_rng: &mut StsRandom) -> &'static Action {
-        let current_action = self.next_action;
-        self.next_action = (self.next_action_fn)(ai_rng, Some(current_action), self.run_length);
-        if self.next_action == current_action {
+    pub fn next_move(&mut self, ai_rng: &mut StsRandom) -> &'static EnemyMove {
+        let current_move = self.next_move;
+        self.next_move = (self.next_move_fn)(ai_rng, Some(current_move), self.run_length);
+        if self.next_move == current_move {
             self.run_length = self.run_length.saturating_add(1);
         } else {
             self.run_length = 1;
         }
-        current_action
+        current_move
     }
 }
 
-macro_rules! define_action {
-    ($name:ident, $action:expr) => {
-        static $name: Lazy<Action> = Lazy::new(|| $action);
+impl PartialEq for EnemyMove {
+    fn eq(&self, other: &Self) -> bool {
+        // Only references to `&'static EnemyMove`s are passed around, so this is safe and fast.
+        std::ptr::eq(self, other)
+    }
+}
+
+impl Eq for EnemyMove {}
+
+struct EnemyMoveBuilder {
+    effects: Vec<Effect>,
+    intent: Intent,
+}
+
+impl EnemyMoveBuilder {
+    pub fn add_to_discard_pile(mut self, cards: &'static [Card]) -> EnemyMove {
+        self.effects.push(Effect::AddToDiscardPile(cards));
+        EnemyMove {
+            effects: self.effects,
+            intent: add_debuff_to_intent(self.intent),
+        }
+    }
+}
+
+fn add_debuff_to_intent(intent: Intent) -> Intent {
+    match intent {
+        Intent::Aggressive(amount, times) => Intent::AggressiveDebuff(amount, times),
+        Intent::AggressiveBuff(_, _) => todo!(),
+        Intent::AggressiveDebuff(amount, times) => Intent::AggressiveDebuff(amount, times),
+        Intent::AggressiveDefensive(_, _) => todo!(),
+        Intent::Cowardly => todo!(),
+        Intent::Defensive => Intent::DefensiveDebuff,
+        Intent::DefensiveBuff => todo!(),
+        Intent::DefensiveDebuff => Intent::DefensiveDebuff,
+        Intent::Sleeping => todo!(),
+        Intent::StrategicBuff => todo!(),
+        Intent::StrategicDebuff => todo!(),
+        Intent::Stunned => todo!(),
+        Intent::Unknown => Intent::Unknown,
+    }
+}
+
+// Convenience macros
+macro_rules! define_move {
+    ($name:ident, $enemy_move:expr) => {
+        static $name: once_cell::sync::Lazy<EnemyMove> = once_cell::sync::Lazy::new(|| $enemy_move);
     };
 }
 
@@ -77,8 +159,8 @@ macro_rules! define_enemy {
         struct $name;
 
         impl $name {
-            fn params() -> (RangeInclusive<u32>, NextActionFn) {
-                ($hprange, $name::next_action)
+            fn params() -> (RangeInclusive<u32>, NextMoveFn) {
+                ($hprange, $name::next_move)
             }
 
             $($body)*
@@ -86,28 +168,26 @@ macro_rules! define_enemy {
     };
 }
 
-define_action!(
+// ACID_SLIME_M
+define_move!(
     ACID_SLIME_M_CORROSIVE_SPIT,
-    Action::deal_damage(7, 1)
+    EnemyMove::deal_damage(7, 1)
         .then()
         .add_to_discard_pile(&[Card::Slimed])
 );
-define_action!(ACID_SLIME_M_LICK, Action::inflict(Debuff::Weak, 1));
-define_action!(ACID_SLIME_M_TACKLE, Action::deal_damage(10, 1));
-define_action!(ACID_SLIME_S_LICK, Action::inflict(Debuff::Weak, 1));
-define_action!(ACID_SLIME_S_TACKLE, Action::deal_damage(3, 1));
-
+define_move!(ACID_SLIME_M_LICK, EnemyMove::inflict(Debuff::Weak, 1));
+define_move!(ACID_SLIME_M_TACKLE, EnemyMove::deal_damage(10, 1));
 define_enemy!(
     AcidSlimeM,
     28..=32,
     #[allow(clippy::explicit_auto_deref)]
-    fn next_action(
+    fn next_move(
         ai_rng: &mut StsRandom,
-        last_action: Option<&'static Action>,
+        last_move: Option<&'static EnemyMove>,
         run_length: u8,
-    ) -> &'static Action {
+    ) -> &'static EnemyMove {
         match ai_rng.gen_range(0..100) {
-            0..30 if last_action != Some(&ACID_SLIME_M_CORROSIVE_SPIT) || run_length < 2 => {
+            0..30 if last_move != Some(&ACID_SLIME_M_CORROSIVE_SPIT) || run_length < 2 => {
                 &ACID_SLIME_M_CORROSIVE_SPIT
             }
             0..30 => {
@@ -117,12 +197,12 @@ define_enemy!(
                     &ACID_SLIME_M_LICK
                 }
             }
-            30..70 if last_action != Some(&ACID_SLIME_M_TACKLE) => &ACID_SLIME_M_TACKLE,
+            30..70 if last_move != Some(&ACID_SLIME_M_TACKLE) => &ACID_SLIME_M_TACKLE,
             30..70 => *ai_rng.weighted_choose(&[
                 (&ACID_SLIME_M_CORROSIVE_SPIT, 0.5),
                 (&ACID_SLIME_M_LICK, 0.5),
             ]),
-            _ if last_action != Some(&ACID_SLIME_M_LICK) || run_length < 2 => &ACID_SLIME_M_LICK,
+            _ if last_move != Some(&ACID_SLIME_M_LICK) || run_length < 2 => &ACID_SLIME_M_LICK,
             _ => *ai_rng.weighted_choose(&[
                 (&ACID_SLIME_M_CORROSIVE_SPIT, 0.4),
                 (&ACID_SLIME_M_TACKLE, 0.6),
@@ -131,15 +211,18 @@ define_enemy!(
     }
 );
 
+// ACID_SLIME_S
+define_move!(ACID_SLIME_S_LICK, EnemyMove::inflict(Debuff::Weak, 1));
+define_move!(ACID_SLIME_S_TACKLE, EnemyMove::deal_damage(3, 1));
 define_enemy!(
     AcidSlimeS,
     8..=12,
-    fn next_action(
+    fn next_move(
         ai_rng: &mut StsRandom,
-        last_action: Option<&'static Action>,
+        last_move: Option<&'static EnemyMove>,
         _run_length: u8,
-    ) -> &'static Action {
-        if last_action.is_none() {
+    ) -> &'static EnemyMove {
+        if last_move.is_none() {
             // The game burns an extra roll on the first turn then eschews the rng thereafter.
             let _ = ai_rng.gen_range(0..100);
             if ai_rng.next_bool() {
@@ -147,7 +230,7 @@ define_enemy!(
             } else {
                 &ACID_SLIME_S_LICK
             }
-        } else if last_action == Some(&ACID_SLIME_S_LICK) {
+        } else if last_move == Some(&ACID_SLIME_S_LICK) {
             &ACID_SLIME_S_TACKLE
         } else {
             &ACID_SLIME_S_LICK
@@ -155,42 +238,43 @@ define_enemy!(
     }
 );
 
-define_action!(SPIKE_SLIME_M_LICK, Action::inflict(Debuff::Frail, 1));
-define_action!(
+// SPIKE_SLIME_M
+define_move!(SPIKE_SLIME_M_LICK, EnemyMove::inflict(Debuff::Frail, 1));
+define_move!(
     SPIKE_SLIME_M_FLAME_TACKLE,
-    Action::deal_damage(8, 1)
+    EnemyMove::deal_damage(8, 1)
         .then()
         .add_to_discard_pile(&[Card::Slimed])
 );
-define_action!(SPIKE_SLIME_S_TACKLE, Action::deal_damage(5, 1));
-
 define_enemy!(
     SpikeSlimeM,
     28..=32,
-    fn next_action(
+    fn next_move(
         ai_rng: &mut StsRandom,
-        last_action: Option<&'static Action>,
+        last_move: Option<&'static EnemyMove>,
         run_length: u8,
-    ) -> &'static Action {
+    ) -> &'static EnemyMove {
         match ai_rng.gen_range(0..100) {
-            0..30 if last_action != Some(&SPIKE_SLIME_M_FLAME_TACKLE) || run_length < 2 => {
+            0..30 if last_move != Some(&SPIKE_SLIME_M_FLAME_TACKLE) || run_length < 2 => {
                 &SPIKE_SLIME_M_FLAME_TACKLE
             }
             0..30 => &SPIKE_SLIME_M_LICK,
-            _ if last_action != Some(&SPIKE_SLIME_M_LICK) || run_length < 2 => &SPIKE_SLIME_M_LICK,
+            _ if last_move != Some(&SPIKE_SLIME_M_LICK) || run_length < 2 => &SPIKE_SLIME_M_LICK,
             _ => &SPIKE_SLIME_M_FLAME_TACKLE,
         }
     }
 );
 
+// SPIKE_SLIME_S
+define_move!(SPIKE_SLIME_S_TACKLE, EnemyMove::deal_damage(5, 1));
 define_enemy!(
     SpikeSlimeS,
     10..=14,
-    fn next_action(
+    fn next_move(
         ai_rng: &mut StsRandom,
-        _last_action: Option<&'static Action>,
+        _last_move: Option<&'static EnemyMove>,
         _run_length: u8,
-    ) -> &'static Action {
+    ) -> &'static EnemyMove {
         let _ = ai_rng.gen_range(0..100); // Burn a random number for consistency with the game
         &SPIKE_SLIME_S_TACKLE
     }
@@ -210,37 +294,28 @@ mod test {
         let mut enemy = Enemy::new(EnemyType::AcidSlimeS, &mut hp_rng, &mut ai_rng);
         assert_eq!(enemy.enemy_type(), EnemyType::AcidSlimeS);
         assert_eq!(enemy.health(), (12, 12));
-        assert_eq!(enemy.next_action(&mut ai_rng), &*ACID_SLIME_S_LICK);
-        assert_eq!(enemy.next_action(&mut ai_rng), &*ACID_SLIME_S_TACKLE);
-        assert_eq!(enemy.next_action(&mut ai_rng), &*ACID_SLIME_S_LICK);
-        assert_eq!(enemy.next_action(&mut ai_rng), &*ACID_SLIME_S_TACKLE);
-        assert_eq!(enemy.next_action(&mut ai_rng), &*ACID_SLIME_S_LICK);
-        assert_eq!(enemy.next_action(&mut ai_rng), &*ACID_SLIME_S_TACKLE);
-        assert_eq!(enemy.next_action(&mut ai_rng), &*ACID_SLIME_S_LICK);
-        assert_eq!(enemy.next_action(&mut ai_rng), &*ACID_SLIME_S_TACKLE);
+        assert_eq!(enemy.next_move(&mut ai_rng), &*ACID_SLIME_S_LICK);
+        assert_eq!(enemy.next_move(&mut ai_rng), &*ACID_SLIME_S_TACKLE);
+        assert_eq!(enemy.next_move(&mut ai_rng), &*ACID_SLIME_S_LICK);
+        assert_eq!(enemy.next_move(&mut ai_rng), &*ACID_SLIME_S_TACKLE);
+        assert_eq!(enemy.next_move(&mut ai_rng), &*ACID_SLIME_S_LICK);
+        assert_eq!(enemy.next_move(&mut ai_rng), &*ACID_SLIME_S_TACKLE);
+        assert_eq!(enemy.next_move(&mut ai_rng), &*ACID_SLIME_S_LICK);
+        assert_eq!(enemy.next_move(&mut ai_rng), &*ACID_SLIME_S_TACKLE);
 
         let mut hp_rng = StsRandom::from(seed.with_offset(1));
         let mut ai_rng = StsRandom::from(seed.with_offset(1));
         let mut enemy = Enemy::new(EnemyType::AcidSlimeM, &mut hp_rng, &mut ai_rng);
         assert_eq!(enemy.enemy_type(), EnemyType::AcidSlimeM);
         assert_eq!(enemy.health(), (32, 32));
-        assert_eq!(
-            enemy.next_action(&mut ai_rng),
-            &*ACID_SLIME_M_CORROSIVE_SPIT
-        );
-        assert_eq!(enemy.next_action(&mut ai_rng), &*ACID_SLIME_M_TACKLE);
-        assert_eq!(enemy.next_action(&mut ai_rng), &*ACID_SLIME_M_LICK);
-        assert_eq!(
-            enemy.next_action(&mut ai_rng),
-            &*ACID_SLIME_M_CORROSIVE_SPIT
-        );
-        assert_eq!(enemy.next_action(&mut ai_rng), &*ACID_SLIME_M_TACKLE);
-        assert_eq!(
-            enemy.next_action(&mut ai_rng),
-            &*ACID_SLIME_M_CORROSIVE_SPIT
-        );
-        assert_eq!(enemy.next_action(&mut ai_rng), &*ACID_SLIME_M_TACKLE);
-        assert_eq!(enemy.next_action(&mut ai_rng), &*ACID_SLIME_M_LICK);
+        assert_eq!(enemy.next_move(&mut ai_rng), &*ACID_SLIME_M_CORROSIVE_SPIT);
+        assert_eq!(enemy.next_move(&mut ai_rng), &*ACID_SLIME_M_TACKLE);
+        assert_eq!(enemy.next_move(&mut ai_rng), &*ACID_SLIME_M_LICK);
+        assert_eq!(enemy.next_move(&mut ai_rng), &*ACID_SLIME_M_CORROSIVE_SPIT);
+        assert_eq!(enemy.next_move(&mut ai_rng), &*ACID_SLIME_M_TACKLE);
+        assert_eq!(enemy.next_move(&mut ai_rng), &*ACID_SLIME_M_CORROSIVE_SPIT);
+        assert_eq!(enemy.next_move(&mut ai_rng), &*ACID_SLIME_M_TACKLE);
+        assert_eq!(enemy.next_move(&mut ai_rng), &*ACID_SLIME_M_LICK);
     }
 
     #[test]
@@ -251,25 +326,25 @@ mod test {
         let mut enemy = Enemy::new(EnemyType::SpikeSlimeS, &mut hp_rng, &mut ai_rng);
         assert_eq!(enemy.enemy_type(), EnemyType::SpikeSlimeS);
         assert_eq!(enemy.health(), (13, 13));
-        assert_eq!(enemy.next_action(&mut ai_rng), &*SPIKE_SLIME_S_TACKLE);
-        assert_eq!(enemy.next_action(&mut ai_rng), &*SPIKE_SLIME_S_TACKLE);
-        assert_eq!(enemy.next_action(&mut ai_rng), &*SPIKE_SLIME_S_TACKLE);
+        assert_eq!(enemy.next_move(&mut ai_rng), &*SPIKE_SLIME_S_TACKLE);
+        assert_eq!(enemy.next_move(&mut ai_rng), &*SPIKE_SLIME_S_TACKLE);
+        assert_eq!(enemy.next_move(&mut ai_rng), &*SPIKE_SLIME_S_TACKLE);
 
         let mut hp_rng = StsRandom::from(seed.with_offset(1));
         let mut ai_rng = StsRandom::from(seed.with_offset(1));
         let mut enemy = Enemy::new(EnemyType::SpikeSlimeM, &mut hp_rng, &mut ai_rng);
         assert_eq!(enemy.enemy_type(), EnemyType::SpikeSlimeM);
         assert_eq!(enemy.health(), (31, 31));
-        assert_eq!(enemy.next_action(&mut ai_rng), &*SPIKE_SLIME_M_LICK);
-        assert_eq!(enemy.next_action(&mut ai_rng), &*SPIKE_SLIME_M_LICK);
-        assert_eq!(enemy.next_action(&mut ai_rng), &*SPIKE_SLIME_M_FLAME_TACKLE);
-        assert_eq!(enemy.next_action(&mut ai_rng), &*SPIKE_SLIME_M_LICK);
-        assert_eq!(enemy.next_action(&mut ai_rng), &*SPIKE_SLIME_M_LICK);
-        assert_eq!(enemy.next_action(&mut ai_rng), &*SPIKE_SLIME_M_FLAME_TACKLE);
-        assert_eq!(enemy.next_action(&mut ai_rng), &*SPIKE_SLIME_M_LICK);
-        assert_eq!(enemy.next_action(&mut ai_rng), &*SPIKE_SLIME_M_LICK);
-        assert_eq!(enemy.next_action(&mut ai_rng), &*SPIKE_SLIME_M_FLAME_TACKLE);
-        assert_eq!(enemy.next_action(&mut ai_rng), &*SPIKE_SLIME_M_LICK);
-        assert_eq!(enemy.next_action(&mut ai_rng), &*SPIKE_SLIME_M_FLAME_TACKLE);
+        assert_eq!(enemy.next_move(&mut ai_rng), &*SPIKE_SLIME_M_LICK);
+        assert_eq!(enemy.next_move(&mut ai_rng), &*SPIKE_SLIME_M_LICK);
+        assert_eq!(enemy.next_move(&mut ai_rng), &*SPIKE_SLIME_M_FLAME_TACKLE);
+        assert_eq!(enemy.next_move(&mut ai_rng), &*SPIKE_SLIME_M_LICK);
+        assert_eq!(enemy.next_move(&mut ai_rng), &*SPIKE_SLIME_M_LICK);
+        assert_eq!(enemy.next_move(&mut ai_rng), &*SPIKE_SLIME_M_FLAME_TACKLE);
+        assert_eq!(enemy.next_move(&mut ai_rng), &*SPIKE_SLIME_M_LICK);
+        assert_eq!(enemy.next_move(&mut ai_rng), &*SPIKE_SLIME_M_LICK);
+        assert_eq!(enemy.next_move(&mut ai_rng), &*SPIKE_SLIME_M_FLAME_TACKLE);
+        assert_eq!(enemy.next_move(&mut ai_rng), &*SPIKE_SLIME_M_LICK);
+        assert_eq!(enemy.next_move(&mut ai_rng), &*SPIKE_SLIME_M_FLAME_TACKLE);
     }
 }

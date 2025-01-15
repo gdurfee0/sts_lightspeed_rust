@@ -3,8 +3,9 @@ use std::ops::RangeInclusive;
 
 use crate::data::{Card, EnemyType, Intent};
 use crate::rng::StsRandom;
+use crate::{Hp, HpMax, StackCount};
 
-use super::{Debuff, Effect, Hp, HpMax, StackCount};
+use super::{Debuff, Effect};
 
 /// This file introduces the basic datastructures for enemies and enemy action.
 ///

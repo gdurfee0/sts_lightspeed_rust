@@ -2,6 +2,7 @@ use std::cmp::Ordering;
 use std::fmt;
 
 use crate::rng::StsRandom;
+use crate::{ColumnIndex, RowIndex};
 
 use super::exit::ExitBits;
 use super::grid::NodeBuilderGrid;
@@ -27,56 +28,62 @@ impl<'a> GraphBuilder<'a> {
     }
 
     fn embed_paths(&mut self) {
-        let first_path_start_col = self.map_rng.gen_range(0..COLUMN_COUNT);
-        self.embed_path(first_path_start_col);
+        let first_path_column_index = self.map_rng.gen_range(0..COLUMN_COUNT);
+        self.embed_path(first_path_column_index);
         for i in 1..PATH_DENSITY {
-            let mut path_start_col = self.map_rng.gen_range(0..COLUMN_COUNT);
-            while i == 1 && path_start_col == first_path_start_col {
-                path_start_col = self.map_rng.gen_range(0..COLUMN_COUNT);
+            let mut column_index = self.map_rng.gen_range(0..COLUMN_COUNT);
+            while i == 1 && column_index == first_path_column_index {
+                column_index = self.map_rng.gen_range(0..COLUMN_COUNT);
             }
-            self.embed_path(path_start_col);
+            self.embed_path(column_index);
         }
     }
 
     fn prune_bottom_row(&mut self) {
         let mut row1_seen = [false; COLUMN_COUNT];
-        for col in 0..COLUMN_COUNT {
+        for column_index in 0..COLUMN_COUNT {
             let mut exits_to_keep = ExitBits::empty();
-            if col > 0 && !row1_seen[col - 1] && self.node_grid.has_exit(0, col, ExitBits::Left) {
+            if column_index > 0
+                && !row1_seen[column_index - 1]
+                && self.node_grid.has_exit(0, column_index, ExitBits::Left)
+            {
                 exits_to_keep |= ExitBits::Left;
-                row1_seen[col - 1] = true;
+                row1_seen[column_index - 1] = true;
             }
-            if !row1_seen[col] && self.node_grid.has_exit(0, col, ExitBits::Up) {
+            if !row1_seen[column_index] && self.node_grid.has_exit(0, column_index, ExitBits::Up) {
                 exits_to_keep |= ExitBits::Up;
-                row1_seen[col] = true;
+                row1_seen[column_index] = true;
             }
-            if col < COLUMN_MAX
-                && !row1_seen[col + 1]
-                && self.node_grid.has_exit(0, col, ExitBits::Right)
+            if column_index < COLUMN_MAX
+                && !row1_seen[column_index + 1]
+                && self.node_grid.has_exit(0, column_index, ExitBits::Right)
             {
                 exits_to_keep |= ExitBits::Right;
-                row1_seen[col + 1] = true;
+                row1_seen[column_index + 1] = true;
             }
-            self.node_grid.remove(0, col);
+            self.node_grid.remove(0, column_index);
             if exits_to_keep != ExitBits::empty() {
-                self.node_grid.add_exit(0, col, exits_to_keep);
+                self.node_grid.add_exit(0, column_index, exits_to_keep);
             }
         }
     }
 
-    fn embed_path(&mut self, mut col: usize) {
-        for row in 0..(ROW_COUNT - 1) {
-            let (exit, next_col) = self.propose_exit(col);
-            let (exit, next_col) = self.avoid_small_cycles(row, col, exit, next_col);
-            let (exit, next_col) = self.prevent_crossed_paths(row, col, exit, next_col);
-            self.node_grid.add_exit(row, col, exit);
-            self.node_grid.record_parent_col(row + 1, next_col, col);
-            col = next_col;
+    fn embed_path(&mut self, mut column_index: ColumnIndex) {
+        for row_index in 0..(ROW_COUNT - 1) {
+            let (exit, next_column_index) = self.propose_exit(column_index);
+            let (exit, next_column_index) =
+                self.avoid_small_cycles(row_index, column_index, exit, next_column_index);
+            let (exit, next_column_index) =
+                self.prevent_crossed_paths(row_index, column_index, exit, next_column_index);
+            self.node_grid.add_exit(row_index, column_index, exit);
+            self.node_grid
+                .receord_parent_column(row_index + 1, next_column_index, column_index);
+            column_index = next_column_index;
         }
         self.node_grid.add_exit(
             ROW_COUNT - 1,
-            col,
-            match col.cmp(&(COLUMN_COUNT / 2)) {
+            column_index,
+            match column_index.cmp(&(COLUMN_COUNT / 2)) {
                 Ordering::Less => ExitBits::Right,
                 Ordering::Equal => ExitBits::Up,
                 Ordering::Greater => ExitBits::Left,
@@ -84,15 +91,15 @@ impl<'a> GraphBuilder<'a> {
         );
     }
 
-    fn propose_exit(&mut self, col: usize) -> (ExitBits, usize) {
-        match col {
+    fn propose_exit(&mut self, column_index: ColumnIndex) -> (ExitBits, ColumnIndex) {
+        match column_index {
             0 => *self
                 .map_rng
                 .choose(&[(ExitBits::Up, 0), (ExitBits::Right, 1)]),
             1..COLUMN_MAX => *self.map_rng.choose(&[
-                (ExitBits::Left, col - 1),
-                (ExitBits::Up, col),
-                (ExitBits::Right, col + 1),
+                (ExitBits::Left, column_index - 1),
+                (ExitBits::Up, column_index),
+                (ExitBits::Right, column_index + 1),
             ]),
             COLUMN_MAX => *self
                 .map_rng
@@ -103,15 +110,15 @@ impl<'a> GraphBuilder<'a> {
 
     fn avoid_small_cycles(
         &mut self,
-        row: usize,
-        my_col: usize,
+        my_row_index: RowIndex,
+        my_column_index: ColumnIndex,
         mut exit: ExitBits,
-        mut next_col: usize,
+        mut next_column_index: ColumnIndex,
     ) -> (ExitBits, usize) {
-        if row == 0 {
-            return (exit, next_col);
+        if my_row_index == 0 {
+            return (exit, next_column_index);
         }
-        let dest_col = next_col;
+        let dest_column_index = next_column_index;
         // The use of a for loop here is almost certainly a bug in the original code. The
         // intent seems to be to avoid small cycles* like tiny parallelograms, isosceles
         // triangles, and diamonds.
@@ -126,9 +133,10 @@ impl<'a> GraphBuilder<'a> {
         //       edges were introduced, and often continues unnecessarily after a new exit
         //       has been chosen.
         //   (3) The parent edge list often contains duplicate entries for the same parent.
-        //   (4) Iterations of the loop, although they change next_col, do not change the
-        //       dest_col from which the parent information was originally sourced, so ancestor
-        //       detection doesn't reflect the newly-proposed new_col generated inside the loop.
+        //   (4) Iterations of the loop, although they change next_column_index, do not change the
+        //       dest_column_index from which the parent information was originally sourced,
+        //       so ancestor detection doesn't reflect the newly-proposed next_column_index
+        //       generated inside the loop.
         //
         // Checking for small cycles could be done much more easily by just checking neighbors'
         // exits. This would allow us to pick an exit that doesn't introduce a small cycle
@@ -138,67 +146,79 @@ impl<'a> GraphBuilder<'a> {
         // original game), as a result of these issues, along with the buggy implementation of
         // shares_parent_with, this is basically an rng that *occasionally* avoids small cycles,
         // but usually doesn't.
-        for &other_col in self.node_grid.recorded_parent_cols_iter(row + 1, dest_col) {
-            if other_col == my_col {
+        for &other_column_index in self
+            .node_grid
+            .recorded_parent_columns_iter(my_row_index + 1, dest_column_index)
+        {
+            if other_column_index == my_column_index {
                 continue;
             }
-            if self
-                .node_grid
-                .buggy_implementation_of_shares_parent_with(row, my_col, other_col)
-            {
-                (exit, next_col) = match next_col.cmp(&my_col) {
+            if self.node_grid.buggy_implementation_of_shares_parent_with(
+                my_row_index,
+                my_column_index,
+                other_column_index,
+            ) {
+                (exit, next_column_index) = match next_column_index.cmp(&my_column_index) {
                     Ordering::Less => *self.map_rng.choose(&[
-                        (ExitBits::Up, my_col),
-                        match my_col {
+                        (ExitBits::Up, my_column_index),
+                        match my_column_index {
                             COLUMN_MAX => (ExitBits::Up, COLUMN_MAX),
-                            _ => (ExitBits::Right, my_col + 1),
+                            _ => (ExitBits::Right, my_column_index + 1),
                         },
                     ]),
                     Ordering::Equal => *self.map_rng.choose(&[
-                        match my_col {
+                        match my_column_index {
                             0 => (ExitBits::Right, 1),
-                            _ => (ExitBits::Left, my_col - 1), // bounce instead of clamp; intended?
+                            // bounce instead of clamp; intended?
+                            _ => (ExitBits::Left, my_column_index - 1),
                         },
-                        (ExitBits::Up, my_col),
-                        match my_col {
+                        (ExitBits::Up, my_column_index),
+                        match my_column_index {
                             COLUMN_MAX => (ExitBits::Left, COLUMN_MAX - 1),
-                            _ => (ExitBits::Right, my_col + 1), // bounce not clamp; intended?
+                            // bounce instead of clamp; intended?
+                            _ => (ExitBits::Right, my_column_index + 1),
                         },
                     ]),
                     Ordering::Greater => *self.map_rng.choose(&[
-                        match my_col {
+                        match my_column_index {
                             0 => (ExitBits::Up, 0),
-                            _ => (ExitBits::Left, my_col - 1),
+                            _ => (ExitBits::Left, my_column_index - 1),
                         },
-                        (ExitBits::Up, my_col),
+                        (ExitBits::Up, my_column_index),
                     ]),
                 };
             }
         }
-        (exit, next_col)
+        (exit, next_column_index)
     }
 
     fn prevent_crossed_paths(
         &self,
-        row: usize,
-        col: usize,
+        my_row_index: RowIndex,
+        my_column_index: ColumnIndex,
         exit: ExitBits,
-        next_col: usize,
-    ) -> (ExitBits, usize) {
+        next_column_index: ColumnIndex,
+    ) -> (ExitBits, ColumnIndex) {
         match exit {
             ExitBits::Left => {
-                if self.node_grid.has_exit(row, col - 1, ExitBits::Right) {
-                    (ExitBits::Up, col)
+                if self
+                    .node_grid
+                    .has_exit(my_row_index, my_column_index - 1, ExitBits::Right)
+                {
+                    (ExitBits::Up, my_column_index)
                 } else {
-                    (exit, next_col)
+                    (exit, next_column_index)
                 }
             }
-            ExitBits::Up => (exit, next_col),
+            ExitBits::Up => (exit, next_column_index),
             ExitBits::Right => {
-                if self.node_grid.has_exit(row, col + 1, ExitBits::Left) {
-                    (ExitBits::Up, col)
+                if self
+                    .node_grid
+                    .has_exit(my_row_index, my_column_index + 1, ExitBits::Left)
+                {
+                    (ExitBits::Up, my_column_index)
                 } else {
-                    (exit, next_col)
+                    (exit, next_column_index)
                 }
             }
             _ => unreachable!(),

@@ -1,4 +1,4 @@
-use super::{AttackAmount, AttackCount};
+use crate::{AttackAmount, AttackCount};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Intent {

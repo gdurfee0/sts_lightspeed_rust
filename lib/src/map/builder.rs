@@ -2,6 +2,7 @@ use std::iter::repeat;
 
 use crate::data::Act;
 use crate::rng::{Seed, StsRandom};
+use crate::{ColumnIndex, RowIndex};
 
 use super::graph::GraphBuilder;
 use super::grid::{NodeBuilderGrid, NodeGrid};
@@ -13,9 +14,9 @@ const REST_ROOM_CHANCE: f32 = 0.12;
 const TREASURE_ROOM_CHANCE: f32 = 0.0;
 const ELITE_ROOM_CHANCE: f32 = 0.08;
 const EVENT_ROOM_CHANCE: f32 = 0.22;
-const TREASURE_ROW_INDEX: usize = 8;
-const REST_ROW_INDEX: usize = ROW_COUNT - 1;
-const MONSTER_ROW_INDEX: usize = 0;
+const TREASURE_ROW_INDEX: RowIndex = 8;
+const REST_ROW_INDEX: RowIndex = ROW_COUNT - 1;
+const MONSTER_ROW_INDEX: RowIndex = 0;
 
 pub struct MapBuilder {
     act: &'static Act,
@@ -44,7 +45,7 @@ impl MapBuilder {
 
 struct RoomAssigner<'a> {
     node_grid: NodeBuilderGrid,
-    elite_rooms: Vec<(usize, usize)>,
+    elite_rooms: Vec<(RowIndex, ColumnIndex)>,
     map_rng: &'a mut StsRandom,
 }
 
@@ -84,11 +85,11 @@ impl<'a> RoomAssigner<'a> {
             .collect::<Vec<Option<Room>>>();
         self.map_rng.shuffle(&mut unassigned_rooms);
         let mut start_index = 0;
-        for row in 0..(ROW_COUNT - 1) {
-            if row == MONSTER_ROW_INDEX || row == TREASURE_ROW_INDEX {
+        for row_index in 0..(ROW_COUNT - 1) {
+            if row_index == MONSTER_ROW_INDEX || row_index == TREASURE_ROW_INDEX {
                 continue;
             }
-            for col in self.node_grid.nonempty_cols_for_row(row) {
+            for column_index in self.node_grid.nonempty_columns_for_row(row_index) {
                 let mut rooms_already_considered: [bool; 10] = [false; 10];
                 let mut some_room_already_rejected = false;
                 for (i, entry) in unassigned_rooms[start_index..].iter_mut().enumerate() {
@@ -98,24 +99,32 @@ impl<'a> RoomAssigner<'a> {
                         }
                         rooms_already_considered[*room as usize] = true;
                         let (reject_outright, parent_must_be_different) = match room {
-                            Room::Campfire => (!(5..13).contains(&row), true),
-                            Room::Elite => (row <= 4, true),
+                            Room::Campfire => (!(5..13).contains(&row_index), true),
+                            Room::Elite => (row_index <= 4, true),
                             Room::Event | Room::Monster => (false, false),
                             Room::Shop => (false, true),
                             _ => unreachable!(),
                         };
                         if reject_outright
                             || (parent_must_be_different
-                                && self.node_grid.has_parent_room_of(row, col, *room))
-                            || (self.node_grid.has_left_sibling_room_of(row, col, *room))
+                                && self.node_grid.has_parent_room_of(
+                                    row_index,
+                                    column_index,
+                                    *room,
+                                ))
+                            || (self.node_grid.has_left_sibling_room_of(
+                                row_index,
+                                column_index,
+                                *room,
+                            ))
                         {
                             some_room_already_rejected = true;
                             continue;
                         }
                         // If we make it here, the room is valid for this node.
-                        self.node_grid.set_room(row, col, *room);
+                        self.node_grid.set_room(row_index, column_index, *room);
                         if *room == Room::Elite {
-                            self.elite_rooms.push((row, col));
+                            self.elite_rooms.push((row_index, column_index));
                         }
                         entry.take();
                         if !some_room_already_rejected {
@@ -139,10 +148,10 @@ impl<'a> RoomAssigner<'a> {
             eprintln!("Not enough elite rooms; this is a known bug");
             return;
         }
-        let (row, col) = self.map_rng.choose(&self.elite_rooms);
+        let (row_index, column_index) = self.map_rng.choose(&self.elite_rooms);
         self.node_grid.set_room(
-            *row,
-            *col,
+            *row_index,
+            *column_index,
             match self.map_rng.gen_range(0..=3) {
                 0 => Room::BurningElite1,
                 1 => Room::BurningElite2,

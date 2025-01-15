@@ -2,13 +2,14 @@ use std::iter::repeat;
 
 use anyhow::{anyhow, Error};
 
-use crate::data::{AttackAmount, AttackCount, Card, EnemyType};
+use crate::data::{Card, EnemyType};
 use crate::rng::StsRandom;
+use crate::{AttackAmount, AttackCount, BlockAmount, EnemyIndex, Energy, HandIndex, StackCount};
 
 use super::enemy::EnemyStatus;
 use super::message::{Choice, Prompt, StsMessage};
 use super::player::Player;
-use super::{BlockAmount, Debuff, Effect, EnemyIndex, HandIndex, StackCount};
+use super::{Debuff, Effect};
 
 /// Encapsulates the state of the player in the game, e.g. HP, gold, deck, etc.
 /// Also handles interactions with the player via the input_rx and output_tx channels, sending
@@ -19,7 +20,7 @@ pub struct PlayerInCombat<'a> {
     shuffle_rng: StsRandom,
 
     // Combat state
-    energy: u32,
+    energy: Energy,
     debuffs: Vec<(Debuff, StackCount)>,
     hand: Vec<Card>,
     draw_pile: Vec<Card>,

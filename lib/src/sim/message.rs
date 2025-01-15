@@ -1,11 +1,10 @@
 use std::fmt;
 
 use crate::data::{Card, EnemyType, NeowBlessing, Potion, Relic};
+use crate::{ColumnIndex, EnemyIndex, Energy, Gold, HandIndex, Hp, HpMax, PotionIndex, StackCount};
 
-use super::{
-    enemy::EnemyStatus, ColumnIndex, Debuff, EnemyIndex, Energy, Gold, HandIndex, Hp, HpMax,
-    PotionIndex, StackCount,
-};
+use super::enemy::EnemyStatus;
+use super::Debuff;
 
 /// Message type for communication from the Simualtor to a client (human operator or AI agent).
 /// The Simulator will send any number of these messages to the client, concluding with a
@@ -84,7 +83,9 @@ impl fmt::Display for Prompt {
 impl fmt::Display for Choice {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Choice::ClimbFloor(col) => write!(f, "Column {}", (b'a' + *col) as char),
+            Choice::ClimbFloor(column_index) => {
+                write!(f, "Column {}", (b'a' + *column_index as u8) as char)
+            }
             Choice::EndTurn => write!(f, "(End Turn)"),
             Choice::NeowBlessing(blessing) => write!(f, "{}", blessing),
             Choice::ObtainCard(card) => write!(f, "{:?}", card),

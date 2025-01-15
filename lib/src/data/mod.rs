@@ -22,8 +22,5 @@ pub use neow::{
 pub use potion::Potion;
 pub use relic::Relic;
 
-pub type AttackAmount = u32;
-pub type AttackCount = u32;
-
 #[cfg(test)]
 pub use character::{DEFECT, IRONCLAD, SILENT, WATCHER};

@@ -25,6 +25,8 @@
 ///   C++ reference implementation.
 use std::fmt;
 
+use crate::{ColumnIndex, RowIndex};
+
 use super::exit::ExitBits;
 use super::node::{Node, NodeBuilder};
 use super::room::Room;
@@ -41,8 +43,8 @@ pub struct NodeBuilderGrid {
 
 // Convenience trait for highlighting the a node grid for its string representation.
 pub trait MapHighlighter {
-    fn left(&self, row: u8, col: u8) -> char;
-    fn right(&self, row: u8, col: u8) -> char;
+    fn left(&self, row_index: RowIndex, column_index: ColumnIndex) -> char;
+    fn right(&self, row_index: RowIndex, column_index: ColumnIndex) -> char;
 }
 
 impl NodeGrid {
@@ -50,16 +52,16 @@ impl NodeGrid {
         Self { grid }
     }
 
-    pub fn get(&self, row: u8, col: u8) -> Option<&Node> {
-        self.grid[row as usize][col as usize].as_ref()
+    pub fn get(&self, row_index: RowIndex, column_index: ColumnIndex) -> Option<&Node> {
+        self.grid[row_index as usize][column_index as usize].as_ref()
     }
 
     /// Returns a Vec<u8> holding column indices of nodes in the given row that are not empty.
-    pub fn nonempty_cols_for_row(&self, row: u8) -> Vec<u8> {
-        self.grid[row as usize]
+    pub fn nonempty_columns_for_row(&self, row_index: RowIndex) -> Vec<ColumnIndex> {
+        self.grid[row_index]
             .iter()
             .enumerate()
-            .filter_map(|(col, maybe_node)| maybe_node.as_ref().map(|_| col as u8))
+            .filter_map(|(column_index, maybe_node)| maybe_node.as_ref().map(|_| column_index))
             .collect()
     }
 
@@ -68,7 +70,7 @@ impl NodeGrid {
     /// and column indices of a node and returns a tuple of characters to highlight the node.
     pub fn to_string_with_highlighter<T: MapHighlighter>(&self, highlighter: T) -> String {
         let mut result = String::new();
-        for (row, row_slice) in self.grid.iter().enumerate().rev() {
+        for (row_index, row_slice) in self.grid.iter().enumerate().rev() {
             for maybe_node in row_slice.iter() {
                 match maybe_node {
                     Some(node) => {
@@ -80,12 +82,12 @@ impl NodeGrid {
                 }
             }
             result.push('\n');
-            for (col, maybe_node) in row_slice.iter().enumerate() {
+            for (column_index, maybe_node) in row_slice.iter().enumerate() {
                 match maybe_node {
                     Some(node) => {
-                        result.push(highlighter.left(row as u8, col as u8));
+                        result.push(highlighter.left(row_index, column_index));
                         result.push_str(node.room.to_string().as_str());
-                        result.push(highlighter.right(row as u8, col as u8));
+                        result.push(highlighter.right(row_index, column_index));
                     }
                     None => {
                         result.push_str("   ");
@@ -104,11 +106,11 @@ impl NodeGrid {
 struct DummyHighlighter;
 
 impl MapHighlighter for DummyHighlighter {
-    fn left(&self, _: u8, _: u8) -> char {
+    fn left(&self, _: RowIndex, _: ColumnIndex) -> char {
         ' '
     }
 
-    fn right(&self, _: u8, _: u8) -> char {
+    fn right(&self, _: RowIndex, _: ColumnIndex) -> char {
         ' '
     }
 }
@@ -120,67 +122,89 @@ impl fmt::Display for NodeGrid {
 }
 
 impl NodeBuilderGrid {
-    pub fn remove(&mut self, row: usize, col: usize) -> Option<NodeBuilder> {
-        self.grid[row][col].take()
+    pub fn remove(
+        &mut self,
+        row_index: RowIndex,
+        column_index: ColumnIndex,
+    ) -> Option<NodeBuilder> {
+        self.grid[row_index][column_index].take()
     }
 
     /// Returns a Vec<usize> holding column indices of nodes in the given row that are not empty.
-    pub fn nonempty_cols_for_row(&self, row: usize) -> Vec<usize> {
-        self.grid[row]
+    pub fn nonempty_columns_for_row(&self, row_index: RowIndex) -> Vec<ColumnIndex> {
+        self.grid[row_index]
             .iter()
             .enumerate()
-            .filter_map(|(col, maybe_node)| maybe_node.as_ref().map(|_| col))
+            .filter_map(|(column_index, maybe_node)| maybe_node.as_ref().map(|_| column_index))
             .collect()
     }
 
-    pub fn set_all_rooms_in_row(&mut self, row: usize, room: Room) {
-        for maybe_node in self.grid[row].iter_mut() {
+    pub fn set_all_rooms_in_row(&mut self, row_index: RowIndex, room: Room) {
+        for maybe_node in self.grid[row_index].iter_mut() {
             if let Some(node) = maybe_node.as_mut() {
                 node.room = Some(room);
             }
         }
     }
 
-    pub fn set_room(&mut self, row: usize, col: usize, room: Room) {
-        self.grid[row][col].get_or_insert_default().room = Some(room);
+    pub fn set_room(&mut self, row_index: RowIndex, column_index: ColumnIndex, room: Room) {
+        self.grid[row_index][column_index]
+            .get_or_insert_default()
+            .room = Some(room);
     }
 
     /// Records the column of the parent node for the given node.
-    pub fn record_parent_col(&mut self, row: usize, col: usize, parent_col: usize) {
-        self.grid[row][col]
+    pub fn receord_parent_column(
+        &mut self,
+        row_index: RowIndex,
+        column_index: ColumnIndex,
+        parent_column_index: ColumnIndex,
+    ) {
+        self.grid[row_index][column_index]
             .get_or_insert_default()
-            .record_parent_col(parent_col);
+            .record_parent_column(parent_column_index);
     }
 
-    pub fn add_exit(&mut self, row: usize, col: usize, exit: ExitBits) {
-        self.grid[row][col].get_or_insert_default().add_exit(exit);
+    pub fn add_exit(&mut self, row_index: RowIndex, column_index: ColumnIndex, exit: ExitBits) {
+        self.grid[row_index][column_index]
+            .get_or_insert_default()
+            .add_exit(exit);
     }
 
-    pub fn has_exit(&self, row: usize, col: usize, exit: ExitBits) -> bool {
-        self.grid[row][col]
+    pub fn has_exit(&self, row_index: RowIndex, column_index: ColumnIndex, exit: ExitBits) -> bool {
+        self.grid[row_index][column_index]
             .as_ref()
             .map_or(false, |node| node.has_exit(exit))
     }
 
     /// Returns true iff the node at the given row and column has a parent node with the given room.
-    pub fn has_parent_room_of(&self, row: usize, col: usize, room: Room) -> bool {
-        row > 0
+    pub fn has_parent_room_of(
+        &self,
+        row_index: RowIndex,
+        column_index: ColumnIndex,
+        room: Room,
+    ) -> bool {
+        row_index > 0
             && (self
-                .maybe_down_left_parent(row, col)
+                .maybe_down_left_parent(row_index, column_index)
                 .map_or(false, |node| node.room.map(|r| r == room).unwrap_or(false))
                 || self
-                    .maybe_down_parent(row, col)
+                    .maybe_down_parent(row_index, column_index)
                     .map_or(false, |node| node.room.map(|r| r == room).unwrap_or(false))
                 || self
-                    .maybe_down_right_parent(row, col)
+                    .maybe_down_right_parent(row_index, column_index)
                     .map_or(false, |node| node.room.map(|r| r == room).unwrap_or(false)))
     }
 
     /// Returns the node below and to the left, provided it connects to node at the given
     /// coordinates.
-    fn maybe_down_left_parent(&self, row: usize, col: usize) -> Option<&NodeBuilder> {
-        if col > 0 {
-            self.grid[row - 1][col - 1]
+    fn maybe_down_left_parent(
+        &self,
+        row_index: RowIndex,
+        column_index: ColumnIndex,
+    ) -> Option<&NodeBuilder> {
+        if column_index > 0 {
+            self.grid[row_index - 1][column_index - 1]
                 .as_ref()
                 .filter(|node| node.has_exit(ExitBits::Right))
         } else {
@@ -190,17 +214,25 @@ impl NodeBuilderGrid {
 
     /// Returns the node below the given coordinates, provided it connects to the node at the given
     /// coordinates.
-    fn maybe_down_parent(&self, row: usize, col: usize) -> Option<&NodeBuilder> {
-        self.grid[row - 1][col]
+    fn maybe_down_parent(
+        &self,
+        row_index: RowIndex,
+        column_index: ColumnIndex,
+    ) -> Option<&NodeBuilder> {
+        self.grid[row_index - 1][column_index]
             .as_ref()
             .filter(|node| node.has_exit(ExitBits::Up))
     }
 
     /// Returns the node below and to the right, provided it connects to the node at the given
     /// coordinates.
-    fn maybe_down_right_parent(&self, row: usize, col: usize) -> Option<&NodeBuilder> {
-        if col < COLUMN_MAX {
-            self.grid[row - 1][col + 1]
+    fn maybe_down_right_parent(
+        &self,
+        row_index: RowIndex,
+        column_index: ColumnIndex,
+    ) -> Option<&NodeBuilder> {
+        if column_index < COLUMN_MAX {
+            self.grid[row_index - 1][column_index + 1]
                 .as_ref()
                 .filter(|node| node.has_exit(ExitBits::Left))
         } else {
@@ -210,25 +242,39 @@ impl NodeBuilderGrid {
 
     /// Returns true iff the node at the given row and column shares a parent with another node
     /// that has the given room type.
-    pub fn has_left_sibling_room_of(&self, row: usize, col: usize, room: Room) -> bool {
-        self.maybe_down_left_parent(row, col)
-            .map_or(false, |_| self.has_child_room_of(row - 1, col - 1, room))
+    pub fn has_left_sibling_room_of(
+        &self,
+        row_index: RowIndex,
+        column_index: ColumnIndex,
+        room: Room,
+    ) -> bool {
+        self.maybe_down_left_parent(row_index, column_index)
+            .map_or(false, |_| {
+                self.has_child_room_of(row_index - 1, column_index - 1, room)
+            })
             || self
-                .maybe_down_parent(row, col)
-                .map_or(false, |_| self.has_child_room_of(row - 1, col, room))
+                .maybe_down_parent(row_index, column_index)
+                .map_or(false, |_| {
+                    self.has_child_room_of(row_index - 1, column_index, room)
+                })
     }
 
     /// Returns true iff the node at the given row and column has a child node with the given
     /// room type.
-    fn has_child_room_of(&self, row: usize, col: usize, room: Room) -> bool {
+    fn has_child_room_of(
+        &self,
+        row_index: RowIndex,
+        column_index: ColumnIndex,
+        room: Room,
+    ) -> bool {
         [ExitBits::Left, ExitBits::Up, ExitBits::Right]
             .iter()
             .any(|&exit| {
-                self.has_exit(row, col, exit)
-                    && self.grid[row + 1][match exit {
-                        ExitBits::Left => col - 1,
-                        ExitBits::Up => col,
-                        ExitBits::Right => col + 1,
+                self.has_exit(row_index, column_index, exit)
+                    && self.grid[row_index + 1][match exit {
+                        ExitBits::Left => column_index - 1,
+                        ExitBits::Up => column_index,
+                        ExitBits::Right => column_index + 1,
                         _ => unreachable!(),
                     }]
                     .as_ref()
@@ -238,14 +284,14 @@ impl NodeBuilderGrid {
 
     /// Returns an iterator over the recorded parent columns for the given node, unordered and
     /// possibly with duplicates.
-    pub fn recorded_parent_cols_iter(
+    pub fn recorded_parent_columns_iter(
         &self,
-        row: usize,
-        col: usize,
-    ) -> impl Iterator<Item = &usize> {
-        self.grid[row][col]
+        row_index: RowIndex,
+        column_index: ColumnIndex,
+    ) -> impl Iterator<Item = &ColumnIndex> {
+        self.grid[row_index][column_index]
             .as_ref()
-            .map(|node| node.recorded_parent_cols_iter())
+            .map(|node| node.recorded_parent_columns_iter())
             .into_iter()
             .flatten()
     }
@@ -254,21 +300,23 @@ impl NodeBuilderGrid {
     /// node in the same row, but fails to do so in most cases.
     pub fn buggy_implementation_of_shares_parent_with(
         &self,
-        row: usize,
-        my_col: usize,
-        other_col: usize,
+        row_index: RowIndex,
+        my_column_index: ColumnIndex,
+        other_column_index: usize,
     ) -> bool {
         if let (Some(my_node), Some(other_node)) = (
-            &self.grid[row][my_col].as_ref(),
-            &self.grid[row][other_col].as_ref(),
+            &self.grid[row_index][my_column_index].as_ref(),
+            &self.grid[row_index][other_column_index].as_ref(),
         ) {
-            // "other_col >= row" is almost certainly a bug in the original code; it's
-            // probably supposed to be "other_col >= my_col". This causes a lot of small
-            // cycles to be missed because the wrong comparisons are being performed.
-            if other_col >= row {
-                my_node.rightmost_recorded_parent_col() == other_node.leftmost_recorded_parent_col()
+            // "other_column_index >= row_index" is almost certainly a bug in the original code;
+            // it's probably supposed to be "other_column_index >= my_column_index". This causes a
+            // lot of small cycles to be missed because the wrong comparisons are being performed.
+            if other_column_index >= row_index {
+                my_node.rightmost_recorded_parent_column()
+                    == other_node.leftmost_recorded_parent_column()
             } else {
-                other_node.rightmost_recorded_parent_col() == my_node.leftmost_recorded_parent_col()
+                other_node.rightmost_recorded_parent_column()
+                    == my_node.leftmost_recorded_parent_column()
             }
         } else {
             false
@@ -294,7 +342,7 @@ impl NodeBuilderGrid {
         self.grid
             .iter()
             .enumerate()
-            .filter(|&(row, _)| row != ROW_COUNT - 2) // Reference code calls this "restRowBug"
+            .filter(|&(row_index, _)| row_index != ROW_COUNT - 2) // Reference code calls this "restRowBug"
             .flat_map(|(_, row)| row)
             .filter(|maybe_node| maybe_node.is_some())
             .count()
@@ -353,10 +401,10 @@ mod test {
     impl NodeBuilderGrid {
         pub fn exit_bits_as_vec(&self) -> [[u8; COLUMN_COUNT]; ROW_COUNT - 1] {
             let mut exits = [[0; COLUMN_COUNT]; ROW_COUNT - 1];
-            for (row, row_nodes) in self.grid.iter().enumerate().take(ROW_COUNT - 1) {
-                for (col, maybe_node) in row_nodes.iter().enumerate() {
+            for (row_index, row_nodes) in self.grid.iter().enumerate().take(ROW_COUNT - 1) {
+                for (column_index, maybe_node) in row_nodes.iter().enumerate() {
                     if let Some(node) = maybe_node {
-                        exits[row][col] = node.exit_bits().bits();
+                        exits[row_index][column_index] = node.exit_bits().bits();
                     }
                 }
             }
@@ -376,21 +424,21 @@ mod test {
     }
 
     struct SimpleHighlighter {
-        pub row: u8,
-        pub col: u8,
+        pub row_index: RowIndex,
+        pub column_index: ColumnIndex,
     }
 
     impl MapHighlighter for SimpleHighlighter {
-        fn left(&self, row: u8, col: u8) -> char {
-            if row == self.row && col == self.col {
+        fn left(&self, row_index: RowIndex, column_index: ColumnIndex) -> char {
+            if row_index == self.row_index && column_index == self.column_index {
                 '['
             } else {
                 ' '
             }
         }
 
-        fn right(&self, row: u8, col: u8) -> char {
-            if row == self.row && col == self.col {
+        fn right(&self, row_index: RowIndex, column_index: ColumnIndex) -> char {
+            if row_index == self.row_index && column_index == self.column_index {
                 ']'
             } else {
                 ' '
@@ -764,7 +812,10 @@ mod test {
         );
 
         assert_eq!(
-            MAP_0SLAYTHESPIRE.to_string_with_highlighter(SimpleHighlighter { row: 4, col: 3 }),
+            MAP_0SLAYTHESPIRE.to_string_with_highlighter(SimpleHighlighter {
+                row_index: 4,
+                column_index: 3
+            }),
             [
                 r"  /     /   \  \     ",
                 r" R     R     R  R    ",

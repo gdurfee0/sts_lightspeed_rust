@@ -4,6 +4,7 @@ use std::sync::mpsc::{Receiver, Sender};
 use anyhow::{anyhow, Error};
 
 use crate::data::{Card, Character, NeowBlessing, Potion, Relic};
+use crate::ColumnIndex;
 
 use super::message::{Choice, Prompt, StsMessage};
 
@@ -142,16 +143,19 @@ impl Player {
         }
     }
 
-    pub fn choose_movement_option(&mut self, options: Vec<u8>) -> Result<u8, Error> {
+    pub fn choose_movement_option(
+        &mut self,
+        options: Vec<ColumnIndex>,
+    ) -> Result<ColumnIndex, Error> {
         let choices = options
             .iter()
-            .map(|col| Choice::ClimbFloor(*col))
+            .map(|column_index| Choice::ClimbFloor(*column_index))
             .collect::<Vec<_>>();
         self.output_tx
             .send(StsMessage::Choices(Prompt::ClimbFloor, choices.clone()))?;
         let choice_index = self.input_rx.recv()?;
         match choices.get(choice_index) {
-            Some(Choice::ClimbFloor(col)) => Ok(*col),
+            Some(Choice::ClimbFloor(column_index)) => Ok(*column_index),
             _ => Err(anyhow!("Invalid choice")),
         }
     }
@@ -192,7 +196,7 @@ impl Player {
                     Some(Choice::ObtainPotion(potion)) => {
                         self.potions[slot] = Some(*potion);
                         self.output_tx
-                            .send(StsMessage::PotionObtained(*potion, slot as u8))?;
+                            .send(StsMessage::PotionObtained(*potion, slot))?;
                     }
                     Some(Choice::Skip) => break,
                     _ => return Err(anyhow!("Invalid choice")),

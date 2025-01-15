@@ -3,12 +3,13 @@ use anyhow::{anyhow, Error};
 use crate::data::Act;
 use crate::map::{ExitBits, MapBuilder, MapHighlighter, NodeGrid, Room, ROW_COUNT};
 use crate::rng::Seed;
+use crate::{ColumnIndex, RowIndex};
 
 use super::player::Player;
 
 pub struct MapSimulator {
     // Current player location (row, column) in the map
-    player_row_col: Option<(u8, u8)>,
+    player_location: Option<(RowIndex, ColumnIndex)>,
 
     // Computed map for this act
     map: NodeGrid,
@@ -18,7 +19,7 @@ impl MapSimulator {
     pub fn new(seed: Seed) -> Self {
         let map = MapBuilder::from(seed, Act::get(1)).build();
         Self {
-            player_row_col: None,
+            player_location: None,
             map,
         }
     }
@@ -29,58 +30,61 @@ impl MapSimulator {
     }
 
     pub fn advance(&mut self, player: &mut Player) -> Result<Room, Error> {
-        let (next_row, movement_options) = match self.player_row_col {
+        let (next_row_index, movement_options) = match self.player_location {
             // Player is not yet on the map, so may select any room in the bottom row.
             None => (
                 0,
                 self.map
-                    .nonempty_cols_for_row(0)
+                    .nonempty_columns_for_row(0)
                     .into_iter()
                     .collect::<Vec<_>>(),
             ),
             // Player is at the top of the map, and will move to the boss next.
-            Some((row, _)) if row == ROW_COUNT as u8 - 1 => {
-                self.player_row_col = None;
+            Some((row_index, _)) if row_index == ROW_COUNT - 1 => {
+                self.player_location = None;
                 // TODO: something about advancing to the next Act
                 player.send_map_string(self.map_string())?;
                 return Ok(Room::Boss);
             }
             // Player is already on the board, and needs to move to a new room via an exit.
-            Some((row, col)) => {
-                let node = self.map.get(row, col).unwrap_or_else(|| {
-                    panic!("Player is in an impossible location! {} {}", row, col)
+            Some((row_index, column_index)) => {
+                let node = self.map.get(row_index, column_index).unwrap_or_else(|| {
+                    panic!(
+                        "Player is in an impossible location! {} {}",
+                        row_index, column_index
+                    )
                 });
                 let mut columns = vec![];
                 if node.has_exit(ExitBits::Left) {
-                    columns.push(col - 1);
+                    columns.push(column_index - 1);
                 }
                 if node.has_exit(ExitBits::Up) {
-                    columns.push(col);
+                    columns.push(column_index);
                 }
                 if node.has_exit(ExitBits::Right) {
-                    columns.push(col + 1);
+                    columns.push(column_index + 1);
                 }
-                (row + 1, columns.into_iter().collect::<Vec<_>>())
+                (row_index + 1, columns.into_iter().collect::<Vec<_>>())
             }
         };
         player.send_map_string(
             self.highlighted_map_string(
                 &movement_options
                     .iter()
-                    .map(|col| (next_row, *col))
+                    .map(|column_index| (next_row_index, *column_index))
                     .collect::<Vec<_>>(),
             ),
         )?;
-        let next_col = player.choose_movement_option(movement_options)?;
-        self.player_row_col = Some((next_row, next_col));
-        if let Some(node) = self.map.get(next_row, next_col) {
+        let next_column_index = player.choose_movement_option(movement_options)?;
+        self.player_location = Some((next_row_index, next_column_index));
+        if let Some(node) = self.map.get(next_row_index, next_column_index) {
             player.send_map_string(self.map_string())?;
             Ok(node.room)
         } else {
             Err(anyhow!(
                 "Player is in an impossible location! {} {}",
-                next_row,
-                next_col
+                next_row_index,
+                next_column_index
             ))
         }
     }
@@ -89,16 +93,19 @@ impl MapSimulator {
         format!(
             "{}\n\n a  b  c  d  e  f  g",
             self.map.to_string_with_highlighter(StsMapHighlighter {
-                player_row_col: self.player_row_col,
-                row_col_highlights: &[],
+                player_location: self.player_location,
+                highlights: &[],
             })
         )
     }
 
-    fn highlighted_map_string(&self, row_col_highlights: &[(u8, u8)]) -> String {
+    fn highlighted_map_string(&self, highlights: &[(RowIndex, ColumnIndex)]) -> String {
         let mut suffix = String::new();
         for (i, c) in ('a'..'g').enumerate() {
-            if row_col_highlights.iter().any(|(_, col)| i as u8 == *col) {
+            if highlights
+                .iter()
+                .any(|(_, column_index)| i == *column_index)
+            {
                 suffix.push('{');
                 suffix.push(c);
                 suffix.push('}');
@@ -109,8 +116,8 @@ impl MapSimulator {
             }
         }
         let mut map_string = self.map.to_string_with_highlighter(StsMapHighlighter {
-            player_row_col: self.player_row_col,
-            row_col_highlights,
+            player_location: self.player_location,
+            highlights,
         });
         map_string.push_str("\n\n");
         map_string.push_str(&suffix);
@@ -119,16 +126,16 @@ impl MapSimulator {
 }
 
 struct StsMapHighlighter<'a> {
-    player_row_col: Option<(u8, u8)>,
-    row_col_highlights: &'a [(u8, u8)],
+    player_location: Option<(RowIndex, ColumnIndex)>,
+    highlights: &'a [(RowIndex, ColumnIndex)],
 }
 
 impl MapHighlighter for StsMapHighlighter<'_> {
-    fn left(&self, row: u8, col: u8) -> char {
-        if self.row_col_highlights.contains(&(row, col)) {
+    fn left(&self, row_index: RowIndex, column_index: ColumnIndex) -> char {
+        if self.highlights.contains(&(row_index, column_index)) {
             '{'
-        } else if let Some((player_row, player_col)) = self.player_row_col {
-            if row == player_row && col == player_col {
+        } else if let Some((player_row_index, player_column_index)) = self.player_location {
+            if row_index == player_row_index && column_index == player_column_index {
                 '['
             } else {
                 ' '
@@ -138,11 +145,11 @@ impl MapHighlighter for StsMapHighlighter<'_> {
         }
     }
 
-    fn right(&self, row: u8, col: u8) -> char {
-        if self.row_col_highlights.contains(&(row, col)) {
+    fn right(&self, row_index: RowIndex, column_index: ColumnIndex) -> char {
+        if self.highlights.contains(&(row_index, column_index)) {
             '}'
-        } else if let Some((player_row, player_col)) = self.player_row_col {
-            if row == player_row && col == player_col {
+        } else if let Some((player_row_index, player_column_index)) = self.player_location {
+            if row_index == player_row_index && column_index == player_column_index {
                 ']'
             } else {
                 ' '

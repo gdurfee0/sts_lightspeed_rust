@@ -1,9 +1,11 @@
+use super::{AttackAmount, AttackCount};
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Intent {
-    Aggressive(u32, u32),
-    AggressiveBuff(u32, u32),
-    AggressiveDebuff(u32, u32),
-    AggressiveDefensive(u32, u32),
+    Aggressive(AttackAmount, AttackCount),
+    AggressiveBuff(AttackAmount, AttackCount),
+    AggressiveDebuff(AttackAmount, AttackCount),
+    AggressiveDefensive(AttackAmount, AttackCount),
     Cowardly,
     Defensive,
     DefensiveBuff,

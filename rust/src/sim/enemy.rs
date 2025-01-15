@@ -4,7 +4,7 @@ use std::ops::RangeInclusive;
 use crate::data::{Card, EnemyType, Intent};
 use crate::rng::StsRandom;
 
-use super::action::{Debuff, Effect};
+use super::{Debuff, Effect, Hp, HpMax, StackCount};
 
 /// This file introduces the basic datastructures for enemies and enemy action.
 ///
@@ -29,9 +29,22 @@ pub struct Enemy {
     enemy_type: EnemyType,
     hp: u32,
     hp_max: u32,
+    debuffs: Vec<(Debuff, StackCount)>,
     next_move_fn: NextMoveFn,
     next_move: &'static EnemyMove,
     run_length: u8,
+}
+
+/// `EnemyStatus` is a small bundle of information about the enemy that is made available to
+/// the player. The player is not allowed to know anything else about the enemy, such as its
+/// internal state or future moves.
+#[derive(Debug)]
+pub struct EnemyStatus {
+    enemy_type: EnemyType,
+    intent: Intent,
+    hp: Hp,
+    hp_max: HpMax,
+    debuffs: Vec<(Debuff, StackCount)>,
 }
 
 impl EnemyMove {
@@ -78,6 +91,7 @@ impl Enemy {
             next_move_fn: next_action_fn,
             next_move: next_action,
             run_length: 1,
+            debuffs: Vec::new(),
         }
     }
 
@@ -85,12 +99,14 @@ impl Enemy {
         self.enemy_type
     }
 
-    pub fn health(&self) -> (u32, u32) {
-        (self.hp, self.hp_max)
-    }
-
-    pub fn intent(&self) -> Intent {
-        self.next_move.intent
+    pub fn status(&self) -> EnemyStatus {
+        EnemyStatus {
+            enemy_type: self.enemy_type,
+            intent: self.next_move.intent,
+            hp: self.hp,
+            hp_max: self.hp_max,
+            debuffs: self.debuffs.clone(),
+        }
     }
 
     pub fn next_move(&mut self, ai_rng: &mut StsRandom) -> &'static EnemyMove {
@@ -107,13 +123,38 @@ impl Enemy {
     pub fn apply_effect(&mut self, effect: Effect) -> bool {
         match effect {
             Effect::AddToDiscardPile(_) => unreachable!(),
-            Effect::DealDamage(amount) => {
+            Effect::DealDamage(mut amount) => {
+                if self
+                    .debuffs
+                    .iter()
+                    .any(|(debuff, _)| *debuff == Debuff::Vulnerable)
+                {
+                    amount = (amount as f32 * 1.5).floor() as u32;
+                }
+                println!("Enemy dealt {} damage", amount);
                 self.hp = self.hp.saturating_sub(amount);
                 self.hp > 0
             }
             Effect::GainBlock(_) => unreachable!(),
-            Effect::Inflict(_, _) => todo!(),
+            Effect::Inflict(debuff, stack_count) => self.apply_debuff(debuff, stack_count),
         }
+    }
+
+    pub fn start_turn(&mut self) -> bool {
+        for (_, stacks) in self.debuffs.iter_mut() {
+            *stacks = stacks.saturating_sub(1);
+        }
+        self.debuffs.retain(|(_, stacks)| *stacks > 0);
+        true
+    }
+
+    fn apply_debuff(&mut self, debuff: Debuff, stack_count: StackCount) -> bool {
+        if let Some((_, c)) = self.debuffs.iter_mut().find(|(d, _)| *d == debuff) {
+            *c += stack_count;
+        } else {
+            self.debuffs.push((debuff, stack_count));
+        }
+        true
     }
 }
 
@@ -305,8 +346,11 @@ mod test {
         let mut hp_rng = StsRandom::from(seed.with_offset(1));
         let mut ai_rng = StsRandom::from(seed.with_offset(1));
         let mut enemy = Enemy::new(EnemyType::AcidSlimeS, &mut hp_rng, &mut ai_rng);
-        assert_eq!(enemy.enemy_type(), EnemyType::AcidSlimeS);
-        assert_eq!(enemy.health(), (12, 12));
+        let status = enemy.status();
+        assert_eq!(status.enemy_type, EnemyType::AcidSlimeS);
+        assert_eq!(status.hp, 12);
+        assert_eq!(status.hp_max, 12);
+        assert_eq!(status.debuffs, Vec::new());
         assert_eq!(enemy.next_move(&mut ai_rng), &*ACID_SLIME_S_LICK);
         assert_eq!(enemy.next_move(&mut ai_rng), &*ACID_SLIME_S_TACKLE);
         assert_eq!(enemy.next_move(&mut ai_rng), &*ACID_SLIME_S_LICK);
@@ -319,8 +363,10 @@ mod test {
         let mut hp_rng = StsRandom::from(seed.with_offset(1));
         let mut ai_rng = StsRandom::from(seed.with_offset(1));
         let mut enemy = Enemy::new(EnemyType::AcidSlimeM, &mut hp_rng, &mut ai_rng);
-        assert_eq!(enemy.enemy_type(), EnemyType::AcidSlimeM);
-        assert_eq!(enemy.health(), (32, 32));
+        let status = enemy.status();
+        assert_eq!(status.enemy_type, EnemyType::AcidSlimeM);
+        assert_eq!(status.hp, 32);
+        assert_eq!(status.hp_max, 32);
         assert_eq!(enemy.next_move(&mut ai_rng), &*ACID_SLIME_M_CORROSIVE_SPIT);
         assert_eq!(enemy.next_move(&mut ai_rng), &*ACID_SLIME_M_TACKLE);
         assert_eq!(enemy.next_move(&mut ai_rng), &*ACID_SLIME_M_LICK);
@@ -337,8 +383,10 @@ mod test {
         let mut hp_rng = StsRandom::from(seed.with_offset(1));
         let mut ai_rng = StsRandom::from(seed.with_offset(1));
         let mut enemy = Enemy::new(EnemyType::SpikeSlimeS, &mut hp_rng, &mut ai_rng);
-        assert_eq!(enemy.enemy_type(), EnemyType::SpikeSlimeS);
-        assert_eq!(enemy.health(), (13, 13));
+        let status = enemy.status();
+        assert_eq!(status.enemy_type, EnemyType::SpikeSlimeS);
+        assert_eq!(status.hp, 13);
+        assert_eq!(status.hp_max, 13);
         assert_eq!(enemy.next_move(&mut ai_rng), &*SPIKE_SLIME_S_TACKLE);
         assert_eq!(enemy.next_move(&mut ai_rng), &*SPIKE_SLIME_S_TACKLE);
         assert_eq!(enemy.next_move(&mut ai_rng), &*SPIKE_SLIME_S_TACKLE);
@@ -346,8 +394,9 @@ mod test {
         let mut hp_rng = StsRandom::from(seed.with_offset(1));
         let mut ai_rng = StsRandom::from(seed.with_offset(1));
         let mut enemy = Enemy::new(EnemyType::SpikeSlimeM, &mut hp_rng, &mut ai_rng);
-        assert_eq!(enemy.enemy_type(), EnemyType::SpikeSlimeM);
-        assert_eq!(enemy.health(), (31, 31));
+        let status = enemy.status();
+        assert_eq!(status.enemy_type, EnemyType::SpikeSlimeM);
+        assert_eq!(status.hp, 31);
         assert_eq!(enemy.next_move(&mut ai_rng), &*SPIKE_SLIME_M_LICK);
         assert_eq!(enemy.next_move(&mut ai_rng), &*SPIKE_SLIME_M_LICK);
         assert_eq!(enemy.next_move(&mut ai_rng), &*SPIKE_SLIME_M_FLAME_TACKLE);

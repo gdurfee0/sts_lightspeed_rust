@@ -38,18 +38,6 @@ fn main_input_loop(
             StsMessage::Choices(prompt, choices) => {
                 input_tx.send(collect_user_choice(prompt, choices)?)?;
             }
-            StsMessage::EnemyParty(enemies) => {
-                println!(
-                    "EnemyParty([{}])",
-                    enemies
-                        .iter()
-                        .map(|(enemy, intent, (hp, hp_max))| {
-                            format!("{:?}({}/{}):{:?}", enemy, hp, hp_max, intent)
-                        })
-                        .collect::<Vec<_>>()
-                        .join("; ")
-                );
-            }
             StsMessage::Map(map) => println!("{}\n", map),
             StsMessage::GameOver(result) => {
                 println!(

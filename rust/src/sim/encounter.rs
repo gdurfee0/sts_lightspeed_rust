@@ -3,8 +3,9 @@ use anyhow::Error;
 use crate::data::{Encounter, EnemyType};
 use crate::rng::{Seed, StsRandom};
 
+use super::combat::PlayerAction;
 use super::enemy::Enemy;
-use super::player::{Player, PlayerAction};
+use super::player::Player;
 
 pub struct EncounterSimulator<'a> {
     encounter: Encounter,
@@ -116,25 +117,31 @@ impl<'a> EncounterSimulator<'a> {
 
         #[allow(clippy::never_loop, clippy::while_let_loop)]
         loop {
+            for (i, status) in enemy_party.iter().map(Enemy::status).enumerate() {
+                player_in_combat.update_enemy_status(status, i)?;
+            }
             player_in_combat.start_turn()?;
             loop {
-                let enemy_party_view = enemy_party
+                let enemies = enemy_party
                     .iter()
-                    .map(|e| (e.enemy_type(), e.intent(), e.health()))
-                    .collect();
-                let hand_index = match player_in_combat.choose_next_action(enemy_party_view)? {
-                    PlayerAction::PlayerMove(player_move, hand_index) => hand_index,
+                    .map(Enemy::enemy_type)
+                    .collect::<Vec<_>>();
+                let hand_index = match player_in_combat.choose_next_action(&enemies)? {
+                    PlayerAction::PlayerMove(_player_move, hand_index) => hand_index,
                     PlayerAction::PlayerMoveWithTarget(player_move, target_index, hand_index) => {
                         println!(
                             "[EncounterSimulator] PlayerMoveWithTarget: {:?} -> {:?}",
                             player_move, enemy_party[target_index]
                         );
                         for effect in player_move.effects.iter() {
-                            if !enemy_party[target_index].apply_effect(*effect) {
+                            let enemy = &mut enemy_party[target_index];
+                            if !enemy.apply_effect(*effect) {
                                 // Remove this enemy from the party
+                                player_in_combat.enemy_died(enemy.enemy_type(), target_index)?;
                                 enemy_party.remove(target_index);
                                 break;
                             }
+                            player_in_combat.update_enemy_status(enemy.status(), target_index)?;
                         }
                         hand_index
                     }
@@ -144,8 +151,13 @@ impl<'a> EncounterSimulator<'a> {
                     // Battle is over!
                     return Ok(());
                 }
-                player_in_combat.discard_card_at_hand_index(hand_index)?;
+                player_in_combat.discard_card(hand_index)?;
             }
+            for enemy in enemy_party.iter_mut() {
+                // TODO: check for death and remove
+                let _ = enemy.start_turn();
+            }
+            //enemy_party.retain(|enemy| enemy.health().0 > 0);
             for enemy in enemy_party.iter_mut() {
                 let enemy_move = enemy.next_move(&mut ai_rng);
                 for effect in enemy_move.effects.iter() {

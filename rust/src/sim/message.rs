@@ -1,17 +1,11 @@
 use std::fmt;
 
-use crate::data::{Card, EnemyType, Intent, NeowBlessing, Potion, Relic};
+use crate::data::{Card, EnemyType, NeowBlessing, Potion, Relic};
 
-use super::action::Debuff;
-
-type HandIndex = usize;
-type EnemyIndex = usize;
-type ColumnIndex = u8;
-type PotionIndex = u8;
-type StackCount = u32;
-type Hp = u32;
-type HpMax = u32;
-type Gold = u32;
+use super::{
+    enemy::EnemyStatus, ColumnIndex, Debuff, EnemyIndex, Energy, Gold, HandIndex, Hp, HpMax,
+    PotionIndex, StackCount,
+};
 
 /// Message type for communication from the Simualtor to a client (human operator or AI agent).
 /// The Simulator will send any number of these messages to the client, concluding with a
@@ -32,13 +26,15 @@ pub enum StsMessage {
 
     // Encounter / combat messages
     CardDrawn(Card, HandIndex),
-    DebuffsChanged(Vec<(Debuff, StackCount)>),
+    Debuffs(Vec<(Debuff, StackCount)>),
     DiscardPile(Vec<Card>),
-    EnemyParty(Vec<(EnemyType, Intent, (Hp, HpMax))>),
+    EnemyStatus(EnemyStatus, EnemyIndex),
+    EnemyDied(EnemyType, EnemyIndex),
     HandDiscarded,
     HealthChanged(Hp, HpMax),
     ShufflingDiscardToDraw,
     CardDiscarded(Card, HandIndex),
+    Energy(Energy),
 
     /// A list of `Choice`s, each representing a possible action; the client must select one
     /// using zero-indexing and return its response as `usize` via its input_tx channel.

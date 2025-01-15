@@ -30,7 +30,6 @@ fn main_input_loop(
             StsMessage::Choices(prompt, choices) => {
                 input_tx.send(collect_user_choice(prompt, choices)?)?;
             }
-            StsMessage::Map(map) => println!("{}\n", map),
             StsMessage::GameOver(result) => {
                 println!(
                     "[Main] Game Over; the player was {}victorious",
@@ -59,47 +58,19 @@ fn collect_user_choice(prompt: Prompt, choices: Vec<Choice>) -> Result<usize, an
             Ok(0) => {
                 return Err(anyhow!("User closed the input stream"));
             }
-            Ok(_) => {
-                let index = match user_input.trim().parse::<usize>() {
-                    Ok(i) if i <= choices.len() && i > 0 => i,
-                    _ => {
-                        // Help the user out if this involves movement.
-                        if prompt == Prompt::ClimbFloor {
-                            if let Some(index) =
-                                letter_to_choice(user_input.trim().chars().last(), &choices)
-                            {
-                                return Ok(index);
-                            }
-                        }
-                        println!(
-                            "Invalid input: must be an integer in the range {}..={}",
-                            1,
-                            choices.len()
-                        );
-                        continue;
-                    }
-                };
-                return Ok(index - 1);
-            }
+            Ok(_) => match user_input.trim().parse::<usize>() {
+                Ok(i) if i <= choices.len() && i > 0 => return Ok(i - 1),
+                _ => {
+                    println!(
+                        "Invalid input: must be an integer in the range {}..={}",
+                        1,
+                        choices.len()
+                    );
+                }
+            },
             Err(e) => return Err(anyhow!("Error reading input: {}", e)),
         }
     }
-}
-
-fn letter_to_choice(letter: Option<char>, choices: &[Choice]) -> Option<usize> {
-    for (choice_index, choice) in choices.iter().enumerate() {
-        match (letter, choice) {
-            (Some('a'), Choice::ClimbFloor(0)) => return Some(choice_index),
-            (Some('b'), Choice::ClimbFloor(1)) => return Some(choice_index),
-            (Some('c'), Choice::ClimbFloor(2)) => return Some(choice_index),
-            (Some('d'), Choice::ClimbFloor(3)) => return Some(choice_index),
-            (Some('e'), Choice::ClimbFloor(4)) => return Some(choice_index),
-            (Some('f'), Choice::ClimbFloor(5)) => return Some(choice_index),
-            (Some('g'), Choice::ClimbFloor(6)) => return Some(choice_index),
-            _ => {}
-        }
-    }
-    None
 }
 
 fn parse_command_line() -> (Seed, &'static Character) {

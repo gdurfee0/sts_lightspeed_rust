@@ -1,7 +1,7 @@
 use std::env;
 
-use crate::data::Character;
-use crate::rng::Seed;
+use lib::data::Character;
+use lib::rng::Seed;
 
 pub struct GameParameters;
 

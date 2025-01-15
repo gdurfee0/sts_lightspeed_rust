@@ -18,9 +18,8 @@ use super::seed::Seed;
 ///
 /// # Basic Usage
 ///
-/// ```
-/// // Create a new random generator with a specified offset from the global seed.
-/// let mut rng = StsRandom::with_offset(100);
+/// // Create a new random generator with the specified seed.
+/// let mut rng = StsRandom::from(100.into());
 ///
 /// // Generate a random number from 1 to 6 (inclusive), akin to a dice roll.
 /// let dice_roll = rng.gen_range(1..=6);
@@ -35,7 +34,6 @@ use super::seed::Seed;
 /// // Weighted selection from a slice.
 /// let choices = &[(1, 0.1), (2, 0.2), (3, 0.3), (4, 0.4)];
 /// let weighted_choice = rng.weighted_choose(choices);
-/// ```
 ///
 /// # Implementation Details
 ///
@@ -107,10 +105,9 @@ impl StsRandom {
     ///
     /// # Examples
     ///
-    /// ```
     /// // Generates a random number between 1 and 9 (inclusive).
+    /// let rng = StsRandom::from(100.into());
     /// let random_number = rng.gen_range(1..=9);
-    /// ```
     pub fn gen_range<R, T>(&mut self, range: R) -> T
     where
         R: RangeBounds<T>,

@@ -1,7 +1,7 @@
 [submodule "json"]
-	path = json
+	path = reference-impl/json
 	url = https://github.com/nlohmann/json
 [submodule "pybind11"]
-	path = pybind11
+	path = reference-impl/pybind11
 	url = ../../pybind/pybind11
 	branch = stable

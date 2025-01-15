@@ -72,8 +72,8 @@ impl fmt::Display for Prompt {
             Prompt::ChooseNeow => write!(f, "Choose Neow's Blessing"),
             Prompt::ChooseNext => write!(f, "Choose the next item to obtain"),
             Prompt::ChooseOne => write!(f, "Choose an item to obtain"),
-            Prompt::CombatAction => write!(f, "It is your turn to act"),
             Prompt::ClimbFloor => write!(f, "Move up into one of the following columns"),
+            Prompt::CombatAction => write!(f, "It is your turn to act"),
             Prompt::RemoveCard => write!(f, "Choose a card to remove"),
             Prompt::TargetEnemy => write!(f, "Choose an enemy to target"),
         }
@@ -83,8 +83,8 @@ impl fmt::Display for Prompt {
 impl fmt::Display for Choice {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Choice::EndTurn => write!(f, "(End Turn)"),
             Choice::ClimbFloor(col) => write!(f, "Column {}", (b'a' + *col) as char),
+            Choice::EndTurn => write!(f, "(End Turn)"),
             Choice::NeowBlessing(blessing) => write!(f, "{}", blessing),
             Choice::ObtainCard(card) => write!(f, "{}", card),
             Choice::ObtainPotion(potion) => write!(f, "{}", potion),

@@ -7,7 +7,7 @@ pub enum Debuff {
     Weak,       // Target deals 25% less attack damage.
 }
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum Effect {
     AddToDiscardPile(&'static [Card]),
     DealDamage(u32),

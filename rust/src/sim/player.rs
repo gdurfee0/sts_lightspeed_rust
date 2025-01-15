@@ -10,7 +10,8 @@ use super::action::{Debuff, Effect};
 use super::message::{Choice, Prompt, StsMessage};
 
 /// Encapsulates the state of the player in the game, e.g. HP, gold, deck, etc.
-/// Also handles interactions with the player via the input_rx and output_tx channels.
+/// Also handles interactions with the player via the input_rx and output_tx channels, sending
+/// messages to the player to prompt for decisions, following up with more questions when necessary.
 #[derive(Debug)]
 pub struct Player {
     hp: u32,
@@ -36,13 +37,14 @@ pub struct PlayerInCombat<'a> {
     hand: Vec<Card>,
     draw_pile: Vec<Card>,
     discard_pile: Vec<Card>,
-    exhaust_pile: Vec<Card>,
+    //exhaust_pile: Vec<Card>,
 }
 
 #[derive(Clone, Debug)]
 pub enum PlayerAction {
     EndTurn,
-    PlayCardFromHand(Card, u8),
+    PlayerMove(&'static PlayerMove, usize),
+    PlayerMoveWithTarget(&'static PlayerMove, usize, usize),
 }
 
 /// Some convenience methods for Player interaction.
@@ -166,13 +168,13 @@ impl Player {
     pub fn choose_movement_option(&mut self, options: Vec<u8>) -> Result<u8, Error> {
         let choices = options
             .iter()
-            .map(|col| Choice::MoveTo(*col))
+            .map(|col| Choice::ClimbFloor(*col))
             .collect::<Vec<_>>();
         self.output_tx
-            .send(StsMessage::Choices(Prompt::MoveTo, choices.clone()))?;
+            .send(StsMessage::Choices(Prompt::ClimbFloor, choices.clone()))?;
         let choice_index = self.input_rx.recv()?;
         match choices.get(choice_index) {
-            Some(Choice::MoveTo(col)) => Ok(*col),
+            Some(Choice::ClimbFloor(col)) => Ok(*col),
             _ => Err(anyhow!("Invalid choice")),
         }
     }
@@ -247,8 +249,7 @@ impl Player {
                     .position(|&c| c == *card)
                     .expect("Card not found");
                 self.deck.remove(index);
-                self.output_tx
-                    .send(StsMessage::CardRemoved(*card, index as u32))?;
+                self.output_tx.send(StsMessage::CardRemoved(*card))?;
                 Ok(())
             }
             _ => Err(anyhow!("Invalid choice")),
@@ -266,7 +267,7 @@ impl<'a> PlayerInCombat<'a> {
         let mut draw_pile = player.deck.clone();
         shuffle_rng.java_compat_shuffle(&mut draw_pile);
         let discard_pile = Vec::new();
-        let exhaust_pile = Vec::new();
+        //let exhaust_pile = Vec::new();
         let debuffs = Vec::new();
         Self {
             player,
@@ -274,24 +275,13 @@ impl<'a> PlayerInCombat<'a> {
             hand,
             draw_pile,
             discard_pile,
-            exhaust_pile,
+            //exhaust_pile,
             debuffs,
             energy: 3,
         }
     }
 
-    pub fn start_turn(
-        &mut self,
-        enemy_party_view: Vec<(EnemyType, Intent, (u32, u32))>,
-    ) -> Result<(), Error> {
-        println!(
-            "Player starting turn; draw pile: {:?} and discard pile: {:?}",
-            self.draw_pile, self.discard_pile
-        );
-        self.player
-            .output_tx
-            .send(StsMessage::EnemyParty(enemy_party_view))?;
-
+    pub fn start_turn(&mut self) -> Result<(), Error> {
         // Reset energy
         self.energy = 3;
 
@@ -348,8 +338,16 @@ impl<'a> PlayerInCombat<'a> {
         Ok(())
     }
 
-    pub fn choose_next_action(&mut self) -> Result<PlayerAction, Error> {
+    pub fn choose_next_action(
+        &mut self,
+        enemy_party_view: Vec<(EnemyType, Intent, (u32, u32))>,
+    ) -> Result<PlayerAction, Error> {
+        self.player
+            .output_tx
+            .send(StsMessage::EnemyParty(enemy_party_view.clone()))?;
+
         // TODO: drink a potion, discard a potion
+        // TODO: check for unwinnable situations
 
         // Playable cards
         let mut choices = self
@@ -357,20 +355,22 @@ impl<'a> PlayerInCombat<'a> {
             .iter()
             .copied()
             .enumerate()
-            .map(|(idx, card)| Choice::PlayCardFromHand(card, idx as u8))
+            .map(|(idx, card)| Choice::PlayCardFromHand(card, idx))
             .collect::<Vec<_>>();
-
-        // TODO: check for unwinnable situations
-
         choices.push(Choice::EndTurn);
         self.player
             .output_tx
             .send(StsMessage::Choices(Prompt::CombatAction, choices.clone()))?;
         let choice_index = self.player.input_rx.recv()?;
         match choices.get(choice_index) {
-            Some(Choice::PlayCardFromHand(card, idx)) => {
-                // Send to discard pile, etc
-                Ok(PlayerAction::PlayCardFromHand(*card, *idx))
+            Some(Choice::PlayCardFromHand(card, card_index)) => {
+                // TODO: discard the card - but after its effects are applied to enemies?
+                let player_move = PlayerMove::for_card(*card);
+                if player_move.target == Target::OneEnemy {
+                    self.choose_enemy_target(player_move, *card_index, enemy_party_view)
+                } else {
+                    Ok(PlayerAction::PlayerMove(player_move, *card_index))
+                }
             }
             Some(Choice::EndTurn) => {
                 self.discard_hand()?;
@@ -378,6 +378,40 @@ impl<'a> PlayerInCombat<'a> {
             }
             _ => Err(anyhow!("Invalid choice")),
         }
+    }
+
+    pub fn choose_enemy_target(
+        &mut self,
+        player_move: &'static PlayerMove,
+        card_index: usize,
+        enemy_party_view: Vec<(EnemyType, Intent, (u32, u32))>,
+    ) -> Result<PlayerAction, Error> {
+        let mut target_choices = Vec::new();
+        for (i, (enemy_type, _, _)) in enemy_party_view.iter().enumerate() {
+            target_choices.push(Choice::TargetEnemy(*enemy_type, i));
+        }
+        self.player.output_tx.send(StsMessage::Choices(
+            Prompt::TargetEnemy,
+            target_choices.clone(),
+        ))?;
+        let target_index = self.player.input_rx.recv()?;
+        match target_choices.get(target_index) {
+            Some(Choice::TargetEnemy(_, target_index)) => Ok(PlayerAction::PlayerMoveWithTarget(
+                player_move,
+                *target_index,
+                card_index,
+            )),
+            _ => Err(anyhow!("Invalid choice")),
+        }
+    }
+
+    pub fn discard_card_at_hand_index(&mut self, index: usize) -> Result<(), Error> {
+        let card = self.hand.remove(index);
+        self.discard_pile.push(card);
+        self.player
+            .output_tx
+            .send(StsMessage::CardDiscarded(card, index))?;
+        Ok(())
     }
 
     // TODO: Return any reaction that might have been triggered by this effect.
@@ -412,12 +446,14 @@ impl<'a> PlayerInCombat<'a> {
     }
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum Target {
     AllEnemies,
     OneEnemy,
     Player,
 }
 
+#[derive(Debug)]
 pub struct PlayerMove {
     pub effects: Vec<Effect>,
     pub target: Target,
@@ -481,3 +517,14 @@ define_move!(
 );
 define_move!(DEFEND, PlayerMove::gain_block(5));
 define_move!(STRIKE, PlayerMove::deal_damage(6, 1).to_one_enemy());
+
+impl PlayerMove {
+    pub fn for_card(card: Card) -> &'static PlayerMove {
+        match card {
+            Card::Bash => &BASH,
+            Card::Defend => &DEFEND,
+            Card::Strike => &STRIKE,
+            _ => todo!(),
+        }
+    }
+}

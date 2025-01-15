@@ -35,46 +35,8 @@ fn main_input_loop(
 ) -> Result<(), anyhow::Error> {
     loop {
         match output_rx.recv()? {
-            StsMessage::CardDrawn(card, index) => {
-                println!("CardDrawn({:?}@{})", card, index);
-            }
-            StsMessage::CardObtained(card) => {
-                println!("CardObtained({:?})", card);
-            }
-            StsMessage::CardRemoved(card, index) => {
-                println!("CardRemoved({:?}@{})", card, index);
-            }
             StsMessage::Choices(prompt, choices) => {
                 input_tx.send(collect_user_choice(prompt, choices)?)?;
-            }
-            StsMessage::DebuffsChanged(debuffs) => {
-                println!(
-                    "DebuffsChanged([{}])",
-                    debuffs
-                        .iter()
-                        .map(|(debuff, stacks)| format!("{:?}({})", debuff, stacks))
-                        .collect::<Vec<_>>()
-                        .join(",")
-                );
-            }
-            StsMessage::Deck(deck) => {
-                println!(
-                    "Deck([{}])",
-                    deck.iter()
-                        .map(|card| format!("{:?}", card))
-                        .collect::<Vec<_>>()
-                        .join(",")
-                );
-            }
-            StsMessage::DiscardPile(discard_pile) => {
-                println!(
-                    "DiscardPile([{}])",
-                    discard_pile
-                        .iter()
-                        .map(|card| format!("{:?}", card))
-                        .collect::<Vec<_>>()
-                        .join(",")
-                );
             }
             StsMessage::EnemyParty(enemies) => {
                 println!(
@@ -88,36 +50,7 @@ fn main_input_loop(
                         .join("; ")
                 );
             }
-            StsMessage::HandDiscarded => {
-                println!("HandDiscarded");
-            }
             StsMessage::Map(map) => println!("{}\n", map),
-            StsMessage::PotionObtained(potion, slot) => {
-                println!("PotionObtained({:?}@{})", potion, slot);
-            }
-            StsMessage::Potions(potions) => {
-                println!(
-                    "Potions([{}])",
-                    potions
-                        .iter()
-                        .map(|potion| format!("{:?}", potion))
-                        .collect::<Vec<_>>()
-                        .join(",")
-                );
-            }
-            StsMessage::Relics(relics) => {
-                println!(
-                    "Relics([{}])",
-                    relics
-                        .iter()
-                        .map(|relic| format!("{:?}", relic))
-                        .collect::<Vec<_>>()
-                        .join(",")
-                );
-            }
-            StsMessage::ShufflingDiscardToDraw => {
-                println!("ShufflingDiscardToDraw");
-            }
             StsMessage::GameOver(result) => {
                 println!(
                     "[Main] Game Over; the player was {}victorious",
@@ -125,15 +58,7 @@ fn main_input_loop(
                 );
                 break;
             }
-            StsMessage::RelicObtained(relic) => {
-                println!("RelicObtained({:?})", relic);
-            }
-            StsMessage::GoldChanged(gold) => {
-                println!("GoldChanged({})", gold);
-            }
-            StsMessage::HealthChanged(hp, hp_max) => {
-                println!("HpChanged({}/{})", hp, hp_max);
-            }
+            sts_message => println!("{:?}", sts_message),
         }
     }
     Ok(())
@@ -159,7 +84,7 @@ fn collect_user_choice(prompt: Prompt, choices: Vec<Choice>) -> Result<usize, an
                     Ok(i) if i <= choices.len() && i > 0 => i,
                     _ => {
                         // Help the user out if this involves movement.
-                        if let Prompt::MoveTo = prompt {
+                        if prompt == Prompt::ClimbFloor {
                             if let Some(index) =
                                 letter_to_choice(user_input.trim().chars().last(), &choices)
                             {
@@ -184,13 +109,13 @@ fn collect_user_choice(prompt: Prompt, choices: Vec<Choice>) -> Result<usize, an
 fn letter_to_choice(letter: Option<char>, choices: &[Choice]) -> Option<usize> {
     for (choice_index, choice) in choices.iter().enumerate() {
         match (letter, choice) {
-            (Some('a'), Choice::MoveTo(0)) => return Some(choice_index),
-            (Some('b'), Choice::MoveTo(1)) => return Some(choice_index),
-            (Some('c'), Choice::MoveTo(2)) => return Some(choice_index),
-            (Some('d'), Choice::MoveTo(3)) => return Some(choice_index),
-            (Some('e'), Choice::MoveTo(4)) => return Some(choice_index),
-            (Some('f'), Choice::MoveTo(5)) => return Some(choice_index),
-            (Some('g'), Choice::MoveTo(6)) => return Some(choice_index),
+            (Some('a'), Choice::ClimbFloor(0)) => return Some(choice_index),
+            (Some('b'), Choice::ClimbFloor(1)) => return Some(choice_index),
+            (Some('c'), Choice::ClimbFloor(2)) => return Some(choice_index),
+            (Some('d'), Choice::ClimbFloor(3)) => return Some(choice_index),
+            (Some('e'), Choice::ClimbFloor(4)) => return Some(choice_index),
+            (Some('f'), Choice::ClimbFloor(5)) => return Some(choice_index),
+            (Some('g'), Choice::ClimbFloor(6)) => return Some(choice_index),
             _ => {}
         }
     }

@@ -24,6 +24,7 @@ type NextMoveFn = fn(&mut StsRandom, Option<&'static EnemyMove>, u8) -> &'static
 /// primarily interested in the class-level `Enemy::new` constructor and the instance-level
 /// `Enemy::next_move` method, which advances the enemy's AI state machine according to the
 /// official game mechanics, returning the enemy's next move to be performed.
+#[derive(Debug)]
 pub struct Enemy {
     enemy_type: EnemyType,
     hp: u32,
@@ -101,6 +102,18 @@ impl Enemy {
             self.run_length = 1;
         }
         current_move
+    }
+
+    pub fn apply_effect(&mut self, effect: Effect) -> bool {
+        match effect {
+            Effect::AddToDiscardPile(_) => unreachable!(),
+            Effect::DealDamage(amount) => {
+                self.hp = self.hp.saturating_sub(amount);
+                self.hp > 0
+            }
+            Effect::GainBlock(_) => unreachable!(),
+            Effect::Inflict(_, _) => todo!(),
+        }
     }
 }
 

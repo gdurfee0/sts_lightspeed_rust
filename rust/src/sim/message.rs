@@ -4,6 +4,15 @@ use crate::data::{Card, EnemyType, Intent, NeowBlessing, Potion, Relic};
 
 use super::action::Debuff;
 
+type HandIndex = usize;
+type EnemyIndex = usize;
+type ColumnIndex = u8;
+type PotionIndex = u8;
+type StackCount = u32;
+type Hp = u32;
+type HpMax = u32;
+type Gold = u32;
+
 /// Message type for communication from the Simualtor to a client (human operator or AI agent).
 /// The Simulator will send any number of these messages to the client, concluding with a
 /// one of the question type messages (`Choices` and `NestedChoices`), at which point control
@@ -16,19 +25,20 @@ pub enum StsMessage {
     Potions(Vec<Option<Potion>>),
     Relics(Vec<Relic>),
     CardObtained(Card),
-    CardRemoved(Card, u32),
-    PotionObtained(Potion, u8),
+    CardRemoved(Card),
+    PotionObtained(Potion, PotionIndex),
     RelicObtained(Relic),
-    GoldChanged(u32),
+    GoldChanged(Gold),
 
     // Encounter / combat messages
-    CardDrawn(Card, u8),
-    DebuffsChanged(Vec<(Debuff, u32)>),
+    CardDrawn(Card, HandIndex),
+    DebuffsChanged(Vec<(Debuff, StackCount)>),
     DiscardPile(Vec<Card>),
-    EnemyParty(Vec<(EnemyType, Intent, (u32, u32))>),
+    EnemyParty(Vec<(EnemyType, Intent, (Hp, HpMax))>),
     HandDiscarded,
-    HealthChanged(u32, u32), // "Health" always refers to the pair (current HP, max HP)
+    HealthChanged(Hp, HpMax),
     ShufflingDiscardToDraw,
+    CardDiscarded(Card, HandIndex),
 
     /// A list of `Choice`s, each representing a possible action; the client must select one
     /// using zero-indexing and return its response as `usize` via its input_tx channel.
@@ -36,26 +46,28 @@ pub enum StsMessage {
     GameOver(bool),
 }
 
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum Prompt {
     ChooseNeow,
     ChooseNext, // Expectation is that the player may accept any and all of the Choices offered.
     ChooseOne,  // Expectation is that the player can pick at most one of the Choices offered.
-    MoveTo,
     CombatAction,
+    ClimbFloor,
     RemoveCard,
+    TargetEnemy,
 }
 
 #[derive(Clone, Debug)]
 pub enum Choice {
     EndTurn,
-    MoveTo(u8),
+    ClimbFloor(ColumnIndex),
     NeowBlessing(NeowBlessing),
     ObtainCard(Card),
     ObtainPotion(Potion),
     RemoveCard(Card),
-    PlayCardFromHand(Card, u8), // Card and card index in hand
+    PlayCardFromHand(Card, HandIndex),
     Skip,
+    TargetEnemy(EnemyType, EnemyIndex),
 }
 
 impl fmt::Display for Prompt {
@@ -65,8 +77,9 @@ impl fmt::Display for Prompt {
             Prompt::ChooseNext => write!(f, "Choose the next item to obtain"),
             Prompt::ChooseOne => write!(f, "Choose an item to obtain"),
             Prompt::CombatAction => write!(f, "It is your turn to act"),
-            Prompt::MoveTo => write!(f, "Move up into one of the following columns"),
+            Prompt::ClimbFloor => write!(f, "Move up into one of the following columns"),
             Prompt::RemoveCard => write!(f, "Choose a card to remove"),
+            Prompt::TargetEnemy => write!(f, "Choose an enemy to target"),
         }
     }
 }
@@ -75,13 +88,14 @@ impl fmt::Display for Choice {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Choice::EndTurn => write!(f, "(End Turn)"),
-            Choice::MoveTo(col) => write!(f, "Column {}", (b'a' + *col) as char),
+            Choice::ClimbFloor(col) => write!(f, "Column {}", (b'a' + *col) as char),
             Choice::NeowBlessing(blessing) => write!(f, "{}", blessing),
             Choice::ObtainCard(card) => write!(f, "{}", card),
             Choice::ObtainPotion(potion) => write!(f, "{}", potion),
-            Choice::PlayCardFromHand(card, _) => write!(f, "{}", card),
+            Choice::PlayCardFromHand(card, _) => write!(f, "Play card \"{}\"", card),
             Choice::RemoveCard(card) => write!(f, "{}", card),
             Choice::Skip => write!(f, "(Skip)"),
+            Choice::TargetEnemy(enemy, _) => write!(f, "Target \"{:?}\"", enemy), // TODO: Index?
         }
     }
 }

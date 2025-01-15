@@ -116,24 +116,39 @@ impl<'a> EncounterSimulator<'a> {
 
         #[allow(clippy::never_loop, clippy::while_let_loop)]
         loop {
-            let enemy_party_view = enemy_party
-                .iter()
-                .map(|e| (e.enemy_type(), e.intent(), e.health()))
-                .collect();
-            player_in_combat.start_turn(enemy_party_view)?;
+            player_in_combat.start_turn()?;
             loop {
-                match player_in_combat.choose_next_action()? {
-                    PlayerAction::PlayCardFromHand(card, idx) => {
-                        // Determine if the card requires a target, and if so, prompt the player to
-                        // select one.
-                        println!("Player plays card: {:?} at index {}", card, idx);
+                let enemy_party_view = enemy_party
+                    .iter()
+                    .map(|e| (e.enemy_type(), e.intent(), e.health()))
+                    .collect();
+                let hand_index = match player_in_combat.choose_next_action(enemy_party_view)? {
+                    PlayerAction::PlayerMove(player_move, hand_index) => hand_index,
+                    PlayerAction::PlayerMoveWithTarget(player_move, target_index, hand_index) => {
+                        println!(
+                            "[EncounterSimulator] PlayerMoveWithTarget: {:?} -> {:?}",
+                            player_move, enemy_party[target_index]
+                        );
+                        for effect in player_move.effects.iter() {
+                            if !enemy_party[target_index].apply_effect(*effect) {
+                                // Remove this enemy from the party
+                                enemy_party.remove(target_index);
+                                break;
+                            }
+                        }
+                        hand_index
                     }
                     PlayerAction::EndTurn => break,
+                };
+                if enemy_party.is_empty() {
+                    // Battle is over!
+                    return Ok(());
                 }
+                player_in_combat.discard_card_at_hand_index(hand_index)?;
             }
             for enemy in enemy_party.iter_mut() {
-                let enemy_action = enemy.next_move(&mut ai_rng);
-                for effect in enemy_action.effects.iter() {
+                let enemy_move = enemy.next_move(&mut ai_rng);
+                for effect in enemy_move.effects.iter() {
                     player_in_combat.apply_effect(*effect)?;
                 }
             }

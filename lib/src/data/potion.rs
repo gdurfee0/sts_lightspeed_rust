@@ -1,5 +1,3 @@
-use std::fmt;
-
 #[derive(Clone, Copy, Debug, PartialEq)]
 #[allow(clippy::enum_variant_names)] // For consistency with the game
 pub enum Potion {
@@ -45,10 +43,4 @@ pub enum Potion {
     StrengthPotion,
     SwiftPotion,
     WeakPotion,
-}
-
-impl fmt::Display for Potion {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{:?}", self)
-    }
 }

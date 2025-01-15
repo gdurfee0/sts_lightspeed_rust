@@ -49,17 +49,17 @@ impl EncounterGenerator {
     }
 
     /// Returns the next elite encounter in the queue, sampling more if necessary.
-    pub fn next_elite_encounter(&mut self) -> Encounter {
+    pub fn _next_elite_encounter(&mut self) -> Encounter {
         if let Some(encounter) = self.elite_queue.pop_front() {
             encounter
         } else {
             self.sample_elite_encounters();
-            self.next_elite_encounter()
+            self._next_elite_encounter()
         }
     }
 
     /// Returns the next boss encounter in the queue.
-    pub fn next_boss_encounter(&mut self) -> Encounter {
+    pub fn _next_boss_encounter(&mut self) -> Encounter {
         if let Some(encounter) = self.boss_queue.pop_front() {
             encounter
         } else {
@@ -68,7 +68,7 @@ impl EncounterGenerator {
     }
 
     /// Advances the Act and samples new encounters for the queues.
-    pub fn advance_act(&mut self) {
+    pub fn _advance_act(&mut self) {
         self.act = self.act.next_act();
         self.sample_all();
     }
@@ -203,7 +203,7 @@ mod test {
                 Encounter::BlueSlaver
             ]
         );
-        generator.advance_act();
+        generator._advance_act();
         assert_eq!(
             (0..15)
                 .map(|_| generator.next_monster_encounter())
@@ -226,7 +226,7 @@ mod test {
                 Encounter::ChosenAndByrd
             ]
         );
-        generator.advance_act();
+        generator._advance_act();
         assert_eq!(
             (0..15)
                 .map(|_| generator.next_monster_encounter())
@@ -345,7 +345,7 @@ mod test {
                 Encounter::ThreeLice
             ]
         );
-        generator.advance_act();
+        generator._advance_act();
         assert_eq!(
             (0..15)
                 .map(|_| generator.next_monster_encounter())
@@ -368,7 +368,7 @@ mod test {
                 Encounter::ThreeCultists
             ]
         );
-        generator.advance_act();
+        generator._advance_act();
         assert_eq!(
             (0..15)
                 .map(|_| generator.next_monster_encounter())
@@ -398,7 +398,7 @@ mod test {
         let mut generator = EncounterGenerator::new(1.into());
         assert_eq!(
             (0..10)
-                .map(|_| generator.next_elite_encounter())
+                .map(|_| generator._next_elite_encounter())
                 .collect::<Vec<_>>(),
             [
                 Encounter::GremlinNob,
@@ -413,10 +413,10 @@ mod test {
                 Encounter::ThreeSentries
             ]
         );
-        generator.advance_act();
+        generator._advance_act();
         assert_eq!(
             (0..10)
-                .map(|_| generator.next_elite_encounter())
+                .map(|_| generator._next_elite_encounter())
                 .collect::<Vec<_>>(),
             [
                 Encounter::Taskmaster,
@@ -431,10 +431,10 @@ mod test {
                 Encounter::GremlinLeader
             ]
         );
-        generator.advance_act();
+        generator._advance_act();
         assert_eq!(
             (0..10)
-                .map(|_| generator.next_elite_encounter())
+                .map(|_| generator._next_elite_encounter())
                 .collect::<Vec<_>>(),
             [
                 Encounter::GiantHead,
@@ -452,7 +452,7 @@ mod test {
         let mut generator = EncounterGenerator::new(2.into());
         assert_eq!(
             (0..10)
-                .map(|_| generator.next_elite_encounter())
+                .map(|_| generator._next_elite_encounter())
                 .collect::<Vec<_>>(),
             [
                 Encounter::Lagavulin,
@@ -470,7 +470,7 @@ mod test {
         let mut generator = EncounterGenerator::new(3.into());
         assert_eq!(
             (0..10)
-                .map(|_| generator.next_elite_encounter())
+                .map(|_| generator._next_elite_encounter())
                 .collect::<Vec<_>>(),
             [
                 Encounter::GremlinNob,
@@ -488,7 +488,7 @@ mod test {
         let mut generator = EncounterGenerator::new(4.into());
         assert_eq!(
             (0..10)
-                .map(|_| generator.next_elite_encounter())
+                .map(|_| generator._next_elite_encounter())
                 .collect::<Vec<_>>(),
             [
                 Encounter::Lagavulin,
@@ -506,7 +506,7 @@ mod test {
         let mut generator = EncounterGenerator::new(5.into());
         assert_eq!(
             (0..10)
-                .map(|_| generator.next_elite_encounter())
+                .map(|_| generator._next_elite_encounter())
                 .collect::<Vec<_>>(),
             [
                 Encounter::GremlinNob,
@@ -521,10 +521,10 @@ mod test {
                 Encounter::Lagavulin
             ]
         );
-        generator.advance_act();
+        generator._advance_act();
         assert_eq!(
             (0..10)
-                .map(|_| generator.next_elite_encounter())
+                .map(|_| generator._next_elite_encounter())
                 .collect::<Vec<_>>(),
             [
                 Encounter::Taskmaster,
@@ -539,10 +539,10 @@ mod test {
                 Encounter::BookOfStabbing
             ]
         );
-        generator.advance_act();
+        generator._advance_act();
         assert_eq!(
             (0..10)
-                .map(|_| generator.next_elite_encounter())
+                .map(|_| generator._next_elite_encounter())
                 .collect::<Vec<_>>(),
             [
                 Encounter::GiantHead,
@@ -562,22 +562,22 @@ mod test {
     #[test]
     fn test_boss_encounters() {
         let mut generator = EncounterGenerator::new(1.into());
-        assert_eq!(generator.next_boss_encounter(), Encounter::SlimeBoss);
-        generator.advance_act();
-        assert_eq!(generator.next_boss_encounter(), Encounter::BronzeAutomaton);
-        generator.advance_act();
-        assert_eq!(generator.next_boss_encounter(), Encounter::AwakenedOne);
+        assert_eq!(generator._next_boss_encounter(), Encounter::SlimeBoss);
+        generator._advance_act();
+        assert_eq!(generator._next_boss_encounter(), Encounter::BronzeAutomaton);
+        generator._advance_act();
+        assert_eq!(generator._next_boss_encounter(), Encounter::AwakenedOne);
         let mut generator = EncounterGenerator::new(2.into());
-        assert_eq!(generator.next_boss_encounter(), Encounter::SlimeBoss);
+        assert_eq!(generator._next_boss_encounter(), Encounter::SlimeBoss);
         let mut generator = EncounterGenerator::new(3.into());
-        assert_eq!(generator.next_boss_encounter(), Encounter::TheGuardian);
+        assert_eq!(generator._next_boss_encounter(), Encounter::TheGuardian);
         let mut generator = EncounterGenerator::new(4.into());
-        assert_eq!(generator.next_boss_encounter(), Encounter::Hexaghost);
+        assert_eq!(generator._next_boss_encounter(), Encounter::Hexaghost);
         let mut generator = EncounterGenerator::new(5.into());
-        assert_eq!(generator.next_boss_encounter(), Encounter::Hexaghost);
-        generator.advance_act();
-        assert_eq!(generator.next_boss_encounter(), Encounter::TheChamp);
-        generator.advance_act();
-        assert_eq!(generator.next_boss_encounter(), Encounter::DonuAndDeca);
+        assert_eq!(generator._next_boss_encounter(), Encounter::Hexaghost);
+        generator._advance_act();
+        assert_eq!(generator._next_boss_encounter(), Encounter::TheChamp);
+        generator._advance_act();
+        assert_eq!(generator._next_boss_encounter(), Encounter::DonuAndDeca);
     }
 }

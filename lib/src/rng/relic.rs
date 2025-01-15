@@ -8,8 +8,8 @@ pub struct RelicGenerator {
     common_relic_pool: VecDeque<Relic>,
     uncommon_relic_pool: VecDeque<Relic>,
     rare_relic_pool: VecDeque<Relic>,
-    shop_relic_pool: VecDeque<Relic>,
-    boss_relic_pool: VecDeque<Relic>,
+    _shop_relic_pool: VecDeque<Relic>,
+    _boss_relic_pool: VecDeque<Relic>,
 }
 
 impl RelicGenerator {
@@ -29,8 +29,8 @@ impl RelicGenerator {
             common_relic_pool: common_relic_pool.into_iter().collect(),
             uncommon_relic_pool: uncommon_relic_pool.into_iter().collect(),
             rare_relic_pool: rare_relic_pool.into_iter().collect(),
-            shop_relic_pool: shop_relic_pool.into_iter().collect(),
-            boss_relic_pool: boss_relic_pool.into_iter().collect(),
+            _shop_relic_pool: shop_relic_pool.into_iter().collect(),
+            _boss_relic_pool: boss_relic_pool.into_iter().collect(),
         }
     }
 
@@ -51,14 +51,14 @@ impl RelicGenerator {
         self.rare_relic_pool.pop_front().unwrap_or(Relic::Circlet)
     }
 
-    pub fn shop_relic(&mut self) -> Relic {
-        self.shop_relic_pool
+    pub fn _shop_relic(&mut self) -> Relic {
+        self._shop_relic_pool
             .pop_front()
             .unwrap_or_else(|| self.uncommon_relic())
     }
 
-    pub fn boss_relic(&mut self) -> Relic {
-        self.boss_relic_pool.pop_front().unwrap_or(Relic::Circlet)
+    pub fn _boss_relic(&mut self) -> Relic {
+        self._boss_relic_pool.pop_front().unwrap_or(Relic::Circlet)
     }
 }
 
@@ -75,8 +75,8 @@ mod test {
         let mut generator = RelicGenerator::new(12.into(), IRONCLAD);
         assert_eq!(generator.common_relic(), Relic::RedSkull);
         let mut generator = RelicGenerator::new(1.into(), IRONCLAD);
-        assert_eq!(generator.boss_relic(), Relic::SneckoEye);
+        assert_eq!(generator._boss_relic(), Relic::SneckoEye);
         let mut generator = RelicGenerator::new(2.into(), IRONCLAD);
-        assert_eq!(generator.boss_relic(), Relic::RunicDome);
+        assert_eq!(generator._boss_relic(), Relic::RunicDome);
     }
 }

@@ -66,6 +66,7 @@ pub enum Choice {
     TargetEnemy(EnemyType, EnemyIndex),
 }
 
+// TODO: Move these to a presentation module
 impl fmt::Display for Prompt {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
@@ -87,7 +88,7 @@ impl fmt::Display for Choice {
             Choice::EndTurn => write!(f, "(End Turn)"),
             Choice::NeowBlessing(blessing) => write!(f, "{}", blessing),
             Choice::ObtainCard(card) => write!(f, "{:?}", card),
-            Choice::ObtainPotion(potion) => write!(f, "{}", potion),
+            Choice::ObtainPotion(potion) => write!(f, "{:?}", potion),
             Choice::PlayCardFromHand(card, _) => write!(f, "Play card \"{:?}\"", card),
             Choice::RemoveCard(card) => write!(f, "{:?}", card),
             Choice::Skip => write!(f, "(Skip)"),

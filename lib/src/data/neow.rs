@@ -130,6 +130,7 @@ impl fmt::Display for NeowBlessing {
     }
 }
 
+// TODO: Move these to a presentation module
 impl fmt::Display for NeowBonus {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(

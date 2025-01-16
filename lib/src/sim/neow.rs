@@ -1,8 +1,7 @@
 use anyhow::Error;
 
-use super::player::Player;
-
 use crate::data::{Character, NeowBlessing, NeowBonus, NeowPenalty, Relic};
+use crate::player::PlayerController;
 use crate::rng::{NeowGenerator, RelicGenerator, Seed, StsRandom};
 
 pub struct NeowSimulator<'a> {
@@ -15,7 +14,7 @@ pub struct NeowSimulator<'a> {
     relic_generator: &'a mut RelicGenerator,
 
     // Current player state
-    player: &'a mut Player,
+    player: &'a mut PlayerController,
 }
 
 impl<'a> NeowSimulator<'a> {
@@ -25,7 +24,7 @@ impl<'a> NeowSimulator<'a> {
         card_rng: &'a mut StsRandom,
         potion_rng: &'a mut StsRandom,
         relic_generator: &'a mut RelicGenerator,
-        player: &'a mut Player,
+        player: &'a mut PlayerController,
     ) -> Self {
         let neow_generator = NeowGenerator::new(seed, character, card_rng);
         Self {
@@ -47,10 +46,10 @@ impl<'a> NeowSimulator<'a> {
         match blessing {
             NeowBlessing::ChooseCard => self
                 .player
-                .choose_card_to_obtain(self.neow_generator.three_card_choices()),
+                .choose_card_to_obtain(&self.neow_generator.three_card_choices()),
             NeowBlessing::ChooseColorlessCard => self
                 .player
-                .choose_card_to_obtain(self.neow_generator.three_colorless_card_choices()),
+                .choose_card_to_obtain(&self.neow_generator.three_colorless_card_choices()),
             NeowBlessing::GainOneHundredGold => self.player.increase_gold(100),
             NeowBlessing::IncreaseMaxHpByTenPercent => {
                 self.player.increase_hp_max(self.player.hp_max() / 10)
@@ -63,8 +62,10 @@ impl<'a> NeowSimulator<'a> {
                 .player
                 .obtain_card(self.neow_generator.one_random_rare_card()),
             NeowBlessing::ObtainThreeRandomPotions => self.player.choose_potions_to_obtain(
-                self.potion_rng
+                &self
+                    .potion_rng
                     .sample_without_replacement(self.character.potion_pool, 3),
+                3,
             ),
             NeowBlessing::RemoveCard => self.player.choose_card_to_remove(),
             NeowBlessing::ReplaceStarterRelic => todo!(),
@@ -82,7 +83,7 @@ impl<'a> NeowSimulator<'a> {
                         self.player.obtain_card(self.neow_generator.one_curse())?;
                     }
                     NeowPenalty::TakeDamage => {
-                        self.player.take_damage(self.player.hp() / 10 * 3)?;
+                        self.player.decrease_hp(self.player.hp() / 10 * 3)?;
                     }
                 }
                 match bonus {

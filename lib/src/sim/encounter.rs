@@ -1,17 +1,15 @@
 use anyhow::Error;
 
-use crate::data::{Encounter, EnemyType};
+use crate::data::Encounter;
+use crate::enemy::{Enemy, EnemyType};
+use crate::player::{CombatController, PlayerAction, PlayerController};
 use crate::rng::{Seed, StsRandom};
-
-use super::combat::PlayerAction;
-use super::enemy::Enemy;
-use super::player::Player;
 
 pub struct EncounterSimulator<'a> {
     encounter: Encounter,
     seed_for_floor: Seed,
     misc_rng: &'a mut StsRandom,
-    player: &'a mut Player,
+    player: CombatController<'a>,
 }
 
 impl<'a> EncounterSimulator<'a> {
@@ -19,17 +17,18 @@ impl<'a> EncounterSimulator<'a> {
         seed_for_floor: Seed,
         encounter: Encounter,
         misc_rng: &'a mut StsRandom,
-        player: &'a mut Player,
+        player: &'a mut PlayerController,
     ) -> Self {
+        let combat_controller = player.start_combat(StsRandom::from(seed_for_floor));
         Self {
             encounter,
             seed_for_floor,
             misc_rng,
-            player,
+            player: combat_controller,
         }
     }
 
-    pub fn run(self) -> Result<(), Error> {
+    pub fn run(mut self) -> Result<(), Error> {
         println!(
             "[EncounterSimulator] Running encounter: {:?}",
             self.encounter
@@ -101,57 +100,51 @@ impl<'a> EncounterSimulator<'a> {
             Encounter::ThreeByrds => todo!(),
             Encounter::ThreeCultists => todo!(),
             Encounter::ThreeDarklings => todo!(),
-            Encounter::ThreeLice => todo!(),
+            Encounter::ThreeLouses => todo!(),
             Encounter::ThreeSentries => todo!(),
             Encounter::ThreeShapes => todo!(),
             Encounter::TimeEater => todo!(),
             Encounter::Transient => todo!(),
             Encounter::TwoFungiBeasts => todo!(),
-            Encounter::TwoLice => todo!(),
+            Encounter::TwoLouses => todo!(),
             Encounter::TwoThieves => todo!(),
             Encounter::WrithingMass => todo!(),
         };
 
-        let shuffle_rng = StsRandom::from(self.seed_for_floor);
-        let mut player_in_combat = self.player.enter_combat(shuffle_rng);
-
         #[allow(clippy::never_loop, clippy::while_let_loop)]
         loop {
             for (i, status) in enemy_party.iter().map(Enemy::status).enumerate() {
-                player_in_combat.update_enemy_status(status, i)?;
+                self.player.update_enemy_status(i, status)?;
             }
-            player_in_combat.start_turn()?;
+            self.player.start_turn()?;
             loop {
                 let enemies = enemy_party
                     .iter()
                     .map(Enemy::enemy_type)
                     .collect::<Vec<_>>();
-                let hand_index = match player_in_combat.choose_next_action(&enemies)? {
-                    PlayerAction::PlayerMove(_player_move, hand_index) => hand_index,
-                    PlayerAction::PlayerMoveWithTarget(player_move, target_index, hand_index) => {
-                        println!(
-                            "[EncounterSimulator] PlayerMoveWithTarget: {:?} -> {:?}",
-                            player_move, enemy_party[target_index]
-                        );
-                        for effect in player_move.effects.iter() {
+                match self.player.choose_next_action(&enemies)? {
+                    PlayerAction::PlayCard(action) => todo!(),
+                    PlayerAction::PlayCardAgainstEnemy(action, target_index) => {
+                        for effect in action.effects.iter() {
                             let enemy = &mut enemy_party[target_index];
                             if !enemy.apply_effect(*effect) {
                                 // Remove this enemy from the party
-                                player_in_combat.enemy_died(enemy.enemy_type(), target_index)?;
+                                self.player.enemy_died(target_index, enemy.enemy_type())?;
                                 enemy_party.remove(target_index);
                                 break;
                             }
-                            player_in_combat.update_enemy_status(enemy.status(), target_index)?;
+                            self.player
+                                .update_enemy_status(target_index, enemy.status())?;
                         }
-                        hand_index
                     }
                     PlayerAction::EndTurn => break,
-                };
+                    _ => todo!(),
+                }
                 if enemy_party.is_empty() {
                     // Battle is over!
                     return Ok(());
                 }
-                player_in_combat.discard_card(hand_index)?;
+                self.player.discard_card_just_played()?;
             }
             for enemy in enemy_party.iter_mut() {
                 // TODO: check for death and remove
@@ -159,9 +152,16 @@ impl<'a> EncounterSimulator<'a> {
             }
             //enemy_party.retain(|enemy| enemy.health().0 > 0);
             for enemy in enemy_party.iter_mut() {
-                let enemy_move = enemy.next_move(&mut ai_rng);
-                for effect in enemy_move.effects.iter() {
-                    player_in_combat.apply_effect(*effect)?;
+                let action = enemy.next_action(&mut ai_rng);
+                for effect in action.effects.iter() {
+                    match effect {
+                        crate::Effect::AddToDiscardPile(_) => todo!(),
+                        crate::Effect::DealDamage(_) => todo!(),
+                        crate::Effect::GainBlock(_) => todo!(),
+                        crate::Effect::Inflict(debuff, stacks) => {
+                            self.player.apply_debuff(*debuff, *stacks)?
+                        }
+                    }
                 }
             }
         }

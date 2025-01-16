@@ -1,10 +1,11 @@
 use std::fmt;
 
-use crate::data::{Card, EnemyType, NeowBlessing, Potion, Relic};
-use crate::{ColumnIndex, EnemyIndex, Energy, Gold, HandIndex, Hp, HpMax, PotionIndex, StackCount};
-
-use super::enemy::EnemyStatus;
-use super::Debuff;
+use crate::data::{Card, NeowBlessing, Potion, Relic};
+use crate::enemy::{EnemyStatus, EnemyType};
+use crate::{
+    ColumnIndex, Debuff, DeckIndex, EnemyIndex, Energy, Gold, HandIndex, Health, PotionIndex,
+    StackCount,
+};
 
 /// Message type for communication from the Simualtor to a client (human operator or AI agent).
 /// The Simulator will send any number of these messages to the client, concluding with a
@@ -19,20 +20,20 @@ pub enum StsMessage {
     Relics(Vec<Relic>),
     CardObtained(Card),
     CardRemoved(Card),
-    PotionObtained(Potion, PotionIndex),
+    PotionObtained(PotionIndex, Potion),
     RelicObtained(Relic),
-    GoldChanged(Gold),
+    Gold(Gold),
 
     // Encounter / combat messages
-    CardDrawn(Card, HandIndex),
+    CardDrawn(HandIndex, Card),
     Debuffs(Vec<(Debuff, StackCount)>),
     DiscardPile(Vec<Card>),
-    EnemyStatus(EnemyStatus, EnemyIndex),
-    EnemyDied(EnemyType, EnemyIndex),
+    EnemyStatus(EnemyIndex, EnemyStatus),
+    EnemyDied(EnemyIndex, EnemyType),
     HandDiscarded,
-    HealthChanged(Hp, HpMax),
+    Health(Health),
     ShufflingDiscardToDraw,
-    CardDiscarded(Card, HandIndex),
+    CardDiscarded(HandIndex, Card),
     Energy(Energy),
 
     /// A list of `Choice`s, each representing a possible action; the client must select one
@@ -52,17 +53,17 @@ pub enum Prompt {
     TargetEnemy,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Copy, Debug)]
 pub enum Choice {
     EndTurn,
     ClimbFloor(ColumnIndex),
     NeowBlessing(NeowBlessing),
     ObtainCard(Card),
     ObtainPotion(Potion),
-    RemoveCard(Card),
-    PlayCardFromHand(Card, HandIndex),
+    RemoveCard(DeckIndex, Card),
+    PlayCardFromHand(HandIndex, Card),
     Skip,
-    TargetEnemy(EnemyType, EnemyIndex),
+    TargetEnemy(EnemyIndex, EnemyType),
 }
 
 // TODO: Move these to a presentation module
@@ -90,10 +91,10 @@ impl fmt::Display for Choice {
             Choice::NeowBlessing(blessing) => write!(f, "{}", blessing),
             Choice::ObtainCard(card) => write!(f, "{:?}", card),
             Choice::ObtainPotion(potion) => write!(f, "{:?}", potion),
-            Choice::PlayCardFromHand(card, _) => write!(f, "Play card \"{:?}\"", card),
-            Choice::RemoveCard(card) => write!(f, "{:?}", card),
+            Choice::PlayCardFromHand(_, card) => write!(f, "Play card \"{:?}\"", card),
+            Choice::RemoveCard(_, card) => write!(f, "{:?}", card),
             Choice::Skip => write!(f, "(Skip)"),
-            Choice::TargetEnemy(enemy, _) => write!(f, "Target \"{:?}\"", enemy), // TODO: Index?
+            Choice::TargetEnemy(_, enemy) => write!(f, "Target \"{:?}\"", enemy), // TODO: Index?
         }
     }
 }

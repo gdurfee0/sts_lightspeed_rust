@@ -1,3 +1,5 @@
+// Source: Slay the Spire wiki (https://slay-the-spire.fandom.com/wiki/Potions)
+
 #[derive(Clone, Copy, Debug, PartialEq)]
 #[allow(clippy::enum_variant_names)] // For consistency with the game
 pub enum Potion {

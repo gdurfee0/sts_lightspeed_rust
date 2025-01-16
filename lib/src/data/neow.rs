@@ -1,5 +1,7 @@
 use std::fmt;
 
+// Source: Slay the Spire wiki (https://slay-the-spire.fandom.com/wiki/Neow)
+
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum NeowBlessing {
     ChooseCard,
@@ -35,6 +37,8 @@ pub enum NeowPenalty {
     ObtainCurse,
     TakeDamage,
 }
+
+// Special thanks to gamerpuppy for the pool orderings below, which match the game's rng.
 
 pub const FIRST_NEOW_POOL: &[NeowBlessing] = &[
     NeowBlessing::ChooseCard,

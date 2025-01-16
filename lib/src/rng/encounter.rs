@@ -101,7 +101,7 @@ impl EncounterGenerator {
                 (*prev_encounter, proposed_encounter),
                 (Encounter::SmallSlimes, Encounter::LotsOfSlimes)
                     | (Encounter::SmallSlimes, Encounter::LargeSlime)
-                    | (Encounter::TwoLice, Encounter::ThreeLice)
+                    | (Encounter::TwoLouses, Encounter::ThreeLouses)
             ),
             None => false,
         } {
@@ -190,11 +190,11 @@ mod test {
                 Encounter::SmallSlimes,
                 Encounter::ExordiumWildlife,
                 Encounter::TwoFungiBeasts,
-                Encounter::ThreeLice,
+                Encounter::ThreeLouses,
                 Encounter::Looter,
                 Encounter::ExordiumThugs,
                 Encounter::LotsOfSlimes,
-                Encounter::ThreeLice,
+                Encounter::ThreeLouses,
                 Encounter::BlueSlaver,
                 Encounter::RedSlaver,
                 Encounter::TwoFungiBeasts,
@@ -262,12 +262,12 @@ mod test {
                 Encounter::LargeSlime,
                 Encounter::Looter,
                 Encounter::LotsOfSlimes,
-                Encounter::ThreeLice,
+                Encounter::ThreeLouses,
                 Encounter::GremlinGang,
                 Encounter::LargeSlime,
                 Encounter::ExordiumThugs,
                 Encounter::Looter,
-                Encounter::ThreeLice,
+                Encounter::ThreeLouses,
                 Encounter::GremlinGang,
                 Encounter::RedSlaver,
                 Encounter::ExordiumThugs
@@ -281,19 +281,19 @@ mod test {
             [
                 Encounter::SmallSlimes,
                 Encounter::Cultist,
-                Encounter::TwoLice,
+                Encounter::TwoLouses,
                 Encounter::RedSlaver,
                 Encounter::ExordiumThugs,
                 Encounter::Looter,
                 Encounter::LotsOfSlimes,
-                Encounter::ThreeLice,
+                Encounter::ThreeLouses,
                 Encounter::Looter,
                 Encounter::LargeSlime,
                 Encounter::RedSlaver,
                 Encounter::LotsOfSlimes,
                 Encounter::TwoFungiBeasts,
                 Encounter::RedSlaver,
-                Encounter::ThreeLice,
+                Encounter::ThreeLouses,
                 Encounter::ExordiumThugs
             ]
         );
@@ -305,19 +305,19 @@ mod test {
             [
                 Encounter::JawWorm,
                 Encounter::Cultist,
-                Encounter::TwoLice,
+                Encounter::TwoLouses,
                 Encounter::ExordiumWildlife,
                 Encounter::TwoFungiBeasts,
-                Encounter::ThreeLice,
+                Encounter::ThreeLouses,
                 Encounter::RedSlaver,
                 Encounter::TwoFungiBeasts,
-                Encounter::ThreeLice,
+                Encounter::ThreeLouses,
                 Encounter::LotsOfSlimes,
                 Encounter::ExordiumThugs,
                 Encounter::Looter,
                 Encounter::BlueSlaver,
                 Encounter::ExordiumThugs,
-                Encounter::ThreeLice,
+                Encounter::ThreeLouses,
                 Encounter::GremlinGang
             ]
         );
@@ -342,7 +342,7 @@ mod test {
                 Encounter::ExordiumWildlife,
                 Encounter::Looter,
                 Encounter::RedSlaver,
-                Encounter::ThreeLice
+                Encounter::ThreeLouses
             ]
         );
         generator._advance_act();

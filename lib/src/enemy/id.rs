@@ -1,3 +1,8 @@
+// Source: Slay the Spire wiki:
+// - https://slay-the-spire.fandom.com/wiki/Category:Monster
+// - https://slay-the-spire.fandom.com/wiki/Category:Elite
+// - https://slay-the-spire.fandom.com/wiki/Category:Boss_Monster
+
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum EnemyType {
     AcidSlimeL,

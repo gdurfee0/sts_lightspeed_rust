@@ -1,3 +1,5 @@
+// Source: Slay the Spire Wiki (https://slay-the-spire.fandom.com/wiki/Category:Relic)
+
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum Relic {
     Akabeko,
@@ -179,4 +181,219 @@ pub enum Relic {
     WhiteBeastStatue,
     WingBoots,
     WristBlade,
+}
+
+impl Relic {
+    pub fn description(&self) -> &'static str {
+        match self {
+            // +8 Vigor
+            Relic::Akabeko => "Your first attack each combat deals 8 additional damage",
+            // Turn 1 => +10 Block
+            Relic::Anchor => "Start each combat with 10 Block",
+            // Rest Site => Turn 1 => +2 Energy
+            Relic::AncientTeaSet => {
+                "Whenever you enter a Rest Site, start the next combat with 2 extra Energy"
+            }
+            // No Attacks => +1 Energy
+            Relic::ArtOfWar => {
+                "If you do not play any Attacks during your turn, gain an extra Energy next turn"
+            }
+            // 3x Transform => Upgrade (TODO: order?)
+            Relic::Astrolabe => "Upon pickup, choose and Transform 3 cards, then Upgrade them",
+            // Turn 1 => +1 Vulnerable to ALL enemies
+            Relic::BagOfMarbles => "At the start of each combat, apply 1 Vulnerable to ALL enemies",
+            // Turn 1 => +2 Cards
+            Relic::BagOfPreparation => "At the start of each combat, draw 2 additional cards",
+            // play Power => +2 HP
+            Relic::BirdFacedUrn => "Whenever you play a Power, heal 2 HP",
+            // Remove Burning Blood. End of combat => +12 HP
+            Relic::BlackBlood => "Replaces Burning Blood. At the end of combat, heal 12 HP",
+            // Elite => +1 Relic
+            Relic::BlackStar => "Elites drop an additional Relic when defeated",
+            // Turn 1 => +2 HP
+            Relic::BloodVial => "At the start of each combat, heal 2 HP",
+            // Gain gold => +5 HP
+            Relic::BloodyIdol => "Whenever you gain Gold, heal 5 HP",
+            // Playable Curse cards
+            Relic::BlueCandle => concat!(
+                "Curse cards can now be played. ",
+                "Playing a Curse will make you lose 1 HP and Exhausts the card"
+            ),
+            // Choose Attack => Start with card in hand
+            Relic::BottledFlame => {
+                "Upon pick up, choose an Attack. Start each combat with this card in your hand"
+            }
+            // Choose Skill => Start with card in hand
+            Relic::BottledLightning => {
+                "Upon pick up, choose an Skill. Start each combat with this card in your hand"
+            }
+            // Choose Power => Start with card in hand
+            Relic::BottledTornado => {
+                "Upon pick up, choose a Power card. Start each combat with this card in your hand"
+            }
+            Relic::Brimstone => todo!(),
+            Relic::BronzeScales => todo!(),
+            Relic::BurningBlood => todo!(),
+            Relic::BustedCrown => todo!(),
+            Relic::Calipers => todo!(),
+            Relic::CallingBell => todo!(),
+            Relic::CaptainsWheel => todo!(),
+            Relic::Cauldron => todo!(),
+            Relic::CentennialPuzzle => todo!(),
+            Relic::CeramicFish => todo!(),
+            Relic::ChampionBelt => todo!(),
+            Relic::CharonsAshes => todo!(),
+            Relic::ChemicalX => todo!(),
+            Relic::Circlet => todo!(),
+            Relic::CloakClasp => todo!(),
+            Relic::ClockworkSouvenir => todo!(),
+            Relic::CoffeeDripper => todo!(),
+            Relic::CrackedCore => todo!(),
+            Relic::CultistHeadpiece => todo!(),
+            Relic::CursedKey => todo!(),
+            Relic::Damaru => todo!(),
+            Relic::DarkstonePeriapt => todo!(),
+            Relic::DataDisk => todo!(),
+            Relic::DeadBranch => todo!(),
+            Relic::DollysMirror => todo!(),
+            Relic::DreamCatcher => todo!(),
+            Relic::DuVuDoll => todo!(),
+            Relic::Duality => todo!(),
+            Relic::Ectoplasm => todo!(),
+            Relic::EmotionChip => todo!(),
+            Relic::EmptyCage => todo!(),
+            Relic::Enchiridion => todo!(),
+            Relic::EternalFeather => todo!(),
+            Relic::FaceOfCleric => todo!(),
+            Relic::FossilizedHelix => todo!(),
+            Relic::FrozenCore => todo!(),
+            Relic::FrozenEgg => todo!(),
+            Relic::FrozenEye => todo!(),
+            Relic::FusionHammer => todo!(),
+            Relic::GamblingChip => todo!(),
+            Relic::Ginger => todo!(),
+            Relic::Girya => todo!(),
+            Relic::GoldPlatedCables => todo!(),
+            Relic::GoldenEye => todo!(),
+            Relic::GoldenIdol => todo!(),
+            Relic::GremlinHorn => todo!(),
+            Relic::GremlinVisage => todo!(),
+            Relic::HandDrill => todo!(),
+            Relic::HappyFlower => todo!(),
+            Relic::HolyWater => todo!(),
+            Relic::HornCleat => todo!(),
+            Relic::HoveringKite => todo!(),
+            Relic::IceCream => todo!(),
+            Relic::IncenseBurner => todo!(),
+            Relic::InkBottle => todo!(),
+            Relic::Inserter => todo!(),
+            Relic::JuzuBracelet => todo!(),
+            Relic::Kunai => todo!(),
+            Relic::Lantern => todo!(),
+            Relic::LeesWaffle => todo!(),
+            Relic::LetterOpener => todo!(),
+            Relic::LizardTail => todo!(),
+            Relic::MagicFlower => todo!(),
+            Relic::Mango => todo!(),
+            Relic::MarkOfPain => todo!(),
+            Relic::MarkOfTheBloom => todo!(),
+            Relic::Matryoshka => todo!(),
+            Relic::MawBank => todo!(),
+            Relic::MealTicket => todo!(),
+            Relic::MeatOnTheBone => todo!(),
+            Relic::MedicalKit => todo!(),
+            Relic::Melange => todo!(),
+            Relic::MembershipCard => todo!(),
+            Relic::MercuryHourglass => todo!(),
+            Relic::MoltenEgg => todo!(),
+            Relic::MummifiedHand => todo!(),
+            Relic::MutagenicStrength => todo!(),
+            Relic::NlothsGift => todo!(),
+            Relic::NlothsHungryFace => todo!(),
+            Relic::Necronomicon => todo!(),
+            Relic::NeowsLament => todo!(),
+            Relic::NilrysCodex => todo!(),
+            Relic::NinjaScroll => todo!(),
+            Relic::NuclearBattery => todo!(),
+            Relic::Nunchaku => todo!(),
+            Relic::OddMushroom => todo!(),
+            Relic::OddlySmoothStone => todo!(),
+            Relic::OldCoin => todo!(),
+            Relic::Omamori => todo!(),
+            Relic::OrangePellets => todo!(),
+            Relic::Orichalcum => todo!(),
+            Relic::OrnamentalFan => todo!(),
+            Relic::Orrery => todo!(),
+            Relic::PandorasBox => todo!(),
+            Relic::Pantograph => todo!(),
+            Relic::PaperKrane => todo!(),
+            Relic::PaperPhrog => todo!(),
+            Relic::PeacePipe => todo!(),
+            Relic::Pear => todo!(),
+            Relic::PenNib => todo!(),
+            Relic::PhilosophersStone => todo!(),
+            Relic::Pocketwatch => todo!(),
+            Relic::PotionBelt => todo!(),
+            Relic::PrayerWheel => todo!(),
+            Relic::PreservedInsect => todo!(),
+            Relic::PrismaticShard => todo!(),
+            Relic::PureWater => todo!(),
+            Relic::QuestionCard => todo!(),
+            Relic::RedMask => todo!(),
+            Relic::RedSkull => todo!(),
+            Relic::RegalPillow => todo!(),
+            Relic::RingOfTheSerpent => todo!(),
+            Relic::RingOfTheSnake => todo!(),
+            Relic::RunicCapacitor => todo!(),
+            Relic::RunicCube => todo!(),
+            Relic::RunicDome => todo!(),
+            Relic::RunicPyramid => todo!(),
+            Relic::SacredBark => todo!(),
+            Relic::SelfFormingClay => todo!(),
+            Relic::Shovel => todo!(),
+            Relic::Shuriken => todo!(),
+            Relic::SingingBowl => todo!(),
+            Relic::SlaversCollar => todo!(),
+            Relic::SlingOfCourage => todo!(),
+            Relic::SmilingMask => todo!(),
+            Relic::SneckoEye => todo!(),
+            Relic::SneckoSkull => todo!(),
+            Relic::Sozu => todo!(),
+            Relic::SpiritPoop => todo!(),
+            Relic::SsserpentHead => todo!(),
+            Relic::StoneCalendar => todo!(),
+            Relic::StrangeSpoon => todo!(),
+            Relic::Strawberry => todo!(),
+            Relic::StrikeDummy => todo!(),
+            Relic::Sundial => todo!(),
+            Relic::SymbioticVirus => todo!(),
+            Relic::TeardropLocket => todo!(),
+            Relic::TheAbacus => todo!(),
+            Relic::TheBoot => todo!(),
+            Relic::TheCourier => todo!(),
+            Relic::TheSpecimen => todo!(),
+            Relic::ThreadAndNeedle => todo!(),
+            Relic::Tingsha => todo!(),
+            Relic::TinyChest => todo!(),
+            Relic::TinyHouse => todo!(),
+            Relic::Toolbox => todo!(),
+            Relic::Torii => todo!(),
+            Relic::ToughBandages => todo!(),
+            Relic::ToxicEgg => todo!(),
+            Relic::ToyOrnithopter => todo!(),
+            Relic::TungstenRod => todo!(),
+            Relic::Turnip => todo!(),
+            Relic::TwistedFunnel => todo!(),
+            Relic::UnceasingTop => todo!(),
+            Relic::Vajra => todo!(),
+            Relic::VelvetChoker => todo!(),
+            Relic::VioletLotus => todo!(),
+            Relic::WarPaint => todo!(),
+            Relic::WarpedTongs => todo!(),
+            Relic::Whetstone => todo!(),
+            Relic::WhiteBeastStatue => todo!(),
+            Relic::WingBoots => todo!(),
+            Relic::WristBlade => todo!(),
+        }
+    }
 }

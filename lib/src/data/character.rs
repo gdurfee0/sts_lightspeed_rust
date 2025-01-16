@@ -53,6 +53,8 @@ impl TryFrom<&str> for &'static Character {
     }
 }
 
+// Credit to gamerpuppy for the pool orderings below, which match the game's rng.
+
 pub const IRONCLAD: &Character = &Character {
     starting_hp: 80,
     starting_relic: Relic::BurningBlood,

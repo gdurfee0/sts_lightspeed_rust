@@ -1,3 +1,5 @@
+// Source: Slay the Spire Wiki (https://slay-the-spire.fandom.com/wiki/Category:Event)
+
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum Event {
     AncientWriting,

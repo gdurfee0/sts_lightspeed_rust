@@ -1,3 +1,5 @@
+// Source: Slay the Spire Wiki (https://slay-the-spire.fandom.com/wiki/Category:Act)
+
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum Encounter {
     AwakenedOne,
@@ -48,13 +50,13 @@ pub enum Encounter {
     ThreeByrds,
     ThreeCultists,
     ThreeDarklings,
-    ThreeLice,
+    ThreeLouses,
     ThreeSentries,
     ThreeShapes,
     TimeEater,
     Transient,
     TwoFungiBeasts,
-    TwoLice,
+    TwoLouses,
     TwoThieves,
     WrithingMass,
 }

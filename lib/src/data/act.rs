@@ -54,6 +54,8 @@ impl TryFrom<i8> for &'static Act {
     }
 }
 
+// Special thanks to gamerpuppy for the probability distributions listed below.
+
 static ACTS: &[Act] = &[
     // ACT 1
     Act {
@@ -62,7 +64,7 @@ static ACTS: &[Act] = &[
         weak_monster_encounter_pool: &[
             (Encounter::Cultist, 1. / 4.),
             (Encounter::JawWorm, 1. / 4.),
-            (Encounter::TwoLice, 1. / 4.),
+            (Encounter::TwoLouses, 1. / 4.),
             (Encounter::SmallSlimes, 1. / 4.),
         ],
         strong_monster_encounter_pool: &[
@@ -74,7 +76,7 @@ static ACTS: &[Act] = &[
             (Encounter::BlueSlaver, 2. / 16.),
             (Encounter::Looter, 2. / 16.),
             (Encounter::LargeSlime, 2. / 16.),
-            (Encounter::ThreeLice, 2. / 16.),
+            (Encounter::ThreeLouses, 2. / 16.),
             (Encounter::TwoFungiBeasts, 2. / 16.),
         ],
         elite_encounter_pool: &[

@@ -2,10 +2,9 @@ use anyhow::{anyhow, Error};
 
 use crate::data::Act;
 use crate::map::{ExitBits, MapBuilder, MapHighlighter, NodeGrid, Room, ROW_COUNT};
+use crate::player::PlayerController;
 use crate::rng::Seed;
 use crate::{ColumnIndex, RowIndex};
-
-use super::player::Player;
 
 pub struct MapSimulator {
     // Current player location (row, column) in the map
@@ -24,12 +23,12 @@ impl MapSimulator {
         }
     }
 
-    pub fn send_map_to_player(&self, player: &mut Player) -> Result<(), Error> {
+    pub fn send_map_to_player(&self, player: &mut PlayerController) -> Result<(), Error> {
         player.send_map_string(self.map_string())?;
         Ok(())
     }
 
-    pub fn advance(&mut self, player: &mut Player) -> Result<Room, Error> {
+    pub fn advance(&mut self, player: &mut PlayerController) -> Result<Room, Error> {
         let (next_row_index, movement_options) = match self.player_location {
             // Player is not yet on the map, so may select any room in the bottom row.
             None => (
@@ -75,7 +74,7 @@ impl MapSimulator {
                     .collect::<Vec<_>>(),
             ),
         )?;
-        let next_column_index = player.choose_movement_option(movement_options)?;
+        let next_column_index = player.choose_movement_option(&movement_options)?;
         self.player_location = Some((next_row_index, next_column_index));
         if let Some(node) = self.map.get(next_row_index, next_column_index) {
             player.send_map_string(self.map_string())?;

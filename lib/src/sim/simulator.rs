@@ -1,14 +1,14 @@
 use std::sync::mpsc::{Receiver, Sender};
 
 use super::encounter::EncounterSimulator;
-use super::message::StsMessage;
 use super::neow::NeowSimulator;
-use super::player::Player;
 
 use crate::data::Character;
 use crate::map::Room;
+use crate::player::PlayerController;
 use crate::rng::{EncounterGenerator, RelicGenerator, Seed, StsRandom};
 use crate::sim::map::MapSimulator;
+use crate::StsMessage;
 
 pub struct StsSimulator {
     // Information typically set on the command line
@@ -22,8 +22,8 @@ pub struct StsSimulator {
     potion_rng: StsRandom,
     relic_generator: RelicGenerator,
 
-    // Current player state
-    player: Player,
+    // Connection to the player state and player I/O
+    player: PlayerController,
 }
 
 impl StsSimulator {
@@ -38,7 +38,7 @@ impl StsSimulator {
         let misc_rng = StsRandom::from(seed);
         let potion_rng = StsRandom::from(seed);
         let relic_generator = RelicGenerator::new(seed, character);
-        let player = Player::new(character, input_rx, output_tx);
+        let player = PlayerController::new(character, input_rx, output_tx);
         Self {
             seed,
             character,
@@ -57,7 +57,7 @@ impl StsSimulator {
             std::mem::size_of::<StsSimulator>(),
             std::mem::size_of::<StsMessage>(),
         );
-        self.player.send_initial_state()?;
+        self.player.send_full_player_state()?;
         let mut map_simulator = MapSimulator::new(self.seed);
         map_simulator.send_map_to_player(&mut self.player)?;
         let neow_simulator = NeowSimulator::new(
@@ -71,7 +71,6 @@ impl StsSimulator {
         neow_simulator.run()?;
         let mut floor = 1;
         loop {
-            // TODO: shuffle_rng
             self.card_rng = self.seed.with_offset(floor).into();
             self.misc_rng = self.seed.with_offset(floor).into();
             match map_simulator.advance(&mut self.player)? {
@@ -97,9 +96,5 @@ impl StsSimulator {
             }
             floor += 1;
         }
-
-        //self.output_tx.send(StsMessage::GameOver(true))?;
-        //println!("[Simulator] Exiting.");
-        //Ok(())
     }
 }

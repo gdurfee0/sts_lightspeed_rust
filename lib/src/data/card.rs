@@ -1,38 +1,4 @@
-pub const UNCOMMON_COLORLESS_CARDS: &[Card] = &[
-    Card::BandageUp,
-    Card::Blind,
-    Card::DarkShackles,
-    Card::DeepBreath,
-    Card::Discovery,
-    Card::DramaticEntrance,
-    Card::Enlightenment,
-    Card::Finesse,
-    Card::FlashOfSteel,
-    Card::Forethought,
-    Card::GoodInstincts,
-    Card::Impatience,
-    Card::JackOfAllTrades,
-    Card::Madness,
-    Card::MindBlast,
-    Card::Panacea,
-    Card::PanicButton,
-    Card::Purity,
-    Card::SwiftStrike,
-    Card::Trip,
-];
-
-pub const CURSE_CARD_POOL: &[Card] = &[
-    Card::Regret,
-    Card::Injury,
-    Card::Shame,
-    Card::Parasite,
-    Card::Normality,
-    Card::Doubt,
-    Card::Writhe,
-    Card::Pain,
-    Card::Decay,
-    Card::Clumsy,
-];
+// Source: Slay the Spire Wiki (https://slay-the-spire.fandom.com/wiki/Category:Cards)
 
 #[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
 pub enum Card {
@@ -398,3 +364,39 @@ pub enum Card {
     Writhe,
     Zap,
 }
+
+pub const UNCOMMON_COLORLESS_CARDS: &[Card] = &[
+    Card::BandageUp,
+    Card::Blind,
+    Card::DarkShackles,
+    Card::DeepBreath,
+    Card::Discovery,
+    Card::DramaticEntrance,
+    Card::Enlightenment,
+    Card::Finesse,
+    Card::FlashOfSteel,
+    Card::Forethought,
+    Card::GoodInstincts,
+    Card::Impatience,
+    Card::JackOfAllTrades,
+    Card::Madness,
+    Card::MindBlast,
+    Card::Panacea,
+    Card::PanicButton,
+    Card::Purity,
+    Card::SwiftStrike,
+    Card::Trip,
+];
+
+pub const CURSE_CARD_POOL: &[Card] = &[
+    Card::Regret,
+    Card::Injury,
+    Card::Shame,
+    Card::Parasite,
+    Card::Normality,
+    Card::Doubt,
+    Card::Writhe,
+    Card::Pain,
+    Card::Decay,
+    Card::Clumsy,
+];

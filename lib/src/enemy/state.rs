@@ -74,26 +74,16 @@ impl Enemy {
         action
     }
 
-    pub fn apply_effect(&mut self, effect: Effect) -> bool {
+    pub fn apply_effect(&mut self, effect: &Effect) {
         match effect {
             Effect::AddToDiscardPile(_) => unreachable!(),
-            Effect::AttackDamage(mut amount) => {
-                if self
-                    .debuffs
-                    .iter()
-                    .any(|(debuff, _)| *debuff == Debuff::Vulnerable)
-                {
-                    amount = (amount as f32 * 1.5).floor() as u32;
-                }
-                self.hp = self.hp.saturating_sub(amount);
-                self.hp > 0
-            }
+            Effect::AttackDamage(amount) => self.hp = self.hp.saturating_sub(*amount),
             Effect::GainBlock(_) => unreachable!(),
-            Effect::Inflict(debuff, stacks) => self.apply_debuff(debuff, stacks),
+            Effect::Inflict(debuff, stacks) => self.apply_debuff(*debuff, *stacks),
         }
     }
 
-    pub fn interpret_effect(&self, effect: Effect) -> Effect {
+    pub fn account_for_buffs_and_debuffs(&self, effect: Effect) -> Effect {
         match effect {
             Effect::AttackDamage(amount) => {
                 if self
@@ -119,12 +109,11 @@ impl Enemy {
         true
     }
 
-    fn apply_debuff(&mut self, debuff: Debuff, stacks: StackCount) -> bool {
+    fn apply_debuff(&mut self, debuff: Debuff, stacks: StackCount) {
         if let Some((_, c)) = self.debuffs.iter_mut().find(|(d, _)| *d == debuff) {
             *c += stacks;
         } else {
             self.debuffs.push((debuff, stacks));
         }
-        true
     }
 }

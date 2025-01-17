@@ -7,8 +7,11 @@ use crate::{
     AttackDamage, Block, Buff, Debuff, Effect, EnemyIndex, Energy, HandIndex, Hp, StackCount,
 };
 
-use super::action::{Action, CardDetails, Target};
+use super::action::{
+    Action, CardDetails, EffectChain, EnemyEffectChain, PlayerEffectChain, Target,
+};
 use super::comms::Comms;
+use super::message::CardPlay;
 use super::state::PlayerState;
 
 /// Encapsulates the state of the player in the game, e.g. HP, gold, deck, etc.
@@ -71,8 +74,10 @@ impl<'a> CombatController<'a> {
         self.draw_cards()?;
 
         // Set block to 0
-        self.block = 0;
-        self.comms.send_block(self.block)?;
+        if self.block > 0 {
+            self.block = 0;
+            self.comms.send_block(self.block)?;
+        }
 
         // TODO: Apply other start-of-turn effects
         Ok(())
@@ -154,6 +159,23 @@ impl<'a> CombatController<'a> {
         self.comms.send_enemy_died(index, enemy_type)
     }
 
+    fn available_card_plays(&self) -> Vec<CardPlay> {
+        self.hand
+            .iter()
+            .enumerate()
+            .map(|(hand_index, card)| {
+                let card_details = CardDetails::for_card(*card);
+                CardPlay {
+                    hand_index,
+                    card: *card,
+                    cost: card_details.cost,
+                    effect_chain: self.to_player_effect_chain(&card_details.effect_chain),
+                    target: card_details.target,
+                }
+            })
+            .collect::<Vec<_>>()
+    }
+
     pub fn choose_next_action(&mut self, enemies: &[Option<Enemy>]) -> Result<Action, Error> {
         // TODO: drink a potion, discard a potion
         // TODO: check for unwinnable situations
@@ -163,38 +185,48 @@ impl<'a> CombatController<'a> {
             .map(|maybe_enemy| maybe_enemy.as_ref().map(|enemy| enemy.status()))
             .collect::<Vec<_>>();
         self.comms.send_enemy_party(enemy_statuses)?;
-        let all_card_effects = self
-            .hand
-            .iter()
-            .map(|card| self.interpret_effects(&CardDetails::for_card(*card).effects))
-            .collect();
-        match self
-            .comms
-            .choose_card_to_play(&self.hand, all_card_effects)?
-        {
-            Some((hand_index, card_effects)) => {
-                self.card_just_played = Some(hand_index);
-                let card_action = CardDetails::for_card(self.hand[hand_index]);
-                match card_action.target {
-                    Target::OneEnemy => {
-                        let card_effects_against_targets = enemies
-                            .iter()
-                            .map(|maybe_enemy| {
-                                maybe_enemy.as_ref().map(|enemy| {
-                                    self.interpret_effects_against_enemy(&card_effects, enemy)
-                                })
-                            })
-                            .collect();
-                        let enemy_index = self
-                            .comms
-                            .choose_enemy_to_target(enemies, card_effects_against_targets)?;
-                        Ok(Action::PlayCardAgainstEnemy(card_action, enemy_index))
-                    }
-                    Target::AllEnemies => Ok(Action::PlayCard(card_action)),
-                    Target::Player => Ok(Action::PlayCard(card_action)),
+        self.comms.send_energy(self.energy)?;
+        let card_plays = self.available_card_plays();
+        match self.comms.choose_card_to_play(&card_plays)? {
+            Some(card_play) => {
+                self.card_just_played = Some(card_play.hand_index);
+                if card_play.target == Target::Player {
+                    Ok(Action::ApplyEffectChainToPlayer(card_play.effect_chain))
+                } else {
+                    self.resolve_card_play_against_enemies(card_play, enemies)
                 }
             }
             None => Ok(Action::EndTurn),
+        }
+    }
+
+    fn resolve_card_play_against_enemies(
+        &mut self,
+        card_play: CardPlay,
+        enemies: &[Option<Enemy>],
+    ) -> Result<Action, Error> {
+        let mut enemy_effect_chains = enemies
+            .iter()
+            .map(|maybe_enemy| {
+                maybe_enemy
+                    .as_ref()
+                    .map(|enemy| self.to_enemy_effect_chain(&card_play.effect_chain, enemy))
+            })
+            .collect::<Vec<_>>();
+        match card_play.target {
+            Target::OneEnemy => {
+                let enemy_index = self
+                    .comms
+                    .choose_enemy_to_target(enemies, &enemy_effect_chains)?;
+                Ok(Action::ApplyEffectChainToEnemy(
+                    enemy_effect_chains[enemy_index]
+                        .take()
+                        .unwrap_or_else(|| panic!("No enemy at index {}", enemy_index)),
+                    enemy_index,
+                ))
+            }
+            Target::AllEnemies => Ok(Action::ApplyEffectChainToAllEnemies(enemy_effect_chains)),
+            _ => unreachable!(),
         }
     }
 
@@ -230,37 +262,40 @@ impl<'a> CombatController<'a> {
         self.comms.send_enemy_status(index, status)
     }
 
-    pub fn interpret_effects(&self, effects: &[Effect]) -> Vec<Effect> {
-        effects
-            .iter()
-            .copied()
-            .map(|effect| match effect {
-                Effect::AttackDamage(_) => {
-                    // Strength etc
-                    effect
-                }
-                Effect::GainBlock(amount) => {
-                    if self.has_debuff(Debuff::Frail) {
-                        Effect::GainBlock((amount as f32 * 0.75).floor() as Block)
-                    } else {
-                        Effect::GainBlock(amount)
+    pub fn to_player_effect_chain(&self, effect_chain: &EffectChain) -> PlayerEffectChain {
+        PlayerEffectChain::new(
+            effect_chain
+                .iter()
+                .map(|effect| match effect {
+                    Effect::AttackDamage(_) => {
+                        // TODO: Strength etc
+                        effect.clone()
                     }
-                }
-                Effect::Inflict(_, _) => effect,
-                _ => todo!("{:?}", effect),
-            })
-            .collect()
+                    Effect::GainBlock(amount) => {
+                        if self.has_debuff(Debuff::Frail) {
+                            Effect::GainBlock((*amount as f32 * 0.75).floor() as Block)
+                        } else {
+                            Effect::GainBlock(*amount)
+                        }
+                    }
+                    Effect::Inflict(_, _) => effect.clone(),
+                    _ => todo!("{:?}", effect),
+                })
+                .collect(),
+        )
     }
 
-    pub fn interpret_effects_against_enemy(
+    pub fn to_enemy_effect_chain(
         &self,
-        effects: &[Effect],
+        player_effect_chain: &PlayerEffectChain,
         enemy: &Enemy,
-    ) -> Vec<Effect> {
-        effects
-            .iter()
-            .copied()
-            .map(|effect| enemy.interpret_effect(effect))
-            .collect()
+    ) -> EnemyEffectChain {
+        EnemyEffectChain::new(
+            player_effect_chain
+                .iter()
+                .cloned()
+                .map(|effect| enemy.account_for_buffs_and_debuffs(effect))
+                .collect(),
+        )
     }
 }

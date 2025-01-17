@@ -1,9 +1,11 @@
 use std::fmt;
 
+use super::action::{EnemyEffectChain, PlayerEffectChain, Target};
+
 use crate::data::{Card, NeowBlessing, Potion, Relic};
 use crate::enemy::{EnemyStatus, EnemyType};
 use crate::{
-    Block, ColumnIndex, Debuff, DeckIndex, Effect, EnemyIndex, Energy, Gold, HandIndex, Health, Hp,
+    Block, ColumnIndex, Debuff, DeckIndex, EnemyIndex, Energy, Gold, HandIndex, Health, Hp,
     PotionIndex, StackCount,
 };
 
@@ -38,10 +40,10 @@ pub enum StsMessage {
     EnemyStatus(EnemyIndex, EnemyStatus),
     EnemyDied(EnemyIndex, EnemyType),
     EnemyParty(Vec<Option<EnemyStatus>>),
+    Energy(Energy),
     HandDiscarded,
     Health(Health),
     ShufflingDiscardToDraw,
-    Energy(Energy),
 
     /// A list of `Choice`s, each representing a possible action; the client must select one
     /// using zero-indexing and return its response as `usize` via its input_tx channel.
@@ -70,9 +72,9 @@ pub enum Choice {
     ObtainCard(Card),
     ObtainPotion(Potion),
     RemoveCard(DeckIndex, Card),
-    PlayCardFromHand(HandIndex, Card, Vec<Effect>),
+    PlayCardFromHand(CardPlay),
     Skip,
-    TargetEnemy(EnemyIndex, EnemyType, Vec<Effect>),
+    TargetEnemy(EnemyIndex, EnemyType, EnemyEffectChain),
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -85,6 +87,15 @@ pub enum PotionAction {
 pub enum MainScreenOption {
     ClimbFloor(ColumnIndex),
     Potion(PotionAction),
+}
+
+#[derive(Clone, Debug)]
+pub struct CardPlay {
+    pub hand_index: HandIndex,
+    pub card: Card,
+    pub cost: Energy,
+    pub effect_chain: PlayerEffectChain,
+    pub target: Target,
 }
 
 // TODO: Move these to a presentation module
@@ -127,8 +138,19 @@ impl fmt::Display for Choice {
             Choice::NeowBlessing(blessing) => write!(f, "{}", blessing),
             Choice::ObtainCard(card) => write!(f, "{:?}", card),
             Choice::ObtainPotion(potion) => write!(f, "{:?}", potion),
-            Choice::PlayCardFromHand(_, card, effects) => {
-                write!(f, "Play card \"{:?}\" {:?}", card, effects)
+            Choice::PlayCardFromHand(card_play) => {
+                write!(
+                    f,
+                    "Play \"{:?}\" for {} energy {:?}{}",
+                    card_play.card,
+                    card_play.cost,
+                    card_play.effect_chain,
+                    match card_play.target {
+                        Target::AllEnemies => " to ALL enemies",
+                        Target::OneEnemy => " to one enemy",
+                        _ => "",
+                    }
+                )
             }
             Choice::RemoveCard(_, card) => write!(f, "{:?}", card),
             Choice::Skip => write!(f, "(Skip)"),

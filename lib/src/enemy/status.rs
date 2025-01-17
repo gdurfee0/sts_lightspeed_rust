@@ -1,3 +1,5 @@
+use std::fmt;
+
 use crate::{Debuff, Hp, HpMax, StackCount};
 
 use super::id::EnemyType;
@@ -13,4 +15,26 @@ pub struct EnemyStatus {
     pub hp: Hp,
     pub hp_max: HpMax,
     pub debuffs: Vec<(Debuff, StackCount)>,
+}
+
+impl fmt::Display for EnemyStatus {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "{:?}, HP: {}/{}, intends: {:?}",
+            self.enemy_type, self.hp, self.hp_max, self.intent
+        )?;
+        if !self.debuffs.is_empty() {
+            write!(
+                f,
+                ", debuffs: [{}]",
+                self.debuffs
+                    .iter()
+                    .map(|(debuff, stack_count)| format!("{:?}({}), ", debuff, stack_count))
+                    .collect::<Vec<_>>()
+                    .join(", ")
+            )?;
+        }
+        Ok(())
+    }
 }

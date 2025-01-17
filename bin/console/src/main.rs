@@ -30,6 +30,11 @@ fn main_input_loop(
             StsMessage::Choices(prompt, choices) => {
                 to_server.send(collect_user_choice(prompt, choices)?)?;
             }
+            StsMessage::EnemyParty(party) => {
+                for enemy_status in party.iter().flatten() {
+                    println!("Enemy: {}", enemy_status);
+                }
+            }
             StsMessage::Map(map) => println!("{}\n", map),
             StsMessage::GameOver(result) => {
                 println!(

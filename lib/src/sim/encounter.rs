@@ -62,44 +62,35 @@ impl<'a> EncounterSimulator<'a> {
         self.player.start_turn()?;
         loop {
             match self.player.choose_next_action(&self.enemy_party)? {
-                PlayerAction::PlayCard(action) => {
-                    for effect in action.effects.iter() {
+                PlayerAction::ApplyEffectChainToPlayer(effect_chain) => {
+                    for effect in effect_chain.iter() {
                         match effect {
                             Effect::AddToDiscardPile(_) => todo!(),
-                            Effect::AttackDamage(amount) => {
-                                self.enemy_party
-                                    .iter_mut()
-                                    .filter_map(|enemy| enemy.as_mut())
-                                    .for_each(|enemy| {
-                                        enemy.apply_effect(Effect::AttackDamage(*amount));
-                                    });
+                            Effect::AttackDamage(_) => {
+                                unreachable!("Players do not attack themselves")
                             }
                             Effect::GainBlock(amount) => {
                                 self.player.gain_block(*amount)?;
                             }
-                            Effect::Inflict(debuff, stacks) => {
-                                self.enemy_party
-                                    .iter_mut()
-                                    .filter_map(|enemy| enemy.as_mut())
-                                    .for_each(|enemy| {
-                                        enemy.apply_effect(Effect::Inflict(*debuff, *stacks));
-                                    });
+                            Effect::Inflict(_, _) => {
+                                unreachable!("Players do not inflict debuffs on themselves")
                             }
                         }
                     }
                 }
-                PlayerAction::PlayCardAgainstEnemy(action, target_index) => {
-                    match self.enemy_party[target_index].as_mut() {
+                PlayerAction::ApplyEffectChainToEnemy(effect_chain, enemy_index) => {
+                    match self.enemy_party[enemy_index].as_mut() {
                         Some(enemy) => {
-                            for effect in action.effects.iter() {
-                                if !enemy.apply_effect(*effect) {
+                            for effect in effect_chain.iter() {
+                                enemy.apply_effect(effect);
+                                if enemy.hp() == 0 {
                                     // Remove this enemy from the party
-                                    self.player.enemy_died(target_index, enemy.enemy_type())?;
-                                    self.enemy_party[target_index] = None;
+                                    self.player.enemy_died(enemy_index, enemy.enemy_type())?;
+                                    self.enemy_party[enemy_index] = None;
                                     break;
                                 }
                                 self.player
-                                    .update_enemy_status(target_index, enemy.status())?;
+                                    .update_enemy_status(enemy_index, enemy.status())?;
                             }
                         }
                         _ => unreachable!(),

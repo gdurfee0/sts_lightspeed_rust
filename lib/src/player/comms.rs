@@ -6,11 +6,12 @@ use anyhow::{anyhow, Error};
 use crate::data::{Card, NeowBlessing, Potion};
 use crate::enemy::{Enemy, EnemyStatus, EnemyType};
 use crate::{
-    Block, ColumnIndex, Debuff, DeckIndex, Effect, EnemyIndex, Gold, HandIndex, Health, Hp, Relic,
+    Block, ColumnIndex, Debuff, DeckIndex, EnemyIndex, Energy, Gold, HandIndex, Health, Hp, Relic,
     StackCount,
 };
 
-use super::message::{Choice, MainScreenOption, PotionAction, Prompt, StsMessage};
+use super::action::EnemyEffectChain;
+use super::message::{CardPlay, Choice, MainScreenOption, PotionAction, Prompt, StsMessage};
 
 /// Handles all interactions with the player via the from_client and to_client channels, sending
 /// messages to the player to prompt for decisions and returning the choices made by the player.
@@ -135,23 +136,15 @@ impl Comms {
 
     /// Prompts the user to choose a card from their hand to play, returning the index of the card
     /// or None if the user chooses to end their turn.
-    pub fn choose_card_to_play(
-        &self,
-        hand: &[Card],
-        effects: Vec<Vec<Effect>>,
-    ) -> Result<Option<(HandIndex, Vec<Effect>)>, Error> {
-        let choices = hand
+    pub fn choose_card_to_play(&self, card_plays: &[CardPlay]) -> Result<Option<CardPlay>, Error> {
+        let choices = card_plays
             .iter()
-            .copied()
-            .zip(effects)
-            .enumerate()
-            .map(|(hand_index, (card, effects))| {
-                Choice::PlayCardFromHand(hand_index, card, effects)
-            })
+            .cloned()
+            .map(Choice::PlayCardFromHand)
             .chain(once(Choice::EndTurn))
             .collect::<Vec<_>>();
         match self.prompt_for_choice(Prompt::CombatAction, choices)? {
-            Choice::PlayCardFromHand(hand_index, _, effects) => Ok(Some((hand_index, effects))),
+            Choice::PlayCardFromHand(card_play) => Ok(Some(card_play)),
             Choice::EndTurn => Ok(None),
             _ => unreachable!(),
         }
@@ -161,18 +154,21 @@ impl Comms {
     pub fn choose_enemy_to_target(
         &self,
         enemies: &[Option<Enemy>],
-        effects: Vec<Option<Vec<Effect>>>,
+        effect_chains: &[Option<EnemyEffectChain>],
     ) -> Result<EnemyIndex, Error> {
         let choices = enemies
             .iter()
-            .zip(effects)
+            .zip(effect_chains)
             .enumerate()
-            .filter_map(|(index, (maybe_enemy, maybe_effects))| {
+            .filter_map(|(index, (maybe_enemy, maybe_effect_chain))| {
                 maybe_enemy.as_ref().map(|enemy| {
                     Choice::TargetEnemy(
                         index,
                         enemy.enemy_type(),
-                        maybe_effects.expect("Effects not found"),
+                        maybe_effect_chain
+                            .as_ref()
+                            .cloned()
+                            .expect("Missing effect chain"),
                     )
                 })
             })
@@ -260,6 +256,11 @@ impl Comms {
     pub fn send_enemy_status(&self, index: EnemyIndex, status: EnemyStatus) -> Result<(), Error> {
         self.to_client
             .send(StsMessage::EnemyStatus(index, status))?;
+        Ok(())
+    }
+
+    pub fn send_energy(&self, energy: Energy) -> Result<(), Error> {
+        self.to_client.send(StsMessage::Energy(energy))?;
         Ok(())
     }
 

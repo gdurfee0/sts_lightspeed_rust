@@ -43,7 +43,7 @@ fn main_input_loop(
             }
             StsMessage::EnemyParty(party) => {
                 for enemy_status in party.iter().flatten() {
-                    println!("Enemy: {:?}", enemy_status);
+                    println!("Enemy: {}", enemy_status);
                 }
             }
             StsMessage::GameOver(result) => {

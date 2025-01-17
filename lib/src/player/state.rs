@@ -1,5 +1,5 @@
 use crate::data::{Card, Character, Potion, Relic};
-use crate::{DeckIndex, Gold, Health, Hp, HpMax};
+use crate::{DeckIndex, Gold, Health, Hp, HpMax, PotionIndex};
 
 /// Encapsulates the state of the player in the game, e.g. HP, gold, deck, etc.
 /// Mostly a dumb container.
@@ -63,6 +63,10 @@ impl PlayerState {
 
     pub fn remove_card(&mut self, deck_index: DeckIndex) -> Card {
         self.deck.remove(deck_index)
+    }
+
+    pub fn discard_potion(&mut self, index: PotionIndex) {
+        self.potions[index] = None;
     }
 
     pub fn potions(&self) -> &[Option<Potion>] {

@@ -8,7 +8,7 @@ use crate::{ColumnIndex, Effect, Gold, Hp, HpMax};
 
 use super::combat::CombatController;
 use super::comms::Comms;
-use super::message::StsMessage;
+use super::message::{MainScreenOption, PotionAction, StsMessage};
 use super::state::PlayerState;
 
 /// Encapsulates the state of the player in the game, e.g. HP, gold, deck, etc.
@@ -108,8 +108,42 @@ impl PlayerController {
         self.comms.choose_neow_blessing(blessings)
     }
 
-    pub fn choose_movement_option(&self, options: &[ColumnIndex]) -> Result<ColumnIndex, Error> {
-        self.comms.choose_movement_option(options)
+    pub fn climb_floor(&mut self, climb_options: &[ColumnIndex]) -> Result<ColumnIndex, Error> {
+        loop {
+            let mut potion_options = Vec::new();
+            for (index, maybe_potion) in self.state.potions().iter().enumerate() {
+                if let Some(potion) = maybe_potion {
+                    potion_options.push(PotionAction::Discard(index, *potion));
+                    if potion.can_drink_anywhere() {
+                        potion_options.push(PotionAction::Drink(index, *potion));
+                    }
+                }
+            }
+            match self
+                .comms
+                .choose_main_screen_option(climb_options, &potion_options)?
+            {
+                MainScreenOption::ClimbFloor(index) => return Ok(index),
+                MainScreenOption::Potion(PotionAction::Discard(index, _)) => {
+                    self.state.discard_potion(index);
+                    self.comms.send_potions(self.state.potions())?;
+                }
+                MainScreenOption::Potion(PotionAction::Drink(index, potion)) => {
+                    self.state.discard_potion(index);
+                    self.comms.send_potions(self.state.potions())?;
+                    self.consume_potion(potion)?;
+                }
+            }
+        }
+    }
+
+    fn consume_potion(&mut self, potion: Potion) -> Result<(), Error> {
+        match potion {
+            Potion::BloodPotion => self.increase_hp(self.hp_max() / 5),
+            Potion::EntropicBrew => todo!(),
+            Potion::FruitJuice => self.increase_hp_max(5),
+            _ => unreachable!(),
+        }
     }
 
     pub fn choose_potions_to_obtain(

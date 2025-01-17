@@ -93,7 +93,7 @@ impl<'a> CombatController<'a> {
     }
 
     pub fn take_damage(&mut self, amount: AttackDamage) -> Result<(), Error> {
-        if amount < self.block {
+        if amount <= self.block {
             self.block -= amount;
             self.comms.send_damage_blocked(amount)?;
             self.comms.send_block_lost(amount)?;

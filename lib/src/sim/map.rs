@@ -74,7 +74,7 @@ impl MapSimulator {
                     .collect::<Vec<_>>(),
             ),
         )?;
-        let next_column_index = player.choose_movement_option(&movement_options)?;
+        let next_column_index = player.climb_floor(&movement_options)?;
         self.player_location = Some((next_row_index, next_column_index));
         if let Some(node) = self.map.get(next_row_index, next_column_index) {
             player.send_map_string(self.map_string())?;

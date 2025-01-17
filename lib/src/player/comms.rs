@@ -10,7 +10,7 @@ use crate::{
     StackCount,
 };
 
-use super::message::{Choice, Prompt, StsMessage};
+use super::message::{Choice, MainScreenOption, PotionAction, Prompt, StsMessage};
 
 /// Handles all interactions with the player via the from_client and to_client channels, sending
 /// messages to the player to prompt for decisions and returning the choices made by the player.
@@ -41,13 +41,24 @@ impl Comms {
     }
 
     /// Prompts the user to choose a column to enter on the row above their current row.
-    pub fn choose_movement_option(&self, columns: &[ColumnIndex]) -> Result<ColumnIndex, Error> {
+    pub fn choose_main_screen_option(
+        &self,
+        columns: &[ColumnIndex],
+        potion_actions: &[PotionAction],
+    ) -> Result<MainScreenOption, Error> {
         let choices = columns
             .iter()
             .map(|column_index| Choice::ClimbFloor(*column_index))
+            .chain(potion_actions.iter().copied().map(Choice::PotionAction))
             .collect::<Vec<_>>();
-        match self.prompt_for_choice(Prompt::ClimbFloor, choices)? {
-            Choice::ClimbFloor(column_index) => Ok(column_index),
+        let prompt = if potion_actions.is_empty() {
+            Prompt::ClimbFloor
+        } else {
+            Prompt::ClimbFloorHasPotion
+        };
+        match self.prompt_for_choice(prompt, choices)? {
+            Choice::ClimbFloor(column_index) => Ok(MainScreenOption::ClimbFloor(column_index)),
+            Choice::PotionAction(potion_action) => Ok(MainScreenOption::Potion(potion_action)),
             _ => unreachable!(),
         }
     }

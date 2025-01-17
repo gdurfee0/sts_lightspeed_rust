@@ -14,15 +14,15 @@ use crate::{
 #[derive(Debug)]
 pub enum StsMessage {
     // State updates for the main game loop, outside of an encounter or event.
-    Map(String),
-    Deck(Vec<Card>),
-    Potions(Vec<Option<Potion>>),
-    Relics(Vec<Relic>),
     CardObtained(Card),
     CardRemoved(Card),
-    PotionObtained(PotionIndex, Potion),
-    RelicObtained(Relic),
+    Deck(Vec<Card>),
     Gold(Gold),
+    Map(String),
+    RelicObtained(Relic),
+    Relics(Vec<Relic>),
+    PotionObtained(PotionIndex, Potion),
+    Potions(Vec<Option<Potion>>),
 
     // Encounter / combat messages
     AddToDiscardPile(Vec<Card>),
@@ -56,6 +56,7 @@ pub enum Prompt {
     ChooseOne,  // Expectation is that the player can pick at most one of the Choices offered.
     CombatAction,
     ClimbFloor,
+    ClimbFloorHasPotion,
     RemoveCard,
     TargetEnemy,
 }
@@ -63,6 +64,7 @@ pub enum Prompt {
 #[derive(Clone, Debug)]
 pub enum Choice {
     EndTurn,
+    PotionAction(PotionAction),
     ClimbFloor(ColumnIndex),
     NeowBlessing(NeowBlessing),
     ObtainCard(Card),
@@ -73,6 +75,18 @@ pub enum Choice {
     TargetEnemy(EnemyIndex, EnemyType, Vec<Effect>),
 }
 
+#[derive(Clone, Copy, Debug)]
+pub enum PotionAction {
+    Discard(PotionIndex, Potion),
+    Drink(PotionIndex, Potion),
+}
+
+#[derive(Clone, Debug)]
+pub enum MainScreenOption {
+    ClimbFloor(ColumnIndex),
+    Potion(PotionAction),
+}
+
 // TODO: Move these to a presentation module
 impl fmt::Display for Prompt {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -81,6 +95,10 @@ impl fmt::Display for Prompt {
             Prompt::ChooseNext => write!(f, "Choose the next item to obtain"),
             Prompt::ChooseOne => write!(f, "Choose an item to obtain"),
             Prompt::ClimbFloor => write!(f, "Move up into one of the following columns"),
+            Prompt::ClimbFloorHasPotion => write!(
+                f,
+                "Move up into one of the following columns, or drink/discard a potion"
+            ),
             Prompt::CombatAction => write!(f, "It is your turn to act"),
             Prompt::RemoveCard => write!(f, "Choose a card to remove"),
             Prompt::TargetEnemy => write!(f, "Choose an enemy to target"),
@@ -92,8 +110,19 @@ impl fmt::Display for Choice {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Choice::ClimbFloor(column_index) => {
-                write!(f, "Column {}", (b'a' + *column_index as u8) as char)
+                write!(
+                    f,
+                    "Climb Spire, column {}",
+                    (b'a' + *column_index as u8) as char
+                )
             }
+            Choice::PotionAction(PotionAction::Discard(_, potion)) => {
+                write!(f, "Discard potion \"{:?}\"", potion)
+            }
+            Choice::PotionAction(PotionAction::Drink(_, potion)) => {
+                write!(f, "Drink potion \"{:?}\"", potion)
+            }
+
             Choice::EndTurn => write!(f, "(End Turn)"),
             Choice::NeowBlessing(blessing) => write!(f, "{}", blessing),
             Choice::ObtainCard(card) => write!(f, "{:?}", card),

@@ -34,7 +34,7 @@ impl MapBuilder {
 
     pub fn build(mut self) -> NodeGrid {
         if self.act == Act::get(4) {
-            unimplemented!();
+            todo!("Act 4");
         }
         let node_grid = GraphBuilder::new(&mut self.map_rng).build();
         RoomAssigner::new(node_grid, &mut self.map_rng)

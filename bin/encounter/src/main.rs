@@ -6,15 +6,23 @@ mod encounter;
 
 use anyhow::anyhow;
 use encounter::str_to_encounter;
-use lib::{Character, Choice, Encounter, Prompt, Seed, StsMessage, StsSimulator};
+use lib::{
+    Character, Choice, Encounter, EncounterSimulator, PlayerController, Prompt, Seed, StsMessage,
+    StsRandom,
+};
 
 fn main() -> Result<(), anyhow::Error> {
-    let (seed, character, encounter) = parse_command_line();
+    let (seed, character, floor, encounter) = parse_command_line();
     let (to_server, from_client) = channel();
     let (to_client, from_server) = channel();
-    let simulator = StsSimulator::new(seed, character, from_client, to_client);
+    let seed_for_floor = seed.with_offset(floor);
+
+    //let simulator = StsSimulator::new(seed, character, from_client, to_client);
     let simulator_handle = thread::spawn(move || {
-        let _ = simulator.run();
+        let mut player = PlayerController::new(character, from_client, to_client);
+        let mut misc_rng = StsRandom::from(seed_for_floor);
+        let _ =
+            EncounterSimulator::new(seed_for_floor, encounter, &mut misc_rng, &mut player).run();
     });
     main_input_loop(to_server, from_server)?;
     println!("[Main] Exiting.");
@@ -32,6 +40,11 @@ fn main_input_loop(
         match from_server.recv()? {
             StsMessage::Choices(prompt, choices) => {
                 to_server.send(collect_user_choice(prompt, choices)?)?;
+            }
+            StsMessage::EnemyParty(party) => {
+                for enemy_status in party.iter().flatten() {
+                    println!("Enemy: {:?}", enemy_status);
+                }
             }
             StsMessage::GameOver(result) => {
                 println!(
@@ -76,7 +89,7 @@ fn collect_user_choice(prompt: Prompt, choices: Vec<Choice>) -> Result<usize, an
     }
 }
 
-fn parse_command_line() -> (Seed, &'static Character, Encounter) {
+fn parse_command_line() -> (Seed, &'static Character, u64, Encounter) {
     let mut args = env::args();
     args.next(); // Skip the program name
     let seed = args
@@ -91,6 +104,11 @@ fn parse_command_line() -> (Seed, &'static Character, Encounter) {
         .as_str()
         .try_into()
         .unwrap_or_else(|e| panic!("Invalid character: {}", e));
+    let floor = args
+        .next()
+        .unwrap_or_else(|| panic!("No floor provided"))
+        .parse::<u64>()
+        .unwrap_or_else(|e| panic!("Invalid floor: {}", e));
     let encounter = str_to_encounter(
         args.next()
             .unwrap_or_else(|| panic!("No encounter provided"))
@@ -99,5 +117,5 @@ fn parse_command_line() -> (Seed, &'static Character, Encounter) {
     if args.next().is_some() {
         panic!("Too many arguments provided");
     }
-    (seed, character, encounter)
+    (seed, character, floor, encounter)
 }

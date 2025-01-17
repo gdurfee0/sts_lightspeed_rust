@@ -18,7 +18,7 @@ pub struct Action {
 impl Action {
     fn deal_damage(amount: AttackDamage, times: AttackCount) -> Action {
         Action {
-            effects: repeat(Effect::DealDamage(amount))
+            effects: repeat(Effect::AttackDamage(amount))
                 .take(times as usize)
                 .collect(),
             intent: Intent::Aggressive(amount, times),

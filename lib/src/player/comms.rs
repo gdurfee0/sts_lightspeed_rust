@@ -4,9 +4,10 @@ use std::sync::mpsc::{Receiver, Sender};
 use anyhow::{anyhow, Error};
 
 use crate::data::{Card, NeowBlessing, Potion};
-use crate::enemy::{EnemyStatus, EnemyType};
+use crate::enemy::{Enemy, EnemyStatus, EnemyType};
 use crate::{
-    ColumnIndex, Debuff, DeckIndex, EnemyIndex, Gold, HandIndex, Health, Relic, StackCount,
+    Block, ColumnIndex, Debuff, DeckIndex, Effect, EnemyIndex, Gold, HandIndex, Health, Hp, Relic,
+    StackCount,
 };
 
 use super::message::{Choice, Prompt, StsMessage};
@@ -123,37 +124,84 @@ impl Comms {
 
     /// Prompts the user to choose a card from their hand to play, returning the index of the card
     /// or None if the user chooses to end their turn.
-    pub fn choose_card_to_play(&self, hand: &[Card]) -> Result<Option<HandIndex>, Error> {
+    pub fn choose_card_to_play(
+        &self,
+        hand: &[Card],
+        effects: Vec<Vec<Effect>>,
+    ) -> Result<Option<(HandIndex, Vec<Effect>)>, Error> {
         let choices = hand
             .iter()
             .copied()
+            .zip(effects)
             .enumerate()
-            .map(|(hand_index, card)| Choice::PlayCardFromHand(hand_index, card))
+            .map(|(hand_index, (card, effects))| {
+                Choice::PlayCardFromHand(hand_index, card, effects)
+            })
             .chain(once(Choice::EndTurn))
             .collect::<Vec<_>>();
         match self.prompt_for_choice(Prompt::CombatAction, choices)? {
-            Choice::PlayCardFromHand(hand_index, _) => Ok(Some(hand_index)),
+            Choice::PlayCardFromHand(hand_index, _, effects) => Ok(Some((hand_index, effects))),
             Choice::EndTurn => Ok(None),
             _ => unreachable!(),
         }
     }
 
     /// Prompts the user to choose an enemy to target for their card or potion effect.
-    pub fn choose_enemy_to_target(&self, enemies: &[EnemyType]) -> Result<EnemyIndex, Error> {
+    pub fn choose_enemy_to_target(
+        &self,
+        enemies: &[Option<Enemy>],
+        effects: Vec<Option<Vec<Effect>>>,
+    ) -> Result<EnemyIndex, Error> {
         let choices = enemies
             .iter()
-            .copied()
+            .zip(effects)
             .enumerate()
-            .map(|(enemy_index, enemy_type)| Choice::TargetEnemy(enemy_index, enemy_type))
+            .filter_map(|(index, (maybe_enemy, maybe_effects))| {
+                maybe_enemy.as_ref().map(|enemy| {
+                    Choice::TargetEnemy(
+                        index,
+                        enemy.enemy_type(),
+                        maybe_effects.expect("Effects not found"),
+                    )
+                })
+            })
             .collect::<Vec<_>>();
         match self.prompt_for_choice(Prompt::TargetEnemy, choices)? {
-            Choice::TargetEnemy(enemy_index, _) => Ok(enemy_index),
+            Choice::TargetEnemy(enemy_index, _, _) => Ok(enemy_index),
             _ => unreachable!(),
         }
     }
 
-    pub fn send_deck(&self, deck: &[Card]) -> Result<(), Error> {
-        self.to_client.send(StsMessage::Deck(deck.to_vec()))?;
+    pub fn send_add_to_discard_pile(&self, cards: &[Card]) -> Result<(), Error> {
+        self.to_client
+            .send(StsMessage::AddToDiscardPile(cards.to_vec()))?;
+        Ok(())
+    }
+
+    pub fn send_block(&self, amount: Block) -> Result<(), Error> {
+        self.to_client.send(StsMessage::Block(amount))?;
+        Ok(())
+    }
+
+    pub fn send_block_gained(&self, amount: Block) -> Result<(), Error> {
+        self.to_client.send(StsMessage::BlockGained(amount))?;
+        Ok(())
+    }
+
+    pub fn send_block_lost(&self, amount: Block) -> Result<(), Error> {
+        self.to_client.send(StsMessage::BlockLost(amount))?;
+        Ok(())
+    }
+
+    pub fn send_card_discarded(&self, hand_index: HandIndex, card: Card) -> Result<(), Error> {
+        self.to_client
+            .send(StsMessage::CardDiscarded(hand_index, card))?;
+        Ok(())
+    }
+
+    pub fn send_card_drawn(&self, hand_index: HandIndex, card: Card) -> Result<(), Error> {
+        self.to_client
+            .send(StsMessage::CardDrawn(hand_index, card))?;
         Ok(())
     }
 
@@ -167,8 +215,50 @@ impl Comms {
         Ok(())
     }
 
+    pub fn send_damage_blocked(&self, amount: Hp) -> Result<(), Error> {
+        self.to_client.send(StsMessage::DamageBlocked(amount))?;
+        Ok(())
+    }
+
+    pub fn send_damage_taken(&self, amount: Hp) -> Result<(), Error> {
+        self.to_client.send(StsMessage::DamageTaken(amount))?;
+        Ok(())
+    }
+
+    pub fn send_debuffs(&self, debuffs: &[(Debuff, StackCount)]) -> Result<(), Error> {
+        self.to_client.send(StsMessage::Debuffs(debuffs.to_vec()))?;
+        Ok(())
+    }
+
+    pub fn send_deck(&self, deck: &[Card]) -> Result<(), Error> {
+        self.to_client.send(StsMessage::Deck(deck.to_vec()))?;
+        Ok(())
+    }
+
+    pub fn send_enemy_died(&self, index: EnemyIndex, enemy_type: EnemyType) -> Result<(), Error> {
+        self.to_client
+            .send(StsMessage::EnemyDied(index, enemy_type))?;
+        Ok(())
+    }
+
+    pub fn send_enemy_party(&self, enemies: Vec<Option<EnemyStatus>>) -> Result<(), Error> {
+        self.to_client.send(StsMessage::EnemyParty(enemies))?;
+        Ok(())
+    }
+
+    pub fn send_enemy_status(&self, index: EnemyIndex, status: EnemyStatus) -> Result<(), Error> {
+        self.to_client
+            .send(StsMessage::EnemyStatus(index, status))?;
+        Ok(())
+    }
+
     pub fn send_gold_changed(&self, gold: Gold) -> Result<(), Error> {
         self.to_client.send(StsMessage::Gold(gold))?;
+        Ok(())
+    }
+
+    pub fn send_hand_discarded(&self) -> Result<(), Error> {
+        self.to_client.send(StsMessage::HandDiscarded)?;
         Ok(())
     }
 
@@ -197,42 +287,8 @@ impl Comms {
         Ok(())
     }
 
-    pub fn send_debuffs(&self, debuffs: &[(Debuff, StackCount)]) -> Result<(), Error> {
-        self.to_client.send(StsMessage::Debuffs(debuffs.to_vec()))?;
-        Ok(())
-    }
-
-    pub fn send_card_drawn(&self, hand_index: HandIndex, card: Card) -> Result<(), Error> {
-        self.to_client
-            .send(StsMessage::CardDrawn(hand_index, card))?;
-        Ok(())
-    }
-
     pub fn send_shuffling_discard_to_draw(&self) -> Result<(), Error> {
         self.to_client.send(StsMessage::ShufflingDiscardToDraw)?;
-        Ok(())
-    }
-
-    pub fn send_hand_discarded(&self) -> Result<(), Error> {
-        self.to_client.send(StsMessage::HandDiscarded)?;
-        Ok(())
-    }
-
-    pub fn send_card_discarded(&self, hand_index: HandIndex, card: Card) -> Result<(), Error> {
-        self.to_client
-            .send(StsMessage::CardDiscarded(hand_index, card))?;
-        Ok(())
-    }
-
-    pub fn send_enemy_status(&self, index: EnemyIndex, status: EnemyStatus) -> Result<(), Error> {
-        self.to_client
-            .send(StsMessage::EnemyStatus(index, status))?;
-        Ok(())
-    }
-
-    pub fn send_enemy_died(&self, index: EnemyIndex, enemy_type: EnemyType) -> Result<(), Error> {
-        self.to_client
-            .send(StsMessage::EnemyDied(index, enemy_type))?;
         Ok(())
     }
 
@@ -241,7 +297,7 @@ impl Comms {
             .send(StsMessage::Choices(prompt, choices.clone()))?;
         let choice_index = self.from_client.recv()?;
         match choices.get(choice_index) {
-            Some(choice) => Ok(*choice),
+            Some(choice) => Ok(choice.clone()),
             _ => Err(anyhow!("Invalid choice")),
         }
     }

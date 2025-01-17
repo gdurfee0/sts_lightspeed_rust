@@ -53,7 +53,7 @@ impl NodeGrid {
     }
 
     pub fn get(&self, row_index: RowIndex, column_index: ColumnIndex) -> Option<&Node> {
-        self.grid[row_index as usize][column_index as usize].as_ref()
+        self.grid[row_index][column_index].as_ref()
     }
 
     /// Returns a Vec<u8> holding column indices of nodes in the given row that are not empty.

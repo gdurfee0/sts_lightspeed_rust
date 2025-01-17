@@ -3,8 +3,8 @@ use std::fmt;
 use crate::data::{Card, NeowBlessing, Potion, Relic};
 use crate::enemy::{EnemyStatus, EnemyType};
 use crate::{
-    ColumnIndex, Debuff, DeckIndex, EnemyIndex, Energy, Gold, HandIndex, Health, PotionIndex,
-    StackCount,
+    Block, ColumnIndex, Debuff, DeckIndex, Effect, EnemyIndex, Energy, Gold, HandIndex, Health, Hp,
+    PotionIndex, StackCount,
 };
 
 /// Message type for communication from the Simualtor to a client (human operator or AI agent).
@@ -25,15 +25,22 @@ pub enum StsMessage {
     Gold(Gold),
 
     // Encounter / combat messages
+    AddToDiscardPile(Vec<Card>),
+    Block(Block),
+    BlockGained(Block),
+    BlockLost(Block),
+    CardDiscarded(HandIndex, Card),
     CardDrawn(HandIndex, Card),
+    DamageBlocked(Hp),
+    DamageTaken(Hp),
     Debuffs(Vec<(Debuff, StackCount)>),
     DiscardPile(Vec<Card>),
     EnemyStatus(EnemyIndex, EnemyStatus),
     EnemyDied(EnemyIndex, EnemyType),
+    EnemyParty(Vec<Option<EnemyStatus>>),
     HandDiscarded,
     Health(Health),
     ShufflingDiscardToDraw,
-    CardDiscarded(HandIndex, Card),
     Energy(Energy),
 
     /// A list of `Choice`s, each representing a possible action; the client must select one
@@ -53,7 +60,7 @@ pub enum Prompt {
     TargetEnemy,
 }
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Debug)]
 pub enum Choice {
     EndTurn,
     ClimbFloor(ColumnIndex),
@@ -61,9 +68,9 @@ pub enum Choice {
     ObtainCard(Card),
     ObtainPotion(Potion),
     RemoveCard(DeckIndex, Card),
-    PlayCardFromHand(HandIndex, Card),
+    PlayCardFromHand(HandIndex, Card, Vec<Effect>),
     Skip,
-    TargetEnemy(EnemyIndex, EnemyType),
+    TargetEnemy(EnemyIndex, EnemyType, Vec<Effect>),
 }
 
 // TODO: Move these to a presentation module
@@ -91,10 +98,14 @@ impl fmt::Display for Choice {
             Choice::NeowBlessing(blessing) => write!(f, "{}", blessing),
             Choice::ObtainCard(card) => write!(f, "{:?}", card),
             Choice::ObtainPotion(potion) => write!(f, "{:?}", potion),
-            Choice::PlayCardFromHand(_, card) => write!(f, "Play card \"{:?}\"", card),
+            Choice::PlayCardFromHand(_, card, effects) => {
+                write!(f, "Play card \"{:?}\" {:?}", card, effects)
+            }
             Choice::RemoveCard(_, card) => write!(f, "{:?}", card),
             Choice::Skip => write!(f, "(Skip)"),
-            Choice::TargetEnemy(_, enemy) => write!(f, "Target \"{:?}\"", enemy), // TODO: Index?
+            Choice::TargetEnemy(_, enemy, effects) => {
+                write!(f, "Target \"{:?}\" {:?}", enemy, effects)
+            } // TODO: Index?
         }
     }
 }

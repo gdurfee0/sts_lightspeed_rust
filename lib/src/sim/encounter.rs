@@ -1,15 +1,18 @@
 use anyhow::Error;
 
 use crate::data::Encounter;
-use crate::enemy::{Enemy, EnemyType};
+use crate::enemy::{Enemy, EnemyAction, EnemyPartyGenerator};
 use crate::player::{CombatController, PlayerAction, PlayerController};
 use crate::rng::{Seed, StsRandom};
+use crate::Effect;
 
 pub struct EncounterSimulator<'a> {
     encounter: Encounter,
     seed_for_floor: Seed,
+    ai_rng: StsRandom,
     misc_rng: &'a mut StsRandom,
     player: CombatController<'a>,
+    enemy_party: [Option<Enemy>; 5],
 }
 
 impl<'a> EncounterSimulator<'a> {
@@ -19,151 +22,139 @@ impl<'a> EncounterSimulator<'a> {
         misc_rng: &'a mut StsRandom,
         player: &'a mut PlayerController,
     ) -> Self {
+        let ai_rng = StsRandom::from(seed_for_floor);
         let combat_controller = player.start_combat(StsRandom::from(seed_for_floor));
         Self {
             encounter,
             seed_for_floor,
+            ai_rng,
             misc_rng,
             player: combat_controller,
+            enemy_party: [None, None, None, None, None],
         }
     }
 
-    pub fn run(mut self) -> Result<(), Error> {
+    pub fn run(mut self) -> Result<bool, Error> {
         println!(
             "[EncounterSimulator] Running encounter: {:?}",
             self.encounter
         );
-        let mut hp_rng = StsRandom::from(self.seed_for_floor);
-        let mut ai_rng = StsRandom::from(self.seed_for_floor);
-        macro_rules! enemy_party {
-            ( $( $enemy:ident ),* ) => {{
-                let enemies: Vec<Enemy> = vec![
-                    $(
-                        Enemy::new(EnemyType::$enemy, &mut hp_rng, &mut ai_rng),
-                    )*
-                ];
-                enemies
-            }};
-        }
-        let mut enemy_party = match self.encounter {
-            Encounter::AwakenedOne => todo!(),
-            Encounter::BlueSlaver => todo!(),
-            Encounter::BookOfStabbing => todo!(),
-            Encounter::BronzeAutomaton => todo!(),
-            Encounter::CenturionAndMystic => todo!(),
-            Encounter::Chosen => todo!(),
-            Encounter::ChosenAndByrd => todo!(),
-            Encounter::CorruptHeart => todo!(),
-            Encounter::Cultist => todo!(),
-            Encounter::CultistAndChosen => todo!(),
-            Encounter::DonuAndDeca => todo!(),
-            Encounter::ExordiumThugs => todo!(),
-            Encounter::ExordiumWildlife => todo!(),
-            Encounter::FourShapes => todo!(),
-            Encounter::GiantHead => todo!(),
-            Encounter::GremlinGang => todo!(),
-            Encounter::GremlinLeader => todo!(),
-            Encounter::GremlinNob => todo!(),
-            Encounter::Hexaghost => todo!(),
-            Encounter::JawWorm => todo!(),
-            Encounter::JawWormHorde => todo!(),
-            Encounter::Lagavulin => todo!(),
-            Encounter::LargeSlime => todo!(),
-            Encounter::Looter => todo!(),
-            Encounter::LotsOfSlimes => todo!(),
-            Encounter::Maw => todo!(),
-            Encounter::Nemesis => todo!(),
-            Encounter::OrbWalker => todo!(),
-            Encounter::RedSlaver => todo!(),
-            Encounter::Reptomancer => todo!(),
-            Encounter::SentryAndSphericGuardian => todo!(),
-            Encounter::ShelledParasite => todo!(),
-            Encounter::ShelledParasiteAndFungiBeast => todo!(),
-            Encounter::SlimeBoss => todo!(),
-            Encounter::SmallSlimes => {
-                if self.misc_rng.next_bool() {
-                    enemy_party!(SpikeSlimeS, AcidSlimeM)
-                } else {
-                    enemy_party!(AcidSlimeS, SpikeSlimeM)
-                }
-            }
-            Encounter::SnakePlant => todo!(),
-            Encounter::Snecko => todo!(),
-            Encounter::SphericGuardian => todo!(),
-            Encounter::SphericGuardianAndTwoShapes => todo!(),
-            Encounter::SpireGrowth => todo!(),
-            Encounter::SpireShieldAndSpireSpear => todo!(),
-            Encounter::Taskmaster => todo!(),
-            Encounter::TheChamp => todo!(),
-            Encounter::TheCollector => todo!(),
-            Encounter::TheGuardian => todo!(),
-            Encounter::ThreeByrds => todo!(),
-            Encounter::ThreeCultists => todo!(),
-            Encounter::ThreeDarklings => todo!(),
-            Encounter::ThreeLouses => todo!(),
-            Encounter::ThreeSentries => todo!(),
-            Encounter::ThreeShapes => todo!(),
-            Encounter::TimeEater => todo!(),
-            Encounter::Transient => todo!(),
-            Encounter::TwoFungiBeasts => todo!(),
-            Encounter::TwoLouses => todo!(),
-            Encounter::TwoThieves => todo!(),
-            Encounter::WrithingMass => todo!(),
-        };
+        EnemyPartyGenerator::new(
+            self.seed_for_floor,
+            self.encounter,
+            &mut self.ai_rng,
+            self.misc_rng,
+        )
+        .generate(&mut self.enemy_party);
 
-        #[allow(clippy::never_loop, clippy::while_let_loop)]
         loop {
-            for (i, status) in enemy_party.iter().map(Enemy::status).enumerate() {
-                self.player.update_enemy_status(i, status)?;
+            if self.conduct_player_turn()? {
+                return Ok(self.player.hp() > 0);
             }
-            self.player.start_turn()?;
-            loop {
-                let enemies = enemy_party
-                    .iter()
-                    .map(Enemy::enemy_type)
-                    .collect::<Vec<_>>();
-                match self.player.choose_next_action(&enemies)? {
-                    PlayerAction::PlayCard(action) => todo!(),
-                    PlayerAction::PlayCardAgainstEnemy(action, target_index) => {
-                        for effect in action.effects.iter() {
-                            let enemy = &mut enemy_party[target_index];
-                            if !enemy.apply_effect(*effect) {
-                                // Remove this enemy from the party
-                                self.player.enemy_died(target_index, enemy.enemy_type())?;
-                                enemy_party.remove(target_index);
-                                break;
+            if self.conduct_enemy_turn()? {
+                return Ok(self.player.hp() > 0);
+            }
+        }
+    }
+
+    // Returns true iff the battle is over
+    fn conduct_player_turn(&mut self) -> Result<bool, Error> {
+        self.player.start_turn()?;
+        loop {
+            match self.player.choose_next_action(&self.enemy_party)? {
+                PlayerAction::PlayCard(action) => {
+                    for effect in action.effects.iter() {
+                        match effect {
+                            Effect::AddToDiscardPile(_) => todo!(),
+                            Effect::AttackDamage(amount) => {
+                                self.enemy_party
+                                    .iter_mut()
+                                    .filter_map(|enemy| enemy.as_mut())
+                                    .for_each(|enemy| {
+                                        enemy.apply_effect(Effect::AttackDamage(*amount));
+                                    });
                             }
-                            self.player
-                                .update_enemy_status(target_index, enemy.status())?;
+                            Effect::GainBlock(amount) => {
+                                self.player.gain_block(*amount)?;
+                            }
+                            Effect::Inflict(debuff, stacks) => {
+                                self.enemy_party
+                                    .iter_mut()
+                                    .filter_map(|enemy| enemy.as_mut())
+                                    .for_each(|enemy| {
+                                        enemy.apply_effect(Effect::Inflict(*debuff, *stacks));
+                                    });
+                            }
                         }
                     }
-                    PlayerAction::EndTurn => break,
-                    _ => todo!(),
                 }
-                if enemy_party.is_empty() {
-                    // Battle is over!
-                    return Ok(());
+                PlayerAction::PlayCardAgainstEnemy(action, target_index) => {
+                    match self.enemy_party[target_index].as_mut() {
+                        Some(enemy) => {
+                            for effect in action.effects.iter() {
+                                if !enemy.apply_effect(*effect) {
+                                    // Remove this enemy from the party
+                                    self.player.enemy_died(target_index, enemy.enemy_type())?;
+                                    self.enemy_party[target_index] = None;
+                                    break;
+                                }
+                                self.player
+                                    .update_enemy_status(target_index, enemy.status())?;
+                            }
+                        }
+                        _ => unreachable!(),
+                    }
                 }
-                self.player.discard_card_just_played()?;
+                PlayerAction::EndTurn => break,
+                _ => todo!(),
             }
-            for enemy in enemy_party.iter_mut() {
-                // TODO: check for death and remove
-                let _ = enemy.start_turn();
+            if self.enemy_party.iter().all(|enemy| enemy.is_none()) {
+                // Battle is over!
+                return Ok(true);
             }
-            //enemy_party.retain(|enemy| enemy.health().0 > 0);
-            for enemy in enemy_party.iter_mut() {
-                let action = enemy.next_action(&mut ai_rng);
+            self.player.discard_card_just_played()?;
+        }
+        self.player.end_turn()?;
+        Ok(false)
+    }
+
+    // Returns true iff the battle is over
+    fn conduct_enemy_turn(&mut self) -> Result<bool, Error> {
+        for enemy in self
+            .enemy_party
+            .iter_mut()
+            .filter_map(|enemy| enemy.as_mut())
+        {
+            // TODO: check for death and remove
+            let _ = enemy.start_turn();
+        }
+        //enemy_party.retain(|enemy| enemy.health().0 > 0);
+        for maybe_enemy in self.enemy_party.iter_mut() {
+            if let Some(enemy) = maybe_enemy.as_mut() {
+                let action: &EnemyAction = enemy.next_action(&mut self.ai_rng);
                 for effect in action.effects.iter() {
                     match effect {
-                        crate::Effect::AddToDiscardPile(_) => todo!(),
-                        crate::Effect::DealDamage(_) => todo!(),
-                        crate::Effect::GainBlock(_) => todo!(),
-                        crate::Effect::Inflict(debuff, stacks) => {
+                        Effect::AddToDiscardPile(cards) => {
+                            self.player.add_to_discard_pile(cards)?;
+                        }
+                        Effect::AttackDamage(amount) => {
+                            self.player.take_damage(*amount)?;
+                        }
+                        Effect::GainBlock(_) => todo!(),
+                        Effect::Inflict(debuff, stacks) => {
                             self.player.apply_debuff(*debuff, *stacks)?
                         }
                     }
+                    if enemy.hp() == 0 {
+                        *maybe_enemy = None;
+                        break;
+                    }
+                    if self.player.hp() == 0 {
+                        return Ok(true);
+                    }
                 }
             }
         }
+        Ok(self.enemy_party.iter().all(|enemy| enemy.is_none()))
     }
 }

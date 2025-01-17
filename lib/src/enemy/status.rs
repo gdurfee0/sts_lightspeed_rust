@@ -1,12 +1,12 @@
 use crate::{Debuff, Hp, HpMax, StackCount};
 
-use super::intent::Intent;
 use super::id::EnemyType;
+use super::intent::Intent;
 
 /// `EnemyStatus` is a small bundle of information about the enemy that is made available to
 /// the player. The player is not allowed to know anything else about the enemy, such as its
 /// internal state or future moves.
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct EnemyStatus {
     pub enemy_type: EnemyType,
     pub intent: Intent,

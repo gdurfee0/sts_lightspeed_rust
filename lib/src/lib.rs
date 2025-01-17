@@ -6,13 +6,13 @@ mod rng;
 mod sim;
 
 pub use data::*;
-pub use player::{Choice, Prompt, StsMessage};
-pub use rng::Seed;
-pub use sim::StsSimulator;
+pub use player::{Choice, PlayerController, Prompt, StsMessage};
+pub use rng::{Seed, StsRandom};
+pub use sim::{EncounterSimulator, StsSimulator};
 
 pub type AttackDamage = Hp; // Amount of damage dealt by an attack.
 pub type AttackCount = u32; // Number of attacks in a multi-attack.
-pub type BlockAmount = u32; // Amount of block applied by a skill.
+pub type Block = u32; // Amount of block applied by a skill.
 pub type Gold = u32;
 pub type Energy = u32;
 pub type Health = (Hp, HpMax); // Current and maximum hit points.

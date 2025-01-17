@@ -4,7 +4,7 @@ use anyhow::Error;
 
 use crate::data::{Card, Character, NeowBlessing, Potion, Relic};
 use crate::rng::StsRandom;
-use crate::{ColumnIndex, Gold, Hp, HpMax};
+use crate::{ColumnIndex, Effect, Gold, Hp, HpMax};
 
 use super::combat::CombatController;
 use super::comms::Comms;
@@ -118,7 +118,7 @@ impl PlayerController {
         mut choice_count: usize,
     ) -> Result<(), Error> {
         let mut potion_vec = potions.to_vec();
-        while self.state.has_potion_slot_available() && potion_vec.len() > 0 && choice_count > 0 {
+        while self.state.has_potion_slot_available() && !potion_vec.is_empty() && choice_count > 0 {
             if let Some(potion) = self
                 .comms
                 .choose_potion_to_obtain(&potion_vec, choice_count == 1)?
@@ -139,7 +139,7 @@ impl PlayerController {
     }
 
     pub fn choose_card_to_remove(&mut self) -> Result<(), Error> {
-        let deck_index = self.comms.choose_card_to_remove(&self.state.deck())?;
+        let deck_index = self.comms.choose_card_to_remove(self.state.deck())?;
         let card = self.state.remove_card(deck_index);
         self.comms.send_card_removed(card)?;
         self.comms.send_deck(self.state.deck())
@@ -147,5 +147,9 @@ impl PlayerController {
 
     pub fn start_combat(&mut self, shuffle_rng: StsRandom) -> CombatController {
         CombatController::new(shuffle_rng, &mut self.state, &mut self.comms)
+    }
+
+    pub fn interpret_effect(&self, effect: Effect) -> Effect {
+        effect
     }
 }

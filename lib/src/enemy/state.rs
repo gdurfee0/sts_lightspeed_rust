@@ -1,5 +1,5 @@
 use crate::rng::StsRandom;
-use crate::{Debuff, Effect, StackCount};
+use crate::{Debuff, Effect, Hp, StackCount};
 
 use super::action::{AcidSlimeM, AcidSlimeS, Action, NextActionFn, SpikeSlimeM, SpikeSlimeS};
 use super::id::EnemyType;
@@ -49,6 +49,10 @@ impl Enemy {
         self.enemy_type
     }
 
+    pub fn hp(&self) -> Hp {
+        self.hp
+    }
+
     pub fn status(&self) -> EnemyStatus {
         EnemyStatus {
             enemy_type: self.enemy_type,
@@ -73,7 +77,7 @@ impl Enemy {
     pub fn apply_effect(&mut self, effect: Effect) -> bool {
         match effect {
             Effect::AddToDiscardPile(_) => unreachable!(),
-            Effect::DealDamage(mut amount) => {
+            Effect::AttackDamage(mut amount) => {
                 if self
                     .debuffs
                     .iter()
@@ -81,12 +85,29 @@ impl Enemy {
                 {
                     amount = (amount as f32 * 1.5).floor() as u32;
                 }
-                println!("Enemy dealt {} damage", amount);
                 self.hp = self.hp.saturating_sub(amount);
                 self.hp > 0
             }
             Effect::GainBlock(_) => unreachable!(),
             Effect::Inflict(debuff, stacks) => self.apply_debuff(debuff, stacks),
+        }
+    }
+
+    pub fn interpret_effect(&self, effect: Effect) -> Effect {
+        match effect {
+            Effect::AttackDamage(amount) => {
+                if self
+                    .debuffs
+                    .iter()
+                    .any(|(debuff, _)| *debuff == Debuff::Vulnerable)
+                {
+                    Effect::AttackDamage((amount as f32 * 1.5).floor() as u32)
+                } else {
+                    Effect::AttackDamage(amount)
+                }
+            }
+            Effect::Inflict(_, _) => effect,
+            _ => todo!("{:?}", effect),
         }
     }
 

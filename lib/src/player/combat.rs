@@ -1,11 +1,13 @@
 use anyhow::Error;
 
 use crate::data::Card;
-use crate::enemy::{EnemyStatus, EnemyType};
+use crate::enemy::{Enemy, EnemyStatus, EnemyType};
 use crate::rng::StsRandom;
-use crate::{Buff, Debuff, EnemyIndex, Energy, HandIndex, StackCount};
+use crate::{
+    AttackDamage, Block, Buff, Debuff, Effect, EnemyIndex, Energy, HandIndex, Hp, StackCount,
+};
 
-use super::action::{Action, CardAction, Target};
+use super::action::{Action, CardDetails, Target};
 use super::comms::Comms;
 use super::state::PlayerState;
 
@@ -16,6 +18,7 @@ use super::state::PlayerState;
 pub struct CombatController<'a> {
     shuffle_rng: StsRandom,
     energy: Energy,
+    block: Block,
     buffs: Vec<(Buff, StackCount)>,
     debuffs: Vec<(Debuff, StackCount)>,
     hand: Vec<Card>,
@@ -43,6 +46,7 @@ impl<'a> CombatController<'a> {
         Self {
             shuffle_rng,
             energy: 3,
+            block: 0,
             buffs: Vec::new(),
             debuffs,
             hand,
@@ -55,12 +59,27 @@ impl<'a> CombatController<'a> {
         }
     }
 
+    pub fn hp(&self) -> Hp {
+        self.state.hp()
+    }
+
     pub fn start_turn(&mut self) -> Result<(), Error> {
         // Reset energy
         self.energy = 3;
 
         // Draw cards
         self.draw_cards()?;
+
+        // Set block to 0
+        self.block = 0;
+        self.comms.send_block(self.block)?;
+
+        // TODO: Apply other start-of-turn effects
+        Ok(())
+    }
+
+    pub fn end_turn(&mut self) -> Result<(), Error> {
+        self.discard_hand()?;
 
         // Tick down debuffs
         for (_, stacks) in self.debuffs.iter_mut() {
@@ -69,8 +88,30 @@ impl<'a> CombatController<'a> {
         self.debuffs.retain(|(_, stacks)| *stacks > 0);
         self.comms.send_debuffs(&self.debuffs)?;
 
-        // Apply any other start-of-turn effects
+        // TODO: Apply other end-of-turn effects
         Ok(())
+    }
+
+    pub fn take_damage(&mut self, amount: AttackDamage) -> Result<(), Error> {
+        if amount < self.block {
+            self.block -= amount;
+            self.comms.send_damage_blocked(amount)?;
+            self.comms.send_block_lost(amount)?;
+            self.comms.send_block(self.block)
+        } else if self.block > 0 {
+            let remaining_damage = amount - self.block;
+            self.block = 0;
+            self.comms.send_damage_blocked(amount)?;
+            self.comms.send_block_lost(amount)?;
+            self.comms.send_block(self.block)?;
+            self.comms.send_damage_taken(remaining_damage)?;
+            self.state.decrease_hp(remaining_damage);
+            self.comms.send_health_changed(self.state.health())
+        } else {
+            self.state.decrease_hp(amount);
+            self.comms.send_damage_taken(amount)?;
+            self.comms.send_health_changed(self.state.health())
+        }
     }
 
     pub fn draw_cards(&mut self) -> Result<(), Error> {
@@ -94,7 +135,14 @@ impl<'a> CombatController<'a> {
         Ok(())
     }
 
-    pub fn discard_hand(&mut self) -> Result<(), Error> {
+    pub fn add_to_discard_pile(&mut self, cards: &[Card]) -> Result<(), Error> {
+        for card in cards {
+            self.discard_pile.push(*card);
+        }
+        self.comms.send_add_to_discard_pile(cards)
+    }
+
+    fn discard_hand(&mut self) -> Result<(), Error> {
         // Emulating the game's behavior
         while let Some(card) = self.hand.pop() {
             self.discard_pile.push(card);
@@ -106,16 +154,40 @@ impl<'a> CombatController<'a> {
         self.comms.send_enemy_died(index, enemy_type)
     }
 
-    pub fn choose_next_action(&mut self, enemies: &[EnemyType]) -> Result<Action, Error> {
+    pub fn choose_next_action(&mut self, enemies: &[Option<Enemy>]) -> Result<Action, Error> {
         // TODO: drink a potion, discard a potion
         // TODO: check for unwinnable situations
-        match self.comms.choose_card_to_play(&self.hand)? {
-            Some(hand_index) => {
+
+        let enemy_statuses = enemies
+            .iter()
+            .map(|maybe_enemy| maybe_enemy.as_ref().map(|enemy| enemy.status()))
+            .collect::<Vec<_>>();
+        self.comms.send_enemy_party(enemy_statuses)?;
+        let all_card_effects = self
+            .hand
+            .iter()
+            .map(|card| self.interpret_effects(&CardDetails::for_card(*card).effects))
+            .collect();
+        match self
+            .comms
+            .choose_card_to_play(&self.hand, all_card_effects)?
+        {
+            Some((hand_index, card_effects)) => {
                 self.card_just_played = Some(hand_index);
-                let card_action = CardAction::for_card(self.hand[hand_index]);
+                let card_action = CardDetails::for_card(self.hand[hand_index]);
                 match card_action.target {
                     Target::OneEnemy => {
-                        let enemy_index = self.comms.choose_enemy_to_target(enemies)?;
+                        let card_effects_against_targets = enemies
+                            .iter()
+                            .map(|maybe_enemy| {
+                                maybe_enemy.as_ref().map(|enemy| {
+                                    self.interpret_effects_against_enemy(&card_effects, enemy)
+                                })
+                            })
+                            .collect();
+                        let enemy_index = self
+                            .comms
+                            .choose_enemy_to_target(enemies, card_effects_against_targets)?;
                         Ok(Action::PlayCardAgainstEnemy(card_action, enemy_index))
                     }
                     Target::AllEnemies => Ok(Action::PlayCard(card_action)),
@@ -144,7 +216,51 @@ impl<'a> CombatController<'a> {
         self.comms.send_debuffs(&self.debuffs)
     }
 
+    pub fn gain_block(&mut self, amount: Block) -> Result<(), Error> {
+        self.comms.send_block_gained(amount)?;
+        self.block = self.block.saturating_add(amount);
+        self.comms.send_block(self.block)
+    }
+
+    pub fn has_debuff(&self, debuff: Debuff) -> bool {
+        self.debuffs.iter().any(|(d, _)| *d == debuff)
+    }
+
     pub fn update_enemy_status(&self, index: EnemyIndex, status: EnemyStatus) -> Result<(), Error> {
         self.comms.send_enemy_status(index, status)
+    }
+
+    pub fn interpret_effects(&self, effects: &[Effect]) -> Vec<Effect> {
+        effects
+            .iter()
+            .copied()
+            .map(|effect| match effect {
+                Effect::AttackDamage(_) => {
+                    // Strength etc
+                    effect
+                }
+                Effect::GainBlock(amount) => {
+                    if self.has_debuff(Debuff::Frail) {
+                        Effect::GainBlock((amount as f32 * 0.75).floor() as Block)
+                    } else {
+                        Effect::GainBlock(amount)
+                    }
+                }
+                Effect::Inflict(_, _) => effect,
+                _ => todo!("{:?}", effect),
+            })
+            .collect()
+    }
+
+    pub fn interpret_effects_against_enemy(
+        &self,
+        effects: &[Effect],
+        enemy: &Enemy,
+    ) -> Vec<Effect> {
+        effects
+            .iter()
+            .copied()
+            .map(|effect| enemy.interpret_effect(effect))
+            .collect()
     }
 }

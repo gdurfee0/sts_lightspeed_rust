@@ -1,9 +1,12 @@
 use std::iter::repeat;
 
 use crate::data::Card;
+use crate::enemy::Enemy;
 use crate::{
     AttackCount, AttackDamage, Block, Debuff, Effect, EnemyIndex, Energy, PotionIndex, StackCount,
 };
+
+use super::state::CombatState;
 
 #[derive(Clone, Debug)]
 pub struct EffectChain(Vec<Effect>); // Effects as proscibed by a Card's text.
@@ -66,8 +69,27 @@ impl EffectChain {
 }
 
 impl PlayerEffectChain {
-    pub fn new(effects: Vec<Effect>) -> Self {
-        PlayerEffectChain(effects)
+    pub fn from(effect_chain: &EffectChain, combat_state: &CombatState) -> Self {
+        Self(
+            effect_chain
+                .iter()
+                .map(|effect| match effect {
+                    Effect::AttackDamage(_) => {
+                        // TODO: Strength etc
+                        effect.clone()
+                    }
+                    Effect::GainBlock(amount) => {
+                        if combat_state.has_debuff(Debuff::Frail) {
+                            Effect::GainBlock((*amount as f32 * 0.75).floor() as Block)
+                        } else {
+                            Effect::GainBlock(*amount)
+                        }
+                    }
+                    Effect::Inflict(_, _) => effect.clone(),
+                    _ => todo!("{:?}", effect),
+                })
+                .collect(),
+        )
     }
 
     pub fn iter(&self) -> impl Iterator<Item = &Effect> {
@@ -76,8 +98,14 @@ impl PlayerEffectChain {
 }
 
 impl EnemyEffectChain {
-    pub fn new(effects: Vec<Effect>) -> Self {
-        EnemyEffectChain(effects)
+    pub fn from(player_effect_chain: &PlayerEffectChain, enemy: &Enemy) -> Self {
+        Self(
+            player_effect_chain
+                .iter()
+                .cloned()
+                .map(|effect| enemy.account_for_buffs_and_debuffs(effect))
+                .collect(),
+        )
     }
 
     pub fn iter(&self) -> impl Iterator<Item = &Effect> {

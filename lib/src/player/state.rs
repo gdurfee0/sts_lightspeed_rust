@@ -1,5 +1,8 @@
 use crate::data::{Card, Character, Potion, Relic};
-use crate::{DeckIndex, Gold, Health, Hp, HpMax, PotionIndex};
+use crate::{
+    Block, Buff, Debuff, DeckIndex, Energy, Gold, Health, Hp, HpMax, PotionIndex, StackCount,
+    StsRandom,
+};
 
 /// Encapsulates the state of the player in the game, e.g. HP, gold, deck, etc.
 /// Mostly a dumb container.
@@ -12,6 +15,21 @@ pub struct PlayerState {
     relics: Vec<Relic>,
     deck: Vec<Card>,
     potions: Vec<Option<Potion>>,
+}
+
+/// Captures the state of a combat encounter, including the player's hand, draw pile, etc.
+/// Lives only as long as the combat encounter itself.  TODO: lock down field visibility
+#[derive(Debug)]
+pub struct CombatState {
+    shuffle_rng: StsRandom,
+    pub energy: Energy,
+    pub block: Block,
+    pub buffs: Vec<(Buff, StackCount)>,
+    pub debuffs: Vec<(Debuff, StackCount)>,
+    pub hand: Vec<Card>,
+    pub draw_pile: Vec<Card>,
+    pub discard_pile: Vec<Card>,
+    pub exhaust_pile: Vec<Card>,
 }
 
 impl PlayerState {
@@ -111,6 +129,36 @@ impl PlayerState {
 
     pub fn decrease_gold(&mut self, amount: Gold) {
         self.gold = self.gold.saturating_sub(amount);
+    }
+}
+
+impl CombatState {
+    pub fn new(deck: &[Card], mut shuffle_rng: StsRandom) -> Self {
+        let hand = Vec::new();
+        let mut draw_pile = deck.to_vec();
+        shuffle_rng.java_compat_shuffle(&mut draw_pile);
+        let discard_pile = Vec::new();
+        let exhaust_pile = Vec::new();
+        let debuffs = Vec::new();
+        Self {
+            shuffle_rng,
+            energy: 3,
+            block: 0,
+            buffs: Vec::new(),
+            debuffs,
+            hand,
+            draw_pile,
+            discard_pile,
+            exhaust_pile,
+        }
+    }
+
+    pub fn shuffle(&mut self) {
+        self.shuffle_rng.java_compat_shuffle(&mut self.draw_pile);
+    }
+
+    pub fn has_debuff(&self, debuff: Debuff) -> bool {
+        self.debuffs.iter().any(|(d, _)| *d == debuff)
     }
 }
 

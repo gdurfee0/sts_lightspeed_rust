@@ -3,13 +3,17 @@ use std::sync::mpsc::{Receiver, Sender};
 use anyhow::Error;
 
 use crate::data::{Card, Character, NeowBlessing, Potion, Relic};
+use crate::enemy::{Enemy, EnemyStatus, EnemyType};
 use crate::rng::StsRandom;
-use crate::{ColumnIndex, Effect, Gold, Hp, HpMax};
+use crate::{
+    AttackDamage, Block, ColumnIndex, Debuff, Effect, EnemyIndex, Gold, HandIndex, Hp, HpMax,
+    StackCount,
+};
 
-use super::combat::CombatController;
+use super::action::{Action, CardDetails, EnemyEffectChain, PlayerEffectChain, Target};
 use super::comms::Comms;
-use super::message::{MainScreenOption, PotionAction, StsMessage};
-use super::state::PlayerState;
+use super::message::{CardPlay, MainScreenOption, PotionAction, StsMessage};
+use super::state::{CombatState, PlayerState};
 
 /// Encapsulates the state of the player in the game, e.g. HP, gold, deck, etc.
 /// Also handles interactions with the player via the input_rx and output_tx channels, sending
@@ -18,6 +22,17 @@ use super::state::PlayerState;
 pub struct PlayerController {
     state: PlayerState,
     comms: Comms,
+}
+
+/// Captures the state of a combat encounter, including the player's hand, draw pile, etc.
+/// Lives only as long as the combat encounter itself. Also hands combat-related communication
+/// with the user.
+#[derive(Debug)]
+pub struct CombatController<'a> {
+    combat_state: CombatState,
+    card_just_played: Option<HandIndex>,
+    state: &'a mut PlayerState,
+    comms: &'a mut Comms,
 }
 
 /// Some convenience methods for Player interaction.
@@ -185,5 +200,225 @@ impl PlayerController {
 
     pub fn interpret_effect(&self, effect: Effect) -> Effect {
         effect
+    }
+}
+
+impl<'a> CombatController<'a> {
+    pub fn new(shuffle_rng: StsRandom, state: &'a mut PlayerState, comms: &'a mut Comms) -> Self {
+        let combat_state = CombatState::new(state.deck(), shuffle_rng);
+        Self {
+            combat_state,
+            card_just_played: None,
+            state,
+            comms,
+        }
+    }
+
+    pub fn hp(&self) -> Hp {
+        self.state.hp()
+    }
+
+    pub fn start_turn(&mut self) -> Result<(), Error> {
+        // Reset energy
+        // TODO: energy conservation
+        self.combat_state.energy = 3;
+
+        // Draw cards
+        self.draw_cards()?;
+
+        // Set block to 0
+        if self.combat_state.block > 0 {
+            self.combat_state.block = 0;
+            self.comms.send_block(self.combat_state.block)?;
+        }
+
+        // TODO: Apply other start-of-turn effects
+        Ok(())
+    }
+
+    pub fn end_turn(&mut self) -> Result<(), Error> {
+        self.discard_hand()?;
+
+        // Tick down debuffs
+        for (_, stacks) in self.combat_state.debuffs.iter_mut() {
+            *stacks = (*stacks - 1).max(0);
+        }
+        self.combat_state.debuffs.retain(|(_, stacks)| *stacks > 0);
+        self.comms.send_debuffs(&self.combat_state.debuffs)?;
+
+        // TODO: Apply other end-of-turn effects
+        Ok(())
+    }
+
+    pub fn take_damage(&mut self, amount: AttackDamage) -> Result<(), Error> {
+        if amount <= self.combat_state.block {
+            self.combat_state.block -= amount;
+            self.comms.send_damage_blocked(amount)?;
+            self.comms.send_block_lost(amount)?;
+            self.comms.send_block(self.combat_state.block)
+        } else if self.combat_state.block > 0 {
+            let remaining_damage = amount - self.combat_state.block;
+            self.combat_state.block = 0;
+            self.comms.send_damage_blocked(amount)?;
+            self.comms.send_block_lost(amount)?;
+            self.comms.send_block(self.combat_state.block)?;
+            self.comms.send_damage_taken(remaining_damage)?;
+            self.state.decrease_hp(remaining_damage);
+            self.comms.send_health_changed(self.state.health())
+        } else {
+            self.state.decrease_hp(amount);
+            self.comms.send_damage_taken(amount)?;
+            self.comms.send_health_changed(self.state.health())
+        }
+    }
+
+    pub fn draw_cards(&mut self) -> Result<(), Error> {
+        // Draw new cards
+        let draw_count = 5;
+        for i in 0..draw_count {
+            if let Some(card) = self.combat_state.draw_pile.pop() {
+                self.combat_state.hand.push(card);
+                self.comms.send_card_drawn(i, card)?;
+            } else {
+                // Shuffle discard pile into draw pile
+                self.comms.send_shuffling_discard_to_draw()?;
+                self.combat_state.shuffle();
+                self.combat_state
+                    .draw_pile
+                    .append(&mut self.combat_state.discard_pile);
+                if let Some(card) = self.combat_state.draw_pile.pop() {
+                    self.combat_state.hand.push(card);
+                    self.comms.send_card_drawn(i, card)?;
+                }
+            }
+        }
+        Ok(())
+    }
+
+    pub fn add_to_discard_pile(&mut self, cards: &[Card]) -> Result<(), Error> {
+        for card in cards {
+            self.combat_state.discard_pile.push(*card);
+        }
+        self.comms.send_add_to_discard_pile(cards)
+    }
+
+    fn discard_hand(&mut self) -> Result<(), Error> {
+        // Emulating the game's behavior
+        while let Some(card) = self.combat_state.hand.pop() {
+            self.combat_state.discard_pile.push(card);
+        }
+        self.comms.send_hand_discarded()
+    }
+
+    pub fn enemy_died(&self, index: EnemyIndex, enemy_type: EnemyType) -> Result<(), Error> {
+        self.comms.send_enemy_died(index, enemy_type)
+    }
+
+    fn available_card_plays(&self) -> Vec<CardPlay> {
+        self.combat_state
+            .hand
+            .iter()
+            .enumerate()
+            .map(|(hand_index, card)| {
+                let card_details = CardDetails::for_card(*card);
+                CardPlay {
+                    hand_index,
+                    card: *card,
+                    cost: card_details.cost,
+                    effect_chain: PlayerEffectChain::from(
+                        &card_details.effect_chain,
+                        &self.combat_state,
+                    ),
+                    target: card_details.target,
+                }
+            })
+            .collect::<Vec<_>>()
+    }
+
+    pub fn choose_next_action(&mut self, enemies: &[Option<Enemy>]) -> Result<Action, Error> {
+        // TODO: drink a potion, discard a potion
+        // TODO: check for unwinnable situations
+
+        let enemy_statuses = enemies
+            .iter()
+            .map(|maybe_enemy| maybe_enemy.as_ref().map(|enemy| enemy.status()))
+            .collect::<Vec<_>>();
+        self.comms.send_enemy_party(enemy_statuses)?;
+        self.comms.send_energy(self.combat_state.energy)?;
+        let card_plays = self.available_card_plays();
+        match self.comms.choose_card_to_play(&card_plays)? {
+            Some(card_play) => {
+                self.card_just_played = Some(card_play.hand_index);
+                if card_play.target == Target::Player {
+                    Ok(Action::ApplyEffectChainToPlayer(card_play.effect_chain))
+                } else {
+                    self.resolve_card_play_against_enemies(card_play, enemies)
+                }
+            }
+            None => Ok(Action::EndTurn),
+        }
+    }
+
+    fn resolve_card_play_against_enemies(
+        &mut self,
+        card_play: CardPlay,
+        enemies: &[Option<Enemy>],
+    ) -> Result<Action, Error> {
+        let mut enemy_effect_chains = enemies
+            .iter()
+            .map(|maybe_enemy| {
+                maybe_enemy
+                    .as_ref()
+                    .map(|enemy| EnemyEffectChain::from(&card_play.effect_chain, enemy))
+            })
+            .collect::<Vec<_>>();
+        match card_play.target {
+            Target::OneEnemy => {
+                let enemy_index = self
+                    .comms
+                    .choose_enemy_to_target(enemies, &enemy_effect_chains)?;
+                Ok(Action::ApplyEffectChainToEnemy(
+                    enemy_effect_chains[enemy_index]
+                        .take()
+                        .unwrap_or_else(|| panic!("No enemy at index {}", enemy_index)),
+                    enemy_index,
+                ))
+            }
+            Target::AllEnemies => Ok(Action::ApplyEffectChainToAllEnemies(enemy_effect_chains)),
+            _ => unreachable!(),
+        }
+    }
+
+    pub fn discard_card_just_played(&mut self) -> Result<(), Error> {
+        if let Some(hand_index) = self.card_just_played {
+            let card = self.combat_state.hand.remove(hand_index);
+            self.combat_state.discard_pile.push(card);
+            self.comms.send_card_discarded(hand_index, card)?;
+        }
+        Ok(())
+    }
+
+    pub fn apply_debuff(&mut self, debuff: Debuff, stacks: StackCount) -> Result<(), Error> {
+        if let Some((_, c)) = self
+            .combat_state
+            .debuffs
+            .iter_mut()
+            .find(|(d, _)| *d == debuff)
+        {
+            *c += stacks;
+        } else {
+            self.combat_state.debuffs.push((debuff, stacks));
+        }
+        self.comms.send_debuffs(&self.combat_state.debuffs)
+    }
+
+    pub fn gain_block(&mut self, amount: Block) -> Result<(), Error> {
+        self.comms.send_block_gained(amount)?;
+        self.combat_state.block = self.combat_state.block.saturating_add(amount);
+        self.comms.send_block(self.combat_state.block)
+    }
+
+    pub fn update_enemy_status(&self, index: EnemyIndex, status: EnemyStatus) -> Result<(), Error> {
+        self.comms.send_enemy_status(index, status)
     }
 }

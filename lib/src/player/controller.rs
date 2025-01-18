@@ -248,7 +248,7 @@ impl<'a> CombatController<'a> {
 
         // Tick down debuffs
         for (_, stacks) in self.combat_state.debuffs.iter_mut() {
-            *stacks = (*stacks - 1).max(0);
+            *stacks = stacks.saturating_sub(1);
         }
         self.combat_state.debuffs.retain(|(_, stacks)| *stacks > 0);
         self.comms.send_debuffs(&self.combat_state.debuffs)?;

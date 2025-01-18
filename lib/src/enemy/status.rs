@@ -4,6 +4,8 @@ use crate::data::debuff::Debuff;
 use crate::data::enemy::EnemyType;
 use crate::{Block, Hp, HpMax, StackCount};
 
+use super::intent::Intent;
+
 /// `EnemyStatus` is a small bundle of information about the enemy that is made available to
 /// the player. The player is not allowed to know anything else about the enemy, such as its
 /// internal state or future moves.
@@ -14,6 +16,7 @@ pub struct EnemyStatus {
     pub hp_max: HpMax,
     pub block: Block,
     pub debuffs: Vec<(Debuff, StackCount)>,
+    pub intent: Intent,
 }
 
 impl fmt::Display for EnemyStatus {
@@ -33,6 +36,6 @@ impl fmt::Display for EnemyStatus {
                     .join(", ")
             )?;
         }
-        Ok(())
+        write!(f, ", intent: {:?}", self.intent)
     }
 }

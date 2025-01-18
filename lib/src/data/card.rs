@@ -964,6 +964,7 @@ static ALL_CARDS: Lazy<Vec<CardDetails>> = Lazy::new(|| {
             [DealDamage(8), StanceCustom()],
             requires_target
         ),
+        define_card!((Strike, Attack, 1), [DealDamage(6)], requires_target),
     ]
 });
 

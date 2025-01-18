@@ -48,6 +48,7 @@ impl EnemyState {
             hp_max: self.hp_max,
             block: self.block,
             debuffs: self.debuffs.clone(),
+            intent: self.next_action.intent,
         }
     }
 

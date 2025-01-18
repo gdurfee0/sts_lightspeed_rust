@@ -1,6 +1,7 @@
 use std::collections::VecDeque;
 
-use crate::data::{Character, Relic};
+use crate::data::character::Character;
+use crate::data::relic::Relic;
 
 use super::{Seed, StsRandom};
 
@@ -8,8 +9,8 @@ pub struct RelicGenerator {
     common_relic_pool: VecDeque<Relic>,
     uncommon_relic_pool: VecDeque<Relic>,
     rare_relic_pool: VecDeque<Relic>,
-    _shop_relic_pool: VecDeque<Relic>,
-    _boss_relic_pool: VecDeque<Relic>,
+    shop_relic_pool: VecDeque<Relic>,
+    boss_relic_pool: VecDeque<Relic>,
 }
 
 impl RelicGenerator {
@@ -29,8 +30,8 @@ impl RelicGenerator {
             common_relic_pool: common_relic_pool.into_iter().collect(),
             uncommon_relic_pool: uncommon_relic_pool.into_iter().collect(),
             rare_relic_pool: rare_relic_pool.into_iter().collect(),
-            _shop_relic_pool: shop_relic_pool.into_iter().collect(),
-            _boss_relic_pool: boss_relic_pool.into_iter().collect(),
+            shop_relic_pool: shop_relic_pool.into_iter().collect(),
+            boss_relic_pool: boss_relic_pool.into_iter().collect(),
         }
     }
 
@@ -52,13 +53,13 @@ impl RelicGenerator {
     }
 
     pub fn _shop_relic(&mut self) -> Relic {
-        self._shop_relic_pool
+        self.shop_relic_pool
             .pop_front()
             .unwrap_or_else(|| self.uncommon_relic())
     }
 
     pub fn _boss_relic(&mut self) -> Relic {
-        self._boss_relic_pool.pop_front().unwrap_or(Relic::Circlet)
+        self.boss_relic_pool.pop_front().unwrap_or(Relic::Circlet)
     }
 }
 
@@ -66,7 +67,7 @@ impl RelicGenerator {
 mod test {
     use pretty_assertions::assert_eq;
 
-    use crate::data::IRONCLAD;
+    use crate::data::character::IRONCLAD;
 
     use super::*;
 

@@ -1,10 +1,10 @@
 use anyhow::Error;
 
-use crate::data::Encounter;
-use crate::enemy::{Enemy, EnemyAction, EnemyPartyGenerator};
-use crate::player::{CombatController, PlayerAction, PlayerController};
+use crate::data::effect::{EnemyEffect, PlayerEffect};
+use crate::data::encounter::Encounter;
+use crate::enemy::{EnemyPartyGenerator, EnemyState, EnemyStatus};
+use crate::player::{CombatAction, CombatController, PlayerController};
 use crate::rng::{Seed, StsRandom};
-use crate::Effect;
 
 pub struct EncounterSimulator<'a> {
     encounter: Encounter,
@@ -12,7 +12,7 @@ pub struct EncounterSimulator<'a> {
     ai_rng: StsRandom,
     misc_rng: &'a mut StsRandom,
     player: CombatController<'a>,
-    enemy_party: [Option<Enemy>; 5],
+    enemy_party: [Option<EnemyState>; 5],
 }
 
 impl<'a> EncounterSimulator<'a> {
@@ -61,43 +61,22 @@ impl<'a> EncounterSimulator<'a> {
     fn conduct_player_turn(&mut self) -> Result<bool, Error> {
         self.player.start_turn()?;
         loop {
-            match self.player.choose_next_action(&self.enemy_party)? {
-                PlayerAction::ApplyEffectChainToPlayer(effect_chain) => {
-                    for effect in effect_chain.iter() {
-                        match effect {
-                            Effect::AddToDiscardPile(_) => todo!(),
-                            Effect::AttackDamage(_) => {
-                                unreachable!("Players do not attack themselves")
-                            }
-                            Effect::GainBlock(amount) => {
-                                self.player.gain_block(*amount)?;
-                            }
-                            Effect::Inflict(_, _) => {
-                                unreachable!("Players do not inflict debuffs on themselves")
-                            }
-                        }
-                    }
-                }
-                PlayerAction::ApplyEffectChainToEnemy(effect_chain, enemy_index) => {
-                    match self.enemy_party[enemy_index].as_mut() {
-                        Some(enemy) => {
-                            for effect in effect_chain.iter() {
-                                enemy.apply_effect(effect);
-                                if enemy.hp() == 0 {
-                                    // Remove this enemy from the party
-                                    self.player.enemy_died(enemy_index, enemy.enemy_type())?;
-                                    self.enemy_party[enemy_index] = None;
-                                    break;
-                                }
-                                self.player
-                                    .update_enemy_status(enemy_index, enemy.status())?;
-                            }
-                        }
-                        _ => unreachable!(),
-                    }
-                }
-                PlayerAction::EndTurn => break,
-                _ => todo!(),
+            let enemy_statuses = self
+                .enemy_party
+                .iter()
+                .map(|enemy| enemy.as_ref().map(|enemy| enemy.status()))
+                .collect::<Vec<Option<EnemyStatus>>>();
+            match self.player.choose_next_action(&enemy_statuses)? {
+                // 1. Iterate over the effect chain and apply effects to all enemies
+                //    a. If an effect provokes a reaction, apply the reaction to the appropriate
+                //       entity
+                CombatAction::PlayCard(_, _) => todo!(),
+                // 1. Iterate over the effect chain and apply effects to one enemy
+                //    a. If an effect provokes a reaction, apply the reaction to the appropriate
+                //       entity
+                CombatAction::PlayCardAgainstEnemy(_, _, _) => todo!(),
+                CombatAction::Potion(_) => todo!(),
+                CombatAction::EndTurn => break,
             }
             if self.enemy_party.iter().all(|enemy| enemy.is_none()) {
                 // Battle is over!
@@ -118,34 +97,24 @@ impl<'a> EncounterSimulator<'a> {
         {
             // TODO: check for death and remove
             let _ = enemy.start_turn();
+            //enemy_party.retain(|enemy| enemy.health().0 > 0);
         }
-        //enemy_party.retain(|enemy| enemy.health().0 > 0);
         for maybe_enemy in self.enemy_party.iter_mut() {
             if let Some(enemy) = maybe_enemy.as_mut() {
-                let action: &EnemyAction = enemy.next_action(&mut self.ai_rng);
-                for effect in action.effects.iter() {
-                    match effect {
-                        Effect::AddToDiscardPile(cards) => {
-                            self.player.add_to_discard_pile(cards)?;
-                        }
-                        Effect::AttackDamage(amount) => {
-                            self.player.take_damage(*amount)?;
-                        }
-                        Effect::GainBlock(_) => todo!(),
-                        Effect::Inflict(debuff, stacks) => {
-                            self.player.apply_debuff(*debuff, *stacks)?
-                        }
-                    }
+                for effect in enemy.next_action(&mut self.ai_rng).effect_chain.iter() {
+                    // TODO: reactions
+                    //self.player.receive(&effect);
+                    println!("[EncounterSimulator] Applying effect: {:?}", effect);
                     if enemy.hp() == 0 {
                         *maybe_enemy = None;
                         break;
                     }
                     if self.player.hp() == 0 {
-                        return Ok(true);
+                        break;
                     }
                 }
             }
         }
-        Ok(self.enemy_party.iter().all(|enemy| enemy.is_none()))
+        Ok(self.player.hp() == 0 || self.enemy_party.iter().all(|enemy| enemy.is_none()))
     }
 }

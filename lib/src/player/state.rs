@@ -1,7 +1,11 @@
-use crate::data::{Card, Character, Potion, Relic};
+use crate::data::buff::Buff;
+use crate::data::card::Card;
+use crate::data::character::Character;
+use crate::data::debuff::Debuff;
+use crate::data::potion::Potion;
+use crate::data::relic::Relic;
 use crate::{
-    Block, Buff, Debuff, DeckIndex, Energy, Gold, Health, Hp, HpMax, PotionIndex, StackCount,
-    StsRandom,
+    Block, DeckIndex, Energy, Gold, Health, Hp, HpMax, PotionIndex, StackCount, StsRandom,
 };
 
 /// Encapsulates the state of the player in the game, e.g. HP, gold, deck, etc.
@@ -164,7 +168,7 @@ impl CombatState {
 
 #[cfg(test)]
 mod test {
-    use crate::IRONCLAD;
+    use crate::data::character::IRONCLAD;
 
     use super::*;
 

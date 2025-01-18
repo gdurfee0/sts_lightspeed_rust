@@ -1,12 +1,13 @@
-use std::fmt;
-
-use super::action::{EnemyEffectChain, PlayerEffectChain, Target};
-
-use crate::data::{Card, NeowBlessing, Potion, Relic};
-use crate::enemy::{EnemyStatus, EnemyType};
+use crate::data::card::Card;
+use crate::data::debuff::Debuff;
+use crate::data::enemy::EnemyType;
+use crate::data::neow::NeowBlessing;
+use crate::data::potion::Potion;
+use crate::data::relic::Relic;
+use crate::enemy::EnemyStatus;
 use crate::{
-    Block, ColumnIndex, Debuff, DeckIndex, EnemyIndex, Energy, Gold, HandIndex, Health, Hp,
-    PotionIndex, StackCount,
+    Block, ColumnIndex, DeckIndex, EnemyIndex, Energy, Gold, HandIndex, Health, Hp, PotionIndex,
+    StackCount,
 };
 
 /// Message type for communication from the Simualtor to a client (human operator or AI agent).
@@ -72,91 +73,13 @@ pub enum Choice {
     ObtainCard(Card),
     ObtainPotion(Potion),
     RemoveCard(DeckIndex, Card),
-    PlayCardFromHand(CardPlay),
+    PlayCardFromHand(HandIndex, Card),
     Skip,
-    TargetEnemy(EnemyIndex, EnemyType, EnemyEffectChain),
+    TargetEnemy(EnemyIndex, EnemyType),
 }
 
 #[derive(Clone, Copy, Debug)]
 pub enum PotionAction {
     Discard(PotionIndex, Potion),
     Drink(PotionIndex, Potion),
-}
-
-#[derive(Clone, Debug)]
-pub enum MainScreenOption {
-    ClimbFloor(ColumnIndex),
-    Potion(PotionAction),
-}
-
-#[derive(Clone, Debug)]
-pub struct CardPlay {
-    pub hand_index: HandIndex,
-    pub card: Card,
-    pub cost: Energy,
-    pub effect_chain: PlayerEffectChain,
-    pub target: Target,
-}
-
-// TODO: Move these to a presentation module
-impl fmt::Display for Prompt {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Prompt::ChooseNeow => write!(f, "Choose Neow's Blessing"),
-            Prompt::ChooseNext => write!(f, "Choose the next item to obtain"),
-            Prompt::ChooseOne => write!(f, "Choose an item to obtain"),
-            Prompt::ClimbFloor => write!(f, "Move up into one of the following columns"),
-            Prompt::ClimbFloorHasPotion => write!(
-                f,
-                "Move up into one of the following columns, or drink/discard a potion"
-            ),
-            Prompt::CombatAction => write!(f, "It is your turn to act"),
-            Prompt::RemoveCard => write!(f, "Choose a card to remove"),
-            Prompt::TargetEnemy => write!(f, "Choose an enemy to target"),
-        }
-    }
-}
-
-impl fmt::Display for Choice {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Choice::ClimbFloor(column_index) => {
-                write!(
-                    f,
-                    "Climb Spire, column {}",
-                    (b'a' + *column_index as u8) as char
-                )
-            }
-            Choice::PotionAction(PotionAction::Discard(_, potion)) => {
-                write!(f, "Discard potion \"{:?}\"", potion)
-            }
-            Choice::PotionAction(PotionAction::Drink(_, potion)) => {
-                write!(f, "Drink potion \"{:?}\"", potion)
-            }
-
-            Choice::EndTurn => write!(f, "(End Turn)"),
-            Choice::NeowBlessing(blessing) => write!(f, "{}", blessing),
-            Choice::ObtainCard(card) => write!(f, "{:?}", card),
-            Choice::ObtainPotion(potion) => write!(f, "{:?}", potion),
-            Choice::PlayCardFromHand(card_play) => {
-                write!(
-                    f,
-                    "Play \"{:?}\" for {} energy {:?}{}",
-                    card_play.card,
-                    card_play.cost,
-                    card_play.effect_chain,
-                    match card_play.target {
-                        Target::AllEnemies => " to ALL enemies",
-                        Target::OneEnemy => " to one enemy",
-                        _ => "",
-                    }
-                )
-            }
-            Choice::RemoveCard(_, card) => write!(f, "{:?}", card),
-            Choice::Skip => write!(f, "(Skip)"),
-            Choice::TargetEnemy(_, enemy, effects) => {
-                write!(f, "Target \"{:?}\" {:?}", enemy, effects)
-            } // TODO: Index?
-        }
-    }
 }

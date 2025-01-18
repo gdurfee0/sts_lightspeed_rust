@@ -1,36 +1,27 @@
+use crate::data::debuff::Debuff;
+use crate::data::enemy::EnemyType;
 use crate::rng::StsRandom;
-use crate::{Debuff, Effect, Hp, StackCount};
+use crate::{AttackDamage, Block, Hp, StackCount};
 
-use super::action::{AcidSlimeM, AcidSlimeS, Action, NextActionFn, SpikeSlimeM, SpikeSlimeS};
-use super::id::EnemyType;
+use super::action::{enemy_params, Action, NextActionFn};
 use super::status::EnemyStatus;
 
-/// The `Enemy` is the basic unit representing enemy combatants in the game. Callers will be
-/// primarily interested in the class-level `Enemy::new` constructor and the instance-level
-/// `Enemy::next_action` method, which advances the enemy's AI state machine according to the
-/// official game mechanics, returning the enemy's next action to be performed.
+/// The `EnemyState` is the basic unit representing enemy combatants in the game.
 #[derive(Debug)]
-pub struct Enemy {
+pub struct EnemyState {
     enemy_type: EnemyType,
     hp: u32,
     hp_max: u32,
+    block: Block,
     debuffs: Vec<(Debuff, StackCount)>,
     next_action_fn: NextActionFn,
     next_action: &'static Action,
     run_length: u8,
 }
 
-// rng, last_action, run_length
-
-impl Enemy {
+impl EnemyState {
     pub fn new(enemy_type: EnemyType, hp_rng: &mut StsRandom, ai_rng: &mut StsRandom) -> Self {
-        let (health_range, next_action_fn) = match enemy_type {
-            EnemyType::AcidSlimeM => AcidSlimeM::params(),
-            EnemyType::AcidSlimeS => AcidSlimeS::params(),
-            EnemyType::SpikeSlimeM => SpikeSlimeM::params(),
-            EnemyType::SpikeSlimeS => SpikeSlimeS::params(),
-            _ => todo!(),
-        };
+        let (health_range, next_action_fn) = enemy_params(enemy_type);
         let hp = hp_rng.gen_range(health_range);
         let hp_max = hp;
         let next_action = next_action_fn(ai_rng, None, 0);
@@ -38,15 +29,12 @@ impl Enemy {
             enemy_type,
             hp,
             hp_max,
+            block: 0,
+            debuffs: Vec::new(),
             next_action_fn,
             next_action,
             run_length: 1,
-            debuffs: Vec::new(),
         }
-    }
-
-    pub fn enemy_type(&self) -> EnemyType {
-        self.enemy_type
     }
 
     pub fn hp(&self) -> Hp {
@@ -56,9 +44,9 @@ impl Enemy {
     pub fn status(&self) -> EnemyStatus {
         EnemyStatus {
             enemy_type: self.enemy_type,
-            intent: self.next_action.intent,
             hp: self.hp,
             hp_max: self.hp_max,
+            block: self.block,
             debuffs: self.debuffs.clone(),
         }
     }
@@ -74,34 +62,8 @@ impl Enemy {
         action
     }
 
-    pub fn apply_effect(&mut self, effect: &Effect) {
-        match effect {
-            Effect::AddToDiscardPile(_) => unreachable!(),
-            Effect::AttackDamage(amount) => self.hp = self.hp.saturating_sub(*amount),
-            Effect::GainBlock(_) => unreachable!(),
-            Effect::Inflict(debuff, stacks) => self.apply_debuff(*debuff, *stacks),
-        }
-    }
-
-    pub fn account_for_buffs_and_debuffs(&self, effect: Effect) -> Effect {
-        match effect {
-            Effect::AttackDamage(amount) => {
-                if self
-                    .debuffs
-                    .iter()
-                    .any(|(debuff, _)| *debuff == Debuff::Vulnerable)
-                {
-                    Effect::AttackDamage((amount as f32 * 1.5).floor() as u32)
-                } else {
-                    Effect::AttackDamage(amount)
-                }
-            }
-            Effect::Inflict(_, _) => effect,
-            _ => todo!("{:?}", effect),
-        }
-    }
-
     pub fn start_turn(&mut self) -> bool {
+        // TODO: Should this go at the end of the enemy's turn?
         for (_, stacks) in self.debuffs.iter_mut() {
             *stacks = stacks.saturating_sub(1);
         }
@@ -115,5 +77,13 @@ impl Enemy {
         } else {
             self.debuffs.push((debuff, stacks));
         }
+    }
+
+    fn take_damage(&mut self, amount: AttackDamage) -> (Block, AttackDamage) {
+        let block = self.block;
+        let remaining_damage = amount.saturating_sub(block);
+        self.block = self.block.saturating_sub(amount);
+        self.hp = self.hp.saturating_sub(remaining_damage);
+        (block, remaining_damage)
     }
 }

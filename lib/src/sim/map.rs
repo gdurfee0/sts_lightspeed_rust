@@ -1,6 +1,6 @@
 use anyhow::{anyhow, Error};
 
-use crate::data::Act;
+use crate::data::act::Act;
 use crate::map::{ExitBits, MapBuilder, MapHighlighter, NodeGrid, Room, ROW_COUNT};
 use crate::player::PlayerController;
 use crate::rng::Seed;

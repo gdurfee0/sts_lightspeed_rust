@@ -1,6 +1,6 @@
 use std::iter::repeat;
 
-use crate::data::Act;
+use crate::data::act::Act;
 use crate::rng::{Seed, StsRandom};
 use crate::{ColumnIndex, RowIndex};
 
@@ -64,7 +64,7 @@ impl<'a> RoomAssigner<'a> {
         self.node_grid
             .set_all_rooms_in_row(TREASURE_ROW_INDEX, Room::Treasure);
         self.node_grid
-            .set_all_rooms_in_row(REST_ROW_INDEX, Room::Campfire);
+            .set_all_rooms_in_row(REST_ROW_INDEX, Room::RestSite);
         let unassigned_room_count = self.node_grid.unassigned_room_count();
         let room_total = self.node_grid.room_almost_total();
         let shop_room_count = (SHOP_ROOM_CHANCE * room_total as f32).round() as usize;
@@ -75,7 +75,7 @@ impl<'a> RoomAssigner<'a> {
         let event_room_count = (EVENT_ROOM_CHANCE * room_total as f32).round() as usize;
         let mut unassigned_rooms = repeat(Room::Shop)
             .take(shop_room_count)
-            .chain(repeat(Room::Campfire).take(rest_room_count))
+            .chain(repeat(Room::RestSite).take(rest_room_count))
             .chain(repeat(Room::Treasure).take(treasure_room_count))
             .chain(repeat(Room::Elite).take(elite_room_count))
             .chain(repeat(Room::Event).take(event_room_count))
@@ -99,7 +99,7 @@ impl<'a> RoomAssigner<'a> {
                         }
                         rooms_already_considered[*room as usize] = true;
                         let (reject_outright, parent_must_be_different) = match room {
-                            Room::Campfire => (!(5..13).contains(&row_index), true),
+                            Room::RestSite => (!(5..13).contains(&row_index), true),
                             Room::Elite => (row_index <= 4, true),
                             Room::Event | Room::Monster => (false, false),
                             Room::Shop => (false, true),

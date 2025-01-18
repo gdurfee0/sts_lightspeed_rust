@@ -1,14 +1,13 @@
 use std::sync::mpsc::{Receiver, Sender};
 
 use super::encounter::EncounterSimulator;
+use super::map::MapSimulator;
 use super::neow::NeowSimulator;
 
-use crate::data::Character;
+use crate::data::character::Character;
 use crate::map::Room;
-use crate::player::PlayerController;
+use crate::player::{PlayerController, StsMessage};
 use crate::rng::{EncounterGenerator, RelicGenerator, Seed, StsRandom};
-use crate::sim::map::MapSimulator;
-use crate::StsMessage;
 
 pub struct StsSimulator {
     // Information typically set on the command line
@@ -79,7 +78,7 @@ impl StsSimulator {
                 Room::BurningElite2 => todo!(),
                 Room::BurningElite3 => todo!(),
                 Room::BurningElite4 => todo!(),
-                Room::Campfire => todo!(),
+                Room::RestSite => todo!(),
                 Room::Elite => todo!(),
                 Room::Event => todo!(),
                 Room::Monster => {

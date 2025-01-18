@@ -2,17 +2,19 @@ use std::sync::mpsc::{Receiver, Sender};
 
 use anyhow::Error;
 
-use crate::data::{Card, Character, NeowBlessing, Potion, Relic};
-use crate::enemy::{Enemy, EnemyStatus, EnemyType};
+use crate::data::card::{Card, CardDetails};
+use crate::data::character::Character;
+use crate::data::debuff::Debuff;
+use crate::data::enemy::EnemyType;
+use crate::data::neow::NeowBlessing;
+use crate::data::potion::Potion;
+use crate::data::relic::Relic;
+use crate::enemy::EnemyStatus;
 use crate::rng::StsRandom;
-use crate::{
-    AttackDamage, Block, ColumnIndex, Debuff, Effect, EnemyIndex, Gold, HandIndex, Hp, HpMax,
-    StackCount,
-};
+use crate::{AttackDamage, Block, ColumnIndex, EnemyIndex, Gold, HandIndex, Hp, HpMax, StackCount};
 
-use super::action::{Action, CardDetails, EnemyEffectChain, PlayerEffectChain, Target};
-use super::comms::Comms;
-use super::message::{CardPlay, MainScreenOption, PotionAction, StsMessage};
+use super::comms::{Comms, MainScreenAction};
+use super::message::{PotionAction, StsMessage};
 use super::state::{CombatState, PlayerState};
 
 /// Encapsulates the state of the player in the game, e.g. HP, gold, deck, etc.
@@ -33,6 +35,15 @@ pub struct CombatController<'a> {
     card_just_played: Option<HandIndex>,
     state: &'a mut PlayerState,
     comms: &'a mut Comms,
+}
+
+/// Returned by various methods to indicate the player's choice of action in combat.
+#[derive(Clone, Debug)]
+pub enum CombatAction {
+    EndTurn,
+    PlayCard(Card, &'static CardDetails),
+    PlayCardAgainstEnemy(Card, &'static CardDetails, EnemyIndex),
+    Potion(PotionAction),
 }
 
 /// Some convenience methods for Player interaction.
@@ -136,14 +147,14 @@ impl PlayerController {
             }
             match self
                 .comms
-                .choose_main_screen_option(climb_options, &potion_options)?
+                .choose_main_screen_action(climb_options, &potion_options)?
             {
-                MainScreenOption::ClimbFloor(index) => return Ok(index),
-                MainScreenOption::Potion(PotionAction::Discard(index, _)) => {
+                MainScreenAction::ClimbFloor(index) => return Ok(index),
+                MainScreenAction::Potion(PotionAction::Discard(index, _)) => {
                     self.state.discard_potion(index);
                     self.comms.send_potions(self.state.potions())?;
                 }
-                MainScreenOption::Potion(PotionAction::Drink(index, potion)) => {
+                MainScreenAction::Potion(PotionAction::Drink(index, potion)) => {
                     self.state.discard_potion(index);
                     self.comms.send_potions(self.state.potions())?;
                     self.consume_potion(potion)?;
@@ -196,10 +207,6 @@ impl PlayerController {
 
     pub fn start_combat(&mut self, shuffle_rng: StsRandom) -> CombatController {
         CombatController::new(shuffle_rng, &mut self.state, &mut self.comms)
-    }
-
-    pub fn interpret_effect(&self, effect: Effect) -> Effect {
-        effect
     }
 }
 
@@ -295,12 +302,14 @@ impl<'a> CombatController<'a> {
         Ok(())
     }
 
+    /*
     pub fn add_to_discard_pile(&mut self, cards: &[Card]) -> Result<(), Error> {
         for card in cards {
             self.combat_state.discard_pile.push(*card);
         }
         self.comms.send_add_to_discard_pile(cards)
     }
+    */
 
     fn discard_hand(&mut self) -> Result<(), Error> {
         // Emulating the game's behavior
@@ -314,78 +323,48 @@ impl<'a> CombatController<'a> {
         self.comms.send_enemy_died(index, enemy_type)
     }
 
-    fn available_card_plays(&self) -> Vec<CardPlay> {
-        self.combat_state
-            .hand
-            .iter()
-            .enumerate()
-            .map(|(hand_index, card)| {
-                let card_details = CardDetails::for_card(*card);
-                CardPlay {
-                    hand_index,
-                    card: *card,
-                    cost: card_details.cost,
-                    effect_chain: PlayerEffectChain::from(
-                        &card_details.effect_chain,
-                        &self.combat_state,
-                    ),
-                    target: card_details.target,
-                }
-            })
-            .collect::<Vec<_>>()
-    }
-
-    pub fn choose_next_action(&mut self, enemies: &[Option<Enemy>]) -> Result<Action, Error> {
+    pub fn choose_next_action(
+        &mut self,
+        enemies: &[Option<EnemyStatus>],
+    ) -> Result<CombatAction, Error> {
         // TODO: drink a potion, discard a potion
         // TODO: check for unwinnable situations
-
-        let enemy_statuses = enemies
-            .iter()
-            .map(|maybe_enemy| maybe_enemy.as_ref().map(|enemy| enemy.status()))
-            .collect::<Vec<_>>();
-        self.comms.send_enemy_party(enemy_statuses)?;
+        // TODO: Intent
+        self.comms.send_enemy_statuses(enemies)?;
         self.comms.send_energy(self.combat_state.energy)?;
-        let card_plays = self.available_card_plays();
-        match self.comms.choose_card_to_play(&card_plays)? {
-            Some(card_play) => {
-                self.card_just_played = Some(card_play.hand_index);
-                if card_play.target == Target::Player {
-                    Ok(Action::ApplyEffectChainToPlayer(card_play.effect_chain))
-                } else {
-                    self.resolve_card_play_against_enemies(card_play, enemies)
-                }
-            }
-            None => Ok(Action::EndTurn),
-        }
-    }
-
-    fn resolve_card_play_against_enemies(
-        &mut self,
-        card_play: CardPlay,
-        enemies: &[Option<Enemy>],
-    ) -> Result<Action, Error> {
-        let mut enemy_effect_chains = enemies
+        let playable_cards = self
+            .combat_state
+            .hand
             .iter()
-            .map(|maybe_enemy| {
-                maybe_enemy
-                    .as_ref()
-                    .map(|enemy| EnemyEffectChain::from(&card_play.effect_chain, enemy))
+            .copied()
+            .enumerate()
+            .filter_map(|(hand_index, card)| {
+                let card_details = CardDetails::for_card(card);
+                if card_details.cost > self.combat_state.energy {
+                    None
+                } else {
+                    Some((hand_index, card))
+                }
             })
             .collect::<Vec<_>>();
-        match card_play.target {
-            Target::OneEnemy => {
-                let enemy_index = self
-                    .comms
-                    .choose_enemy_to_target(enemies, &enemy_effect_chains)?;
-                Ok(Action::ApplyEffectChainToEnemy(
-                    enemy_effect_chains[enemy_index]
-                        .take()
-                        .unwrap_or_else(|| panic!("No enemy at index {}", enemy_index)),
-                    enemy_index,
-                ))
+
+        match self.comms.choose_card_to_play(&playable_cards)? {
+            Some(hand_index) => {
+                self.card_just_played = Some(hand_index);
+                let card = self.combat_state.hand[hand_index];
+                let card_details = CardDetails::for_card(card);
+                if card_details.requires_target {
+                    let enemy_index = self.comms.choose_enemy_to_target(enemies)?;
+                    Ok(CombatAction::PlayCardAgainstEnemy(
+                        card,
+                        card_details,
+                        enemy_index,
+                    ))
+                } else {
+                    Ok(CombatAction::PlayCard(card, card_details))
+                }
             }
-            Target::AllEnemies => Ok(Action::ApplyEffectChainToAllEnemies(enemy_effect_chains)),
-            _ => unreachable!(),
+            None => Ok(CombatAction::EndTurn),
         }
     }
 

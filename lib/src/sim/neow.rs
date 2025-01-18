@@ -1,6 +1,8 @@
 use anyhow::Error;
 
-use crate::data::{Character, NeowBlessing, NeowBonus, NeowPenalty, Relic};
+use crate::data::character::Character;
+use crate::data::neow::{NeowBlessing, NeowBonus, NeowPenalty};
+use crate::data::relic::Relic;
 use crate::player::PlayerController;
 use crate::rng::{NeowGenerator, RelicGenerator, Seed, StsRandom};
 

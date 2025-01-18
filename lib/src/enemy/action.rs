@@ -1,43 +1,22 @@
-use std::iter::repeat;
+use std::ops::RangeInclusive;
 
-use crate::{rng::StsRandom, AttackCount, AttackDamage, Card, Debuff, Effect, StackCount};
+use crate::data::card::Card;
+use crate::data::debuff::Debuff;
+use crate::data::effect::EnemyEffect;
+use crate::data::enemy::EnemyType;
+use crate::rng::StsRandom;
+use crate::Hp;
 
 use super::intent::Intent;
 
+// rng, last_action, run_length
 pub type NextActionFn = fn(&mut StsRandom, Option<&'static Action>, u8) -> &'static Action;
 
 /// An enemy `Action` consists of a list of `Effect`s which are enacted in order.
-/// An `Action` can be resolved to an `Intent` (depending on context, such as player debuffs)
-/// which can be displayed to the user.
 #[derive(Debug)]
 pub struct Action {
-    pub effects: Vec<Effect>,
+    pub effect_chain: Vec<EnemyEffect>,
     pub intent: Intent,
-}
-
-impl Action {
-    fn deal_damage(amount: AttackDamage, times: AttackCount) -> Action {
-        Action {
-            effects: repeat(Effect::AttackDamage(amount))
-                .take(times as usize)
-                .collect(),
-            intent: Intent::Aggressive(amount, times),
-        }
-    }
-
-    fn inflict(debuff: Debuff, stacks: StackCount) -> Action {
-        Action {
-            effects: vec![Effect::Inflict(debuff, stacks)],
-            intent: Intent::StrategicDebuff,
-        }
-    }
-
-    fn then(self) -> ActionBuilder {
-        ActionBuilder {
-            effects: self.effects,
-            intent: self.intent,
-        }
-    }
 }
 
 impl PartialEq for Action {
@@ -50,42 +29,47 @@ impl PartialEq for Action {
 impl Eq for Action {}
 
 struct ActionBuilder {
-    effects: Vec<Effect>,
-    intent: Intent,
+    pub effect_chain: Vec<EnemyEffect>,
 }
 
 impl ActionBuilder {
-    pub fn add_to_discard_pile(mut self, cards: &'static [Card]) -> Action {
-        self.effects.push(Effect::AddToDiscardPile(cards));
+    pub fn new() -> Self {
+        Self {
+            effect_chain: Vec::new(),
+        }
+    }
+
+    pub fn push(mut self, effect: EnemyEffect) -> Self {
+        self.effect_chain.push(effect);
+        self
+    }
+
+    pub fn build(self) -> Action {
+        let intent = self.effect_chain.as_slice().into();
         Action {
-            effects: self.effects,
-            intent: add_debuff_to_intent(self.intent),
+            effect_chain: self.effect_chain,
+            intent,
         }
     }
 }
 
-fn add_debuff_to_intent(intent: Intent) -> Intent {
-    match intent {
-        Intent::Aggressive(amount, times) => Intent::AggressiveDebuff(amount, times),
-        Intent::AggressiveBuff(_, _) => todo!(),
-        Intent::AggressiveDebuff(amount, times) => Intent::AggressiveDebuff(amount, times),
-        Intent::AggressiveDefensive(_, _) => todo!(),
-        Intent::Cowardly => todo!(),
-        Intent::Defensive => Intent::DefensiveDebuff,
-        Intent::DefensiveBuff => todo!(),
-        Intent::DefensiveDebuff => Intent::DefensiveDebuff,
-        Intent::Sleeping => todo!(),
-        Intent::StrategicBuff => todo!(),
-        Intent::StrategicDebuff => todo!(),
-        Intent::Stunned => todo!(),
-        Intent::Unknown => Intent::Unknown,
+pub fn enemy_params(enemy_type: EnemyType) -> (RangeInclusive<Hp>, NextActionFn) {
+    match enemy_type {
+        EnemyType::AcidSlimeM => AcidSlimeM::params(),
+        EnemyType::AcidSlimeS => AcidSlimeS::params(),
+        EnemyType::SpikeSlimeM => SpikeSlimeM::params(),
+        EnemyType::SpikeSlimeS => SpikeSlimeS::params(),
+        _ => todo!(),
     }
 }
 
 // Convenience macros
 macro_rules! define_action {
-    ($name:ident, $action:expr) => {
-        static $name: once_cell::sync::Lazy<Action> = once_cell::sync::Lazy::new(|| $action);
+    ($name:ident, [$($eff:ident($($param:expr),*)),*]) => {
+        static $name: once_cell::sync::Lazy<Action> = once_cell::sync::Lazy::new(
+            || ActionBuilder::new()
+                $(.push(EnemyEffect::$eff($($param),*)))*.build()
+        );
     };
 }
 
@@ -126,12 +110,10 @@ macro_rules! define_enemy {
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 define_action!(
     ACID_SLIME_M_CORROSIVE_SPIT,
-    Action::deal_damage(7, 1)
-        .then()
-        .add_to_discard_pile(&[Card::Slimed])
+    [DealDamage(7), AddToDiscardPile(&[Card::Slimed])]
 );
-define_action!(ACID_SLIME_M_LICK, Action::inflict(Debuff::Weak, 1));
-define_action!(ACID_SLIME_M_TACKLE, Action::deal_damage(10, 1));
+define_action!(ACID_SLIME_M_LICK, [Debuff(Debuff::Weak, 1)]);
+define_action!(ACID_SLIME_M_TACKLE, [DealDamage(10)]);
 define_enemy!(
     AcidSlimeM,
     28..=32,
@@ -174,8 +156,8 @@ define_enemy!(
 // - 50% Lick, 50% Tackle for initial action; alternates attacks thereafter
 // - https://slay-the-spire.fandom.com/wiki/Acid_Slime
 ////////////////////////////////////////////////////////////////////////////////////////////////////
-define_action!(ACID_SLIME_S_LICK, Action::inflict(Debuff::Weak, 1));
-define_action!(ACID_SLIME_S_TACKLE, Action::deal_damage(3, 1));
+define_action!(ACID_SLIME_S_LICK, [Debuff(Debuff::Weak, 1)]);
+define_action!(ACID_SLIME_S_TACKLE, [DealDamage(3)]);
 define_enemy!(
     AcidSlimeS,
     8..=12,
@@ -211,11 +193,9 @@ define_enemy!(
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 define_action!(
     SPIKE_SLIME_M_FLAME_TACKLE,
-    Action::deal_damage(8, 1)
-        .then()
-        .add_to_discard_pile(&[Card::Slimed])
+    [DealDamage(8), AddToDiscardPile(&[Card::Slimed])]
 );
-define_action!(SPIKE_SLIME_M_LICK, Action::inflict(Debuff::Frail, 1));
+define_action!(SPIKE_SLIME_M_LICK, [Debuff(Debuff::Frail, 1)]);
 define_enemy!(
     SpikeSlimeM,
     28..=32,
@@ -242,7 +222,7 @@ define_enemy!(
 // - 100% Tackle
 // - https://slay-the-spire.fandom.com/wiki/Spike_Slime
 ////////////////////////////////////////////////////////////////////////////////////////////////////
-define_action!(SPIKE_SLIME_S_TACKLE, Action::deal_damage(5, 1));
+define_action!(SPIKE_SLIME_S_TACKLE, [DealDamage(5)]);
 define_enemy!(
     SpikeSlimeS,
     10..=14,
@@ -258,7 +238,8 @@ define_enemy!(
 
 #[cfg(test)]
 mod test {
-    use crate::enemy::{Enemy, EnemyType};
+    use crate::data::enemy::EnemyType;
+    use crate::enemy::state::EnemyState;
     use crate::rng::Seed;
 
     use super::*;
@@ -268,7 +249,7 @@ mod test {
         let seed: Seed = 3u64.into();
         let mut hp_rng = StsRandom::from(seed.with_offset(1));
         let mut ai_rng = StsRandom::from(seed.with_offset(1));
-        let mut enemy = Enemy::new(EnemyType::AcidSlimeS, &mut hp_rng, &mut ai_rng);
+        let mut enemy = EnemyState::new(EnemyType::AcidSlimeS, &mut hp_rng, &mut ai_rng);
         let status = enemy.status();
         assert_eq!(status.enemy_type, EnemyType::AcidSlimeS);
         assert_eq!(status.hp, 12);
@@ -285,7 +266,7 @@ mod test {
 
         let mut hp_rng = StsRandom::from(seed.with_offset(1));
         let mut ai_rng = StsRandom::from(seed.with_offset(1));
-        let mut enemy = Enemy::new(EnemyType::AcidSlimeM, &mut hp_rng, &mut ai_rng);
+        let mut enemy = EnemyState::new(EnemyType::AcidSlimeM, &mut hp_rng, &mut ai_rng);
         let status = enemy.status();
         assert_eq!(status.enemy_type, EnemyType::AcidSlimeM);
         assert_eq!(status.hp, 32);
@@ -314,7 +295,7 @@ mod test {
         let seed: Seed = 8u64.into();
         let mut hp_rng = StsRandom::from(seed.with_offset(1));
         let mut ai_rng = StsRandom::from(seed.with_offset(1));
-        let mut enemy = Enemy::new(EnemyType::SpikeSlimeS, &mut hp_rng, &mut ai_rng);
+        let mut enemy = EnemyState::new(EnemyType::SpikeSlimeS, &mut hp_rng, &mut ai_rng);
         let status = enemy.status();
         assert_eq!(status.enemy_type, EnemyType::SpikeSlimeS);
         assert_eq!(status.hp, 13);
@@ -325,7 +306,7 @@ mod test {
 
         let mut hp_rng = StsRandom::from(seed.with_offset(1));
         let mut ai_rng = StsRandom::from(seed.with_offset(1));
-        let mut enemy = Enemy::new(EnemyType::SpikeSlimeM, &mut hp_rng, &mut ai_rng);
+        let mut enemy = EnemyState::new(EnemyType::SpikeSlimeM, &mut hp_rng, &mut ai_rng);
         let status = enemy.status();
         assert_eq!(status.enemy_type, EnemyType::SpikeSlimeM);
         assert_eq!(status.hp, 31);

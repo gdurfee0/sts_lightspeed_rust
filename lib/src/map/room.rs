@@ -7,10 +7,10 @@ pub enum Room {
     BurningElite2,
     BurningElite3,
     BurningElite4,
-    Campfire,
     Elite,
     Event,
     Monster,
+    RestSite,
     Shop,
     Treasure,
 }
@@ -26,10 +26,10 @@ impl fmt::Display for Room {
                 Room::BurningElite2 => "2",
                 Room::BurningElite3 => "3",
                 Room::BurningElite4 => "4",
-                Room::Campfire => "R",
                 Room::Elite => "E",
                 Room::Event => "?",
                 Room::Monster => "M",
+                Room::RestSite => "R",
                 Room::Shop => "$",
                 Room::Treasure => "T",
             }

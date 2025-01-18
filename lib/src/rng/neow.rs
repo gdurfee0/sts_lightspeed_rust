@@ -1,7 +1,6 @@
-use crate::data::{
-    Card, Character, NeowBlessing, CURSE_CARD_POOL, FIRST_NEOW_POOL, SECOND_NEOW_POOL,
-    THIRD_NEOW_POOL, UNCOMMON_COLORLESS_CARDS,
-};
+use crate::data::card::{Card, CURSE_CARD_POOL, UNCOMMON_COLORLESS_CARDS};
+use crate::data::character::Character;
+use crate::data::neow::{NeowBlessing, FIRST_NEOW_POOL, SECOND_NEOW_POOL, THIRD_NEOW_POOL};
 
 use super::{Seed, StsRandom};
 
@@ -78,7 +77,8 @@ impl<'a> NeowGenerator<'a> {
 mod test {
     use pretty_assertions::assert_eq;
 
-    use crate::data::{NeowBonus, NeowPenalty, DEFECT, IRONCLAD, SILENT, WATCHER};
+    use crate::data::character::{DEFECT, IRONCLAD, SILENT, WATCHER};
+    use crate::data::neow::{NeowBonus, NeowPenalty};
 
     use super::*;
 

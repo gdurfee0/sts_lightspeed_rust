@@ -3,15 +3,24 @@ use std::sync::mpsc::{Receiver, Sender};
 
 use anyhow::{anyhow, Error};
 
-use crate::data::{Card, NeowBlessing, Potion};
-use crate::enemy::{Enemy, EnemyStatus, EnemyType};
+use crate::data::card::Card;
+use crate::data::debuff::Debuff;
+use crate::data::enemy::EnemyType;
+use crate::data::neow::NeowBlessing;
+use crate::data::potion::Potion;
+use crate::data::relic::Relic;
+use crate::enemy::EnemyStatus;
 use crate::{
-    Block, ColumnIndex, Debuff, DeckIndex, EnemyIndex, Energy, Gold, HandIndex, Health, Hp, Relic,
-    StackCount,
+    Block, ColumnIndex, DeckIndex, EnemyIndex, Energy, Gold, HandIndex, Health, Hp, StackCount,
 };
 
-use super::action::EnemyEffectChain;
-use super::message::{CardPlay, Choice, MainScreenOption, PotionAction, Prompt, StsMessage};
+use super::message::{Choice, PotionAction, Prompt, StsMessage};
+
+#[derive(Clone, Debug)]
+pub enum MainScreenAction {
+    ClimbFloor(ColumnIndex),
+    Potion(PotionAction),
+}
 
 /// Handles all interactions with the player via the from_client and to_client channels, sending
 /// messages to the player to prompt for decisions and returning the choices made by the player.
@@ -41,12 +50,13 @@ impl Comms {
         }
     }
 
-    /// Prompts the user to choose a column to enter on the row above their current row.
-    pub fn choose_main_screen_option(
+    /// Prompts the user to choose a column to enter on the row above their current row,
+    /// or to use/discard a potion if available.
+    pub fn choose_main_screen_action(
         &self,
         columns: &[ColumnIndex],
         potion_actions: &[PotionAction],
-    ) -> Result<MainScreenOption, Error> {
+    ) -> Result<MainScreenAction, Error> {
         let choices = columns
             .iter()
             .map(|column_index| Choice::ClimbFloor(*column_index))
@@ -58,8 +68,8 @@ impl Comms {
             Prompt::ClimbFloorHasPotion
         };
         match self.prompt_for_choice(prompt, choices)? {
-            Choice::ClimbFloor(column_index) => Ok(MainScreenOption::ClimbFloor(column_index)),
-            Choice::PotionAction(potion_action) => Ok(MainScreenOption::Potion(potion_action)),
+            Choice::ClimbFloor(column_index) => Ok(MainScreenAction::ClimbFloor(column_index)),
+            Choice::PotionAction(potion_action) => Ok(MainScreenAction::Potion(potion_action)),
             _ => unreachable!(),
         }
     }
@@ -134,17 +144,21 @@ impl Comms {
         }
     }
 
-    /// Prompts the user to choose a card from their hand to play, returning the index of the card
-    /// or None if the user chooses to end their turn.
-    pub fn choose_card_to_play(&self, card_plays: &[CardPlay]) -> Result<Option<CardPlay>, Error> {
-        let choices = card_plays
+    /// Prompts the user to choose a card from their hand to play from the supplied list of
+    /// possibly non-consecutive hand indexes (holes may be caused by unplayable or too-expensive
+    /// cards).
+    pub fn choose_card_to_play(
+        &self,
+        playable_cards: &[(HandIndex, Card)],
+    ) -> Result<Option<HandIndex>, Error> {
+        let choices = playable_cards
             .iter()
-            .cloned()
-            .map(Choice::PlayCardFromHand)
+            .copied()
+            .map(|(index, card)| Choice::PlayCardFromHand(index, card))
             .chain(once(Choice::EndTurn))
             .collect::<Vec<_>>();
         match self.prompt_for_choice(Prompt::CombatAction, choices)? {
-            Choice::PlayCardFromHand(card_play) => Ok(Some(card_play)),
+            Choice::PlayCardFromHand(index, _) => Ok(Some(index)),
             Choice::EndTurn => Ok(None),
             _ => unreachable!(),
         }
@@ -153,28 +167,19 @@ impl Comms {
     /// Prompts the user to choose an enemy to target for their card or potion effect.
     pub fn choose_enemy_to_target(
         &self,
-        enemies: &[Option<Enemy>],
-        effect_chains: &[Option<EnemyEffectChain>],
+        enemies: &[Option<EnemyStatus>],
     ) -> Result<EnemyIndex, Error> {
         let choices = enemies
             .iter()
-            .zip(effect_chains)
             .enumerate()
-            .filter_map(|(index, (maybe_enemy, maybe_effect_chain))| {
-                maybe_enemy.as_ref().map(|enemy| {
-                    Choice::TargetEnemy(
-                        index,
-                        enemy.enemy_type(),
-                        maybe_effect_chain
-                            .as_ref()
-                            .cloned()
-                            .expect("Missing effect chain"),
-                    )
-                })
+            .filter_map(|(index, maybe_enemy)| {
+                maybe_enemy
+                    .as_ref()
+                    .map(|enemy| Choice::TargetEnemy(index, enemy.enemy_type))
             })
             .collect::<Vec<_>>();
         match self.prompt_for_choice(Prompt::TargetEnemy, choices)? {
-            Choice::TargetEnemy(enemy_index, _, _) => Ok(enemy_index),
+            Choice::TargetEnemy(enemy_index, _) => Ok(enemy_index),
             _ => unreachable!(),
         }
     }
@@ -248,8 +253,9 @@ impl Comms {
         Ok(())
     }
 
-    pub fn send_enemy_party(&self, enemies: Vec<Option<EnemyStatus>>) -> Result<(), Error> {
-        self.to_client.send(StsMessage::EnemyParty(enemies))?;
+    pub fn send_enemy_statuses(&self, enemies: &[Option<EnemyStatus>]) -> Result<(), Error> {
+        self.to_client
+            .send(StsMessage::EnemyParty(enemies.to_vec()))?;
         Ok(())
     }
 

@@ -2,83 +2,164 @@
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum Relic {
+    /// Start each combat with 8 Vigor.
     Akabeko,
+    /// Start each combat with 10 Block.
     Anchor,
+    /// Whenever you enter a Rest Site, start the next combat with 2 extra Energy.
     AncientTeaSet,
+    /// If you do not play any Attacks during your turn, gain an extra Energy next turn.
     ArtOfWar,
+    /// Upon pickup, choose and Transform 3 cards, then Upgrade them.
     Astrolabe,
+    /// At the start of each combat, apply 1 Vulnerable to ALL enemies.
     BagOfMarbles,
+    /// At the start of each combat, draw 2 additional cards.
     BagOfPreparation,
+    /// Whenever you play a Power, heal 2 HP.
     BirdFacedUrn,
+    /// Replaces BurningBlood Burning Blood. At the end of combat, heal 12 HP.
     BlackBlood,
+    /// Elites drop an additional Relic when defeated.
     BlackStar,
+    /// At the start of each combat, heal 2 HP.
     BloodVial,
+    /// Whenever you gain Gold, heal 5 HP.
     BloodyIdol,
+    /// Curse cards can now be played. Playing a Curse will make you lose 1 HP & Exhausts the card.
     BlueCandle,
+    /// Upon pick up, choose an Attack. Start each combat with this card in your hand.
     BottledFlame,
+    /// Upon pick up, choose a Skill. Start each combat with this card in your hand.
     BottledLightning,
+    /// Upon pick up, choose a Power card. Start each combat with this card in your hand.
     BottledTornado,
+    /// At the start of your turn, gain 2 Strength and ALL enemies gain 1 Strength.
     Brimstone,
+    /// Start each combat with 3 Thorns.
     BronzeScales,
+    /// At the end of combat, heal 6 HP.
     BurningBlood,
+    /// Gain 1 Energy at the start of each turn. On Card Reward screens, you have 2 fewer cards to
+    /// choose from.
     BustedCrown,
+    /// At the start of your turn, lose 15 Block rather than all of your Block.
     Calipers,
+    /// Upon pickup, obtain a unique Curse and 3 relics.
     CallingBell,
+    /// At the start of your 3rd turn, gain 18 Block.
     CaptainsWheel,
+    /// Upon pickup, brews 5 random potions.
     Cauldron,
+    /// The first time you lose HP each combat, draw 3 cards.
     CentennialPuzzle,
+    /// Whenever you add a card to your deck, gain 9 gold.
     CeramicFish,
+    /// Whenever you apply Vulnerable, also apply 1 Weak.
     ChampionBelt,
+    /// Whenever you Exhaust a card, deal 3 damage to ALL enemies.
     CharonsAshes,
+    /// Whenever you play a cost X card, its effects are increased by 2.
     ChemicalX,
+    /// Collect as many as you can.
     Circlet,
+    /// At the end of your turn, gain 1 Block for each card in your hand.
     CloakClasp,
+    /// At the start of each combat, gain 1 Artifact.
     ClockworkSouvenir,
+    /// Gain 1 Energy at the start of each turn. You can no longer Rest at Rest Sites.
     CoffeeDripper,
+    /// At the start of each combat, Channel 1 Lightning.
     CrackedCore,
+    /// You feel more talkative.
     CultistHeadpiece,
+    /// Gain 1 Energy at the start of each turn. Whenever you open a non-boss Chest, obtain a Curse.
     CursedKey,
+    /// At the start of your turn, gain 1 Mantra.
     Damaru,
+    /// Whenever you obtain a Curse, increase your Max HP by 6.
     DarkstonePeriapt,
+    /// Start each combat with 1 Focus.
     DataDisk,
+    /// Whenever you Exhaust a card, add a random card to your hand.
     DeadBranch,
+    /// Upon pickup, obtain an additional copy of a card in your deck.
     DollysMirror,
+    /// Whenever you rest, you may add a card to your deck.
     DreamCatcher,
+    /// For each Curse in your deck, start each combat with 1 additional Strength.
     DuVuDoll,
+    /// Whenever you play an Attack, gain 1 temporary Dexterity.
     Duality,
+    /// Gain 1 Energy at the start of each turn. You can no longer gain Gold.
     Ectoplasm,
+    /// If you lost HP during the previous turn, trigger the passive ability of all Orbs
+    /// at the start of your turn.
     EmotionChip,
+    /// Upon pickup, remove 2 cards from your Deck.
     EmptyCage,
+    /// At the start of each combat, add a random Power card to your hand. It costs 0 until the
+    /// end of turn.
     Enchiridion,
+    /// For every 5 cards in your deck, heal 3 HP whenever you enter a Rest Site.
     EternalFeather,
+    /// Raise your Max HP by 1 after each combat.
     FaceOfCleric,
+    /// Prevent the first time you would lose HP in combat.
     FossilizedHelix,
+    /// Replaces Cracked Core. If you end your turn with empty Orb slots, channel 1 Frost.
     FrozenCore,
+    /// Whenever you add a Power card to your deck, it is Upgraded.
     FrozenEgg,
+    /// When viewing your Draw Pile, the cards are now shown in order.
     FrozenEye,
+    /// Gain 1 Energy at the start of each turn. You can no longer Smith at Rest Sites.
     FusionHammer,
+    /// At the start of each combat, discard any number of cards then draw that many.
     GamblingChip,
+    /// You can no longer become Weakened.
     Ginger,
+    /// You can now gain Icon Strength Strength at Rest Sites. (3 times max)
     Girya,
+    /// Your rightmost Orb triggers its passive an additional time.
     GoldPlatedCables,
+    /// Whenever you Scry, Scry 2 additional cards.
     GoldenEye,
+    /// Enemies drop 25% more gold.
     GoldenIdol,
+    /// Whenever an enemy dies, gain 1 Energy and draw 1 card.
     GremlinHorn,
+    /// Start each combat with 1 Weak.
     GremlinVisage,
+    /// Whenever you break an enemy's Block, apply 2 Vulnerable.
     HandDrill,
+    /// Every 3 turns, gain 1 Energy.
     HappyFlower,
+    /// Replaces Pure Water. At the start of each combat, add 3 Miracles to your hand.
     HolyWater,
+    /// At the start of your 2nd turn, gain 14 Block.
     HornCleat,
+    /// The first time you discard a card each turn, gain 1 Energy.
     HoveringKite,
+    /// Energy is now conserved between turns.
     IceCream,
+    /// Every 6 turns, gain 1 Intangible.
     IncenseBurner,
+    /// Whenever you play 10 cards, draw 1 card.
     InkBottle,
+    /// Every 2 turns, gain 1 Orb slot.
     Inserter,
+    /// Regular enemy combats are no longer encountered in Event rooms.
     JuzuBracelet,
+    /// Every time you play 3 Attacks in a single turn, gain 1 Dexterity.
     Kunai,
+    /// Gain 1 Energy on the first turn of each combat.
     Lantern,
+    /// Raise your Max HP by 7 and heal all of your HP.
     LeesWaffle,
+    /// Every time you play 3 Skills in a single turn, deal 5 damage to ALL enemies.
     LetterOpener,
+    /// When you would die, heal to 50% of your Max HP instead (works once).
     LizardTail,
     MagicFlower,
     Mango,
@@ -181,219 +262,4 @@ pub enum Relic {
     WhiteBeastStatue,
     WingBoots,
     WristBlade,
-}
-
-impl Relic {
-    pub fn description(&self) -> &'static str {
-        match self {
-            // +8 Vigor
-            Relic::Akabeko => "Your first attack each combat deals 8 additional damage",
-            // Turn 1 => +10 Block
-            Relic::Anchor => "Start each combat with 10 Block",
-            // Rest Site => Turn 1 => +2 Energy
-            Relic::AncientTeaSet => {
-                "Whenever you enter a Rest Site, start the next combat with 2 extra Energy"
-            }
-            // No Attacks => +1 Energy
-            Relic::ArtOfWar => {
-                "If you do not play any Attacks during your turn, gain an extra Energy next turn"
-            }
-            // 3x Transform => Upgrade (TODO: order?)
-            Relic::Astrolabe => "Upon pickup, choose and Transform 3 cards, then Upgrade them",
-            // Turn 1 => +1 Vulnerable to ALL enemies
-            Relic::BagOfMarbles => "At the start of each combat, apply 1 Vulnerable to ALL enemies",
-            // Turn 1 => +2 Cards
-            Relic::BagOfPreparation => "At the start of each combat, draw 2 additional cards",
-            // play Power => +2 HP
-            Relic::BirdFacedUrn => "Whenever you play a Power, heal 2 HP",
-            // Remove Burning Blood. End of combat => +12 HP
-            Relic::BlackBlood => "Replaces Burning Blood. At the end of combat, heal 12 HP",
-            // Elite => +1 Relic
-            Relic::BlackStar => "Elites drop an additional Relic when defeated",
-            // Turn 1 => +2 HP
-            Relic::BloodVial => "At the start of each combat, heal 2 HP",
-            // Gain gold => +5 HP
-            Relic::BloodyIdol => "Whenever you gain Gold, heal 5 HP",
-            // Playable Curse cards
-            Relic::BlueCandle => concat!(
-                "Curse cards can now be played. ",
-                "Playing a Curse will make you lose 1 HP and Exhausts the card"
-            ),
-            // Choose Attack => Start with card in hand
-            Relic::BottledFlame => {
-                "Upon pick up, choose an Attack. Start each combat with this card in your hand"
-            }
-            // Choose Skill => Start with card in hand
-            Relic::BottledLightning => {
-                "Upon pick up, choose an Skill. Start each combat with this card in your hand"
-            }
-            // Choose Power => Start with card in hand
-            Relic::BottledTornado => {
-                "Upon pick up, choose a Power card. Start each combat with this card in your hand"
-            }
-            Relic::Brimstone => todo!("{:?}", self),
-            Relic::BronzeScales => todo!("{:?}", self),
-            Relic::BurningBlood => todo!("{:?}", self),
-            Relic::BustedCrown => todo!("{:?}", self),
-            Relic::Calipers => todo!("{:?}", self),
-            Relic::CallingBell => todo!("{:?}", self),
-            Relic::CaptainsWheel => todo!("{:?}", self),
-            Relic::Cauldron => todo!("{:?}", self),
-            Relic::CentennialPuzzle => todo!("{:?}", self),
-            Relic::CeramicFish => todo!("{:?}", self),
-            Relic::ChampionBelt => todo!("{:?}", self),
-            Relic::CharonsAshes => todo!("{:?}", self),
-            Relic::ChemicalX => todo!("{:?}", self),
-            Relic::Circlet => todo!("{:?}", self),
-            Relic::CloakClasp => todo!("{:?}", self),
-            Relic::ClockworkSouvenir => todo!("{:?}", self),
-            Relic::CoffeeDripper => todo!("{:?}", self),
-            Relic::CrackedCore => todo!("{:?}", self),
-            Relic::CultistHeadpiece => todo!("{:?}", self),
-            Relic::CursedKey => todo!("{:?}", self),
-            Relic::Damaru => todo!("{:?}", self),
-            Relic::DarkstonePeriapt => todo!("{:?}", self),
-            Relic::DataDisk => todo!("{:?}", self),
-            Relic::DeadBranch => todo!("{:?}", self),
-            Relic::DollysMirror => todo!("{:?}", self),
-            Relic::DreamCatcher => todo!("{:?}", self),
-            Relic::DuVuDoll => todo!("{:?}", self),
-            Relic::Duality => todo!("{:?}", self),
-            Relic::Ectoplasm => todo!("{:?}", self),
-            Relic::EmotionChip => todo!("{:?}", self),
-            Relic::EmptyCage => todo!("{:?}", self),
-            Relic::Enchiridion => todo!("{:?}", self),
-            Relic::EternalFeather => todo!("{:?}", self),
-            Relic::FaceOfCleric => todo!("{:?}", self),
-            Relic::FossilizedHelix => todo!("{:?}", self),
-            Relic::FrozenCore => todo!("{:?}", self),
-            Relic::FrozenEgg => todo!("{:?}", self),
-            Relic::FrozenEye => todo!("{:?}", self),
-            Relic::FusionHammer => todo!("{:?}", self),
-            Relic::GamblingChip => todo!("{:?}", self),
-            Relic::Ginger => todo!("{:?}", self),
-            Relic::Girya => todo!("{:?}", self),
-            Relic::GoldPlatedCables => todo!("{:?}", self),
-            Relic::GoldenEye => todo!("{:?}", self),
-            Relic::GoldenIdol => todo!("{:?}", self),
-            Relic::GremlinHorn => todo!("{:?}", self),
-            Relic::GremlinVisage => todo!("{:?}", self),
-            Relic::HandDrill => todo!("{:?}", self),
-            Relic::HappyFlower => todo!("{:?}", self),
-            Relic::HolyWater => todo!("{:?}", self),
-            Relic::HornCleat => todo!("{:?}", self),
-            Relic::HoveringKite => todo!("{:?}", self),
-            Relic::IceCream => todo!("{:?}", self),
-            Relic::IncenseBurner => todo!("{:?}", self),
-            Relic::InkBottle => todo!("{:?}", self),
-            Relic::Inserter => todo!("{:?}", self),
-            Relic::JuzuBracelet => todo!("{:?}", self),
-            Relic::Kunai => todo!("{:?}", self),
-            Relic::Lantern => todo!("{:?}", self),
-            Relic::LeesWaffle => todo!("{:?}", self),
-            Relic::LetterOpener => todo!("{:?}", self),
-            Relic::LizardTail => todo!("{:?}", self),
-            Relic::MagicFlower => todo!("{:?}", self),
-            Relic::Mango => todo!("{:?}", self),
-            Relic::MarkOfPain => todo!("{:?}", self),
-            Relic::MarkOfTheBloom => todo!("{:?}", self),
-            Relic::Matryoshka => todo!("{:?}", self),
-            Relic::MawBank => todo!("{:?}", self),
-            Relic::MealTicket => todo!("{:?}", self),
-            Relic::MeatOnTheBone => todo!("{:?}", self),
-            Relic::MedicalKit => todo!("{:?}", self),
-            Relic::Melange => todo!("{:?}", self),
-            Relic::MembershipCard => todo!("{:?}", self),
-            Relic::MercuryHourglass => todo!("{:?}", self),
-            Relic::MoltenEgg => todo!("{:?}", self),
-            Relic::MummifiedHand => todo!("{:?}", self),
-            Relic::MutagenicStrength => todo!("{:?}", self),
-            Relic::NlothsGift => todo!("{:?}", self),
-            Relic::NlothsHungryFace => todo!("{:?}", self),
-            Relic::Necronomicon => todo!("{:?}", self),
-            Relic::NeowsLament => todo!("{:?}", self),
-            Relic::NilrysCodex => todo!("{:?}", self),
-            Relic::NinjaScroll => todo!("{:?}", self),
-            Relic::NuclearBattery => todo!("{:?}", self),
-            Relic::Nunchaku => todo!("{:?}", self),
-            Relic::OddMushroom => todo!("{:?}", self),
-            Relic::OddlySmoothStone => todo!("{:?}", self),
-            Relic::OldCoin => todo!("{:?}", self),
-            Relic::Omamori => todo!("{:?}", self),
-            Relic::OrangePellets => todo!("{:?}", self),
-            Relic::Orichalcum => todo!("{:?}", self),
-            Relic::OrnamentalFan => todo!("{:?}", self),
-            Relic::Orrery => todo!("{:?}", self),
-            Relic::PandorasBox => todo!("{:?}", self),
-            Relic::Pantograph => todo!("{:?}", self),
-            Relic::PaperKrane => todo!("{:?}", self),
-            Relic::PaperPhrog => todo!("{:?}", self),
-            Relic::PeacePipe => todo!("{:?}", self),
-            Relic::Pear => todo!("{:?}", self),
-            Relic::PenNib => todo!("{:?}", self),
-            Relic::PhilosophersStone => todo!("{:?}", self),
-            Relic::Pocketwatch => todo!("{:?}", self),
-            Relic::PotionBelt => todo!("{:?}", self),
-            Relic::PrayerWheel => todo!("{:?}", self),
-            Relic::PreservedInsect => todo!("{:?}", self),
-            Relic::PrismaticShard => todo!("{:?}", self),
-            Relic::PureWater => todo!("{:?}", self),
-            Relic::QuestionCard => todo!("{:?}", self),
-            Relic::RedMask => todo!("{:?}", self),
-            Relic::RedSkull => todo!("{:?}", self),
-            Relic::RegalPillow => todo!("{:?}", self),
-            Relic::RingOfTheSerpent => todo!("{:?}", self),
-            Relic::RingOfTheSnake => todo!("{:?}", self),
-            Relic::RunicCapacitor => todo!("{:?}", self),
-            Relic::RunicCube => todo!("{:?}", self),
-            Relic::RunicDome => todo!("{:?}", self),
-            Relic::RunicPyramid => todo!("{:?}", self),
-            Relic::SacredBark => todo!("{:?}", self),
-            Relic::SelfFormingClay => todo!("{:?}", self),
-            Relic::Shovel => todo!("{:?}", self),
-            Relic::Shuriken => todo!("{:?}", self),
-            Relic::SingingBowl => todo!("{:?}", self),
-            Relic::SlaversCollar => todo!("{:?}", self),
-            Relic::SlingOfCourage => todo!("{:?}", self),
-            Relic::SmilingMask => todo!("{:?}", self),
-            Relic::SneckoEye => todo!("{:?}", self),
-            Relic::SneckoSkull => todo!("{:?}", self),
-            Relic::Sozu => todo!("{:?}", self),
-            Relic::SpiritPoop => todo!("{:?}", self),
-            Relic::SsserpentHead => todo!("{:?}", self),
-            Relic::StoneCalendar => todo!("{:?}", self),
-            Relic::StrangeSpoon => todo!("{:?}", self),
-            Relic::Strawberry => todo!("{:?}", self),
-            Relic::StrikeDummy => todo!("{:?}", self),
-            Relic::Sundial => todo!("{:?}", self),
-            Relic::SymbioticVirus => todo!("{:?}", self),
-            Relic::TeardropLocket => todo!("{:?}", self),
-            Relic::TheAbacus => todo!("{:?}", self),
-            Relic::TheBoot => todo!("{:?}", self),
-            Relic::TheCourier => todo!("{:?}", self),
-            Relic::TheSpecimen => todo!("{:?}", self),
-            Relic::ThreadAndNeedle => todo!("{:?}", self),
-            Relic::Tingsha => todo!("{:?}", self),
-            Relic::TinyChest => todo!("{:?}", self),
-            Relic::TinyHouse => todo!("{:?}", self),
-            Relic::Toolbox => todo!("{:?}", self),
-            Relic::Torii => todo!("{:?}", self),
-            Relic::ToughBandages => todo!("{:?}", self),
-            Relic::ToxicEgg => todo!("{:?}", self),
-            Relic::ToyOrnithopter => todo!("{:?}", self),
-            Relic::TungstenRod => todo!("{:?}", self),
-            Relic::Turnip => todo!("{:?}", self),
-            Relic::TwistedFunnel => todo!("{:?}", self),
-            Relic::UnceasingTop => todo!("{:?}", self),
-            Relic::Vajra => todo!("{:?}", self),
-            Relic::VelvetChoker => todo!("{:?}", self),
-            Relic::VioletLotus => todo!("{:?}", self),
-            Relic::WarPaint => todo!("{:?}", self),
-            Relic::WarpedTongs => todo!("{:?}", self),
-            Relic::Whetstone => todo!("{:?}", self),
-            Relic::WhiteBeastStatue => todo!("{:?}", self),
-            Relic::WingBoots => todo!("{:?}", self),
-            Relic::WristBlade => todo!("{:?}", self),
-        }
-    }
 }

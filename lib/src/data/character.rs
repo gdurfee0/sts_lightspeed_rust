@@ -53,9 +53,28 @@ impl TryFrom<&str> for &'static Character {
     }
 }
 
+// Don't expose the characters directly to the outside world, except for testing.
+#[cfg(test)]
+pub const IRONCLAD: &Character = IRONCLAD_;
+#[cfg(test)]
+pub const SILENT: &Character = SILENT_;
+#[cfg(test)]
+pub const DEFECT: &Character = DEFECT_;
+#[cfg(test)]
+pub const WATCHER: &Character = WATCHER_;
+
+#[cfg(not(test))]
+const IRONCLAD: &Character = IRONCLAD_;
+#[cfg(not(test))]
+const SILENT: &Character = SILENT_;
+#[cfg(not(test))]
+const DEFECT: &Character = DEFECT_;
+#[cfg(not(test))]
+const WATCHER: &Character = WATCHER_;
+
 // Credit to gamerpuppy for the pool orderings below, which match the game's rng.
 
-pub const IRONCLAD: &Character = &Character {
+const IRONCLAD_: &Character = &Character {
     starting_hp: 80,
     starting_relic: Relic::BurningBlood,
     starting_deck: &[
@@ -325,7 +344,7 @@ pub const IRONCLAD: &Character = &Character {
     ],
 };
 
-pub const SILENT: &Character = &Character {
+const SILENT_: &Character = &Character {
     starting_hp: 70,
     starting_relic: Relic::RingOfTheSnake,
     starting_deck: &[
@@ -596,7 +615,7 @@ pub const SILENT: &Character = &Character {
     ],
 };
 
-pub const DEFECT: &Character = &Character {
+const DEFECT_: &Character = &Character {
     starting_hp: 75,
     starting_relic: Relic::CrackedCore,
     starting_deck: &[
@@ -863,7 +882,7 @@ pub const DEFECT: &Character = &Character {
     ],
 };
 
-pub const WATCHER: &Character = &Character {
+const WATCHER_: &Character = &Character {
     starting_hp: 72,
     starting_relic: Relic::PureWater,
     starting_deck: &[

@@ -13,10 +13,12 @@ pub enum Buff {
     BeatOfDeath,     // Whenever you play a card, take X damage.
     Berserk,         // At the start of your turn, gain X Energy.
     Blasphemer,      // At the start of your turn, die.
+    BlockNextTurn,   // Gain X Block next turn.
     Blur,            // Block is not removed at the start of your next X turns.
     Brutality,       // At the start of your turn, lose X HP and draw X cards.
     Buffer,          // Prevent the next X times you would lose HP.
     Burst,           // Your next X Skills are played twice.
+    ClawsPlayed,     // Internal: tracks the number of Claws played.
     Collect,         // Put a Miracle+ into your hand at the start of your next X turns.
     Combust,         // At the end of your turn, lose 1 HP and deal X dammage to ALL enemies.
     Corruption,      // Skills cost 0. Whenever you play a Skill, Exhaust it.
@@ -67,7 +69,6 @@ pub enum Buff {
     Metallicize,     // At the end of your/its turn, gain X Block.
     Minion,          // Abandons combat without their leader.
     ModeShift,       // After receiving X damage, changes to a defensive mode.
-    NextTurnBlock,   // Gain X Block next turn.
     Nightmare,       // Add X of a chosen card into your hand next turn.
     Nirvana,         // Whenever you Scry, gain X Block.
     NoxiousFumes,    // At the start of your turn, apply X Poison to ALL enemies.

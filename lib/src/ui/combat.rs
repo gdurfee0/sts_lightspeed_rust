@@ -45,6 +45,10 @@ impl<'a> CombatClient<'a> {
                     self.my_debuffs = debuffs;
                     println!("Debuffs: {:?}", self.my_debuffs);
                 }
+                StsMessage::EndingCombat => {
+                    println!("Combat ended");
+                    break;
+                }
                 StsMessage::EnemyParty(party) => {
                     for enemy_status in party.iter().flatten() {
                         println!("Enemy: {}", enemy_status);
@@ -82,11 +86,12 @@ impl<'a> CombatClient<'a> {
                     choice,
                     match choice {
                         Choice::PlayCardFromHand(_, card) => {
-                            let details = CardDetails::for_card(*card);
-                            self.card_chosen = Some(details);
-                            self.modified_card_details(None)
+                            self.modified_card_details(CardDetails::for_card(*card), None)
                         }
-                        Choice::TargetEnemy(index, _) => self.modified_card_details(Some(*index)),
+                        Choice::TargetEnemy(index, _) => self.modified_card_details(
+                            self.card_chosen.expect("Card just chosen"),
+                            Some(*index)
+                        ),
                         _ => "".to_string(),
                     }
                 );
@@ -97,7 +102,12 @@ impl<'a> CombatClient<'a> {
                     return Err(anyhow!("User closed the input stream"));
                 }
                 Ok(_) => match user_input.trim().parse::<usize>() {
-                    Ok(i) if i <= choices.len() && i > 0 => return Ok(i - 1),
+                    Ok(i) if i <= choices.len() && i > 0 => {
+                        if let Choice::PlayCardFromHand(_, card) = &choices[i - 1] {
+                            self.card_chosen = Some(CardDetails::for_card(*card));
+                        }
+                        return Ok(i - 1);
+                    }
                     _ => {
                         println!(
                             "Invalid input: must be an integer in the range {}..={}",
@@ -155,15 +165,14 @@ impl<'a> CombatClient<'a> {
         }
     }
 
-    fn modified_card_details(&self, maybe_enemy_index: Option<EnemyIndex>) -> String {
+    fn modified_card_details(
+        &self,
+        details: &'static CardDetails,
+        maybe_enemy_index: Option<EnemyIndex>,
+    ) -> String {
         let mut first = true;
         let mut result = "[".to_string();
-        for effect in self
-            .card_chosen
-            .expect("Card just chosen")
-            .effect_chain
-            .iter()
-        {
+        for effect in details.effect_chain.iter() {
             if !first {
                 result.push_str(", ");
             }

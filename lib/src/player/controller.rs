@@ -221,6 +221,10 @@ impl<'a> CombatController<'a> {
         self.state.hp()
     }
 
+    pub fn start_combat(&self) -> Result<(), Error> {
+        self.comms.send_starting_combat()
+    }
+
     pub fn start_turn(&mut self) -> Result<(), Error> {
         // Reset energy
         // TODO: energy conservation
@@ -251,6 +255,10 @@ impl<'a> CombatController<'a> {
 
         // TODO: Apply other end-of-turn effects
         Ok(())
+    }
+
+    pub fn end_combat(self) -> Result<(), Error> {
+        self.comms.send_ending_combat()
     }
 
     pub fn take_damage(&mut self, amount: AttackDamage) -> Result<(), Error> {
@@ -335,8 +343,7 @@ impl<'a> CombatController<'a> {
             .copied()
             .enumerate()
             .filter_map(|(hand_index, card)| {
-                let card_details = CardDetails::for_card(card);
-                if card_details.cost > self.combat_state.energy {
+                if card.cost() > self.combat_state.energy {
                     None
                 } else {
                     Some((hand_index, card))
@@ -367,6 +374,7 @@ impl<'a> CombatController<'a> {
     pub fn discard_card_just_played(&mut self) -> Result<(), Error> {
         if let Some(hand_index) = self.card_just_played {
             let card = self.combat_state.hand.remove(hand_index);
+            self.combat_state.energy = self.combat_state.energy.saturating_sub(card.cost());
             self.combat_state.discard_pile.push(card);
             self.comms.send_card_discarded(hand_index, card)?;
         }

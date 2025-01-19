@@ -41,6 +41,7 @@ impl<'a> EncounterSimulator<'a> {
             "[EncounterSimulator] Running encounter: {:?}",
             self.encounter
         );
+        self.player.start_combat()?;
         EnemyPartyGenerator::new(
             self.seed_for_floor,
             self.encounter,
@@ -52,13 +53,16 @@ impl<'a> EncounterSimulator<'a> {
         loop {
             self.conduct_player_turn()?;
             if self.combat_is_over() {
-                return Ok(!self.player.is_dead());
+                break;
             }
             self.conduct_enemy_turn()?;
             if self.combat_is_over() {
-                return Ok(!self.player.is_dead());
+                break;
             }
         }
+        let victorious = !self.player.is_dead();
+        self.player.end_combat()?;
+        Ok(victorious)
     }
 
     fn combat_is_over(&self) -> bool {
@@ -142,17 +146,22 @@ impl<'a> EncounterSimulator<'a> {
                 PlayerEffect::ChannelCustom() => todo!(),
                 PlayerEffect::ChannelRandom(_) => todo!(),
                 PlayerEffect::DealDamage(amount) => {
+                    let index = enemy_index.unwrap_or_else(|| {
+                        panic!(
+                            "No enemy at index {:?}, card played: {:?}",
+                            enemy_index, card,
+                        )
+                    });
                     let outgoing_damage = self.outgoing_damage(*amount, enemy_index);
-                    enemy_index
-                        .and_then(|index| self.enemy_party[index].as_mut())
-                        .as_mut()
-                        .unwrap_or_else(|| {
-                            panic!(
-                                "No enemy at index {:?}, card played: {:?}",
-                                enemy_index, card
-                            )
-                        })
-                        .take_damage(outgoing_damage);
+                    let maybe_enemy = self.enemy_party.get_mut(index).expect("index in bounds");
+                    maybe_enemy.as_mut().map(|e| e.take_damage(outgoing_damage));
+                    if maybe_enemy.as_ref().map(|e| e.is_dead()).unwrap_or(false) {
+                        println!(
+                            "[EncounterSimulator] Enemy at index {} is dead, removing",
+                            index
+                        );
+                        *maybe_enemy = None;
+                    }
                 }
                 PlayerEffect::DealDamageCustom() => todo!(),
                 PlayerEffect::DealDamageToAll(amount) => {

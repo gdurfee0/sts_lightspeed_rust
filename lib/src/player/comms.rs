@@ -241,6 +241,11 @@ impl Comms {
         Ok(())
     }
 
+    pub fn send_ending_combat(&self) -> Result<(), Error> {
+        self.to_client.send(StsMessage::EndingCombat)?;
+        Ok(())
+    }
+
     pub fn send_enemy_died(&self, index: EnemyIndex, enemy_type: EnemyType) -> Result<(), Error> {
         self.to_client
             .send(StsMessage::EnemyDied(index, enemy_type))?;
@@ -301,6 +306,11 @@ impl Comms {
 
     pub fn send_shuffling_discard_to_draw(&self) -> Result<(), Error> {
         self.to_client.send(StsMessage::ShufflingDiscardToDraw)?;
+        Ok(())
+    }
+
+    pub fn send_starting_combat(&self) -> Result<(), Error> {
+        self.to_client.send(StsMessage::StartingCombat)?;
         Ok(())
     }
 

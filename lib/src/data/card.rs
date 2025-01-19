@@ -12,6 +12,7 @@ use super::effect::PlayerEffect;
 use super::orb::Orb;
 use super::stance::Stance;
 
+// TODO: Use Card(Energy, bool) for all of these, and Card(Energy, u32) for SearingBlow.
 #[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
 pub enum Card {
     Accuracy,
@@ -423,6 +424,10 @@ pub enum CardType {
 }
 
 impl Card {
+    pub fn cost(&self) -> Energy {
+        CardDetails::for_card(*self).cost
+    }
+
     pub fn is_innate(&self) -> bool {
         CardDetails::for_card(*self).innate
     }

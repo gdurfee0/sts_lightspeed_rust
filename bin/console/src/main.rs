@@ -7,6 +7,7 @@ use sts_lib::data::Character;
 use sts_lib::message::{Choice, Prompt, StsMessage};
 use sts_lib::rng::Seed;
 use sts_lib::sim::StsSimulator;
+use sts_lib::ui::combat::CombatClient;
 
 fn main() -> Result<(), anyhow::Error> {
     let (seed, character) = parse_command_line();
@@ -45,6 +46,10 @@ fn main_input_loop(
                     if result { "" } else { "not " }
                 );
                 break;
+            }
+            StsMessage::StartingCombat => {
+                let combat_client = CombatClient::new(&from_server, &to_server);
+                combat_client.run()?;
             }
             sts_message => println!("{:?}", sts_message),
         }

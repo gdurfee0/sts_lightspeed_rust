@@ -23,6 +23,9 @@ pub enum StsMessage {
     Potions(Vec<Option<Potion>>),
 
     // Encounter / combat messages
+    StartingCombat,
+    EndingCombat,
+
     AddToDiscardPile(Vec<Card>),
     Block(Block),
     BlockGained(Block),

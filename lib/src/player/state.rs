@@ -1,12 +1,6 @@
-use crate::data::buff::Buff;
-use crate::data::card::Card;
-use crate::data::character::Character;
-use crate::data::debuff::Debuff;
-use crate::data::potion::Potion;
-use crate::data::relic::Relic;
-use crate::{
-    Block, DeckIndex, Energy, Gold, Health, Hp, HpMax, PotionIndex, StackCount, StsRandom,
-};
+use crate::data::{Buff, Card, Character, Debuff, Potion, Relic};
+use crate::rng::StsRandom;
+use crate::types::{Block, DeckIndex, Energy, Gold, Health, Hp, HpMax, PotionIndex, StackCount};
 
 /// Encapsulates the state of the player in the game, e.g. HP, gold, deck, etc.
 /// Mostly a dumb container.
@@ -141,6 +135,9 @@ impl CombatState {
         let hand = Vec::new();
         let mut draw_pile = deck.to_vec();
         shuffle_rng.java_compat_shuffle(&mut draw_pile);
+        // Move innate cards to the top of the draw pile
+        draw_pile.sort_by_key(|card| card.is_innate());
+
         let discard_pile = Vec::new();
         let exhaust_pile = Vec::new();
         let debuffs = Vec::new();
@@ -157,18 +154,30 @@ impl CombatState {
         }
     }
 
-    pub fn shuffle(&mut self) {
-        self.shuffle_rng.java_compat_shuffle(&mut self.draw_pile);
-    }
-
     pub fn has_debuff(&self, debuff: Debuff) -> bool {
         self.debuffs.iter().any(|(d, _)| *d == debuff)
+    }
+
+    pub fn is_frail(&self) -> bool {
+        self.has_debuff(Debuff::Frail)
+    }
+
+    pub fn is_vulnerable(&self) -> bool {
+        self.has_debuff(Debuff::Vulnerable)
+    }
+
+    pub fn is_weak(&self) -> bool {
+        self.has_debuff(Debuff::Weak)
+    }
+
+    pub fn shuffle(&mut self) {
+        self.shuffle_rng.java_compat_shuffle(&mut self.draw_pile);
     }
 }
 
 #[cfg(test)]
 mod test {
-    use crate::data::character::IRONCLAD;
+    use crate::data::IRONCLAD;
 
     use super::*;
 

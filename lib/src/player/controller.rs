@@ -2,19 +2,15 @@ use std::sync::mpsc::{Receiver, Sender};
 
 use anyhow::Error;
 
-use crate::data::card::{Card, CardDetails};
-use crate::data::character::Character;
-use crate::data::debuff::Debuff;
-use crate::data::enemy::EnemyType;
-use crate::data::neow::NeowBlessing;
-use crate::data::potion::Potion;
-use crate::data::relic::Relic;
+use crate::data::{Card, CardDetails, Character, Debuff, EnemyType, NeowBlessing, Potion, Relic};
 use crate::enemy::EnemyStatus;
+use crate::message::{PotionAction, StsMessage};
 use crate::rng::StsRandom;
-use crate::{AttackDamage, Block, ColumnIndex, EnemyIndex, Gold, HandIndex, Hp, HpMax, StackCount};
+use crate::types::{
+    AttackDamage, Block, ColumnIndex, EnemyIndex, Gold, HandIndex, Hp, HpMax, StackCount,
+};
 
 use super::comms::{Comms, MainScreenAction};
-use super::message::{PotionAction, StsMessage};
 use super::state::{CombatState, PlayerState};
 
 /// Encapsulates the state of the player in the game, e.g. HP, gold, deck, etc.
@@ -399,5 +395,25 @@ impl<'a> CombatController<'a> {
 
     pub fn update_enemy_status(&self, index: EnemyIndex, status: EnemyStatus) -> Result<(), Error> {
         self.comms.send_enemy_status(index, status)
+    }
+
+    pub fn has_debuff(&self, debuff: Debuff) -> bool {
+        self.combat_state.has_debuff(debuff)
+    }
+
+    pub fn is_dead(&self) -> bool {
+        self.hp() == 0
+    }
+
+    pub fn is_frail(&self) -> bool {
+        self.has_debuff(Debuff::Frail)
+    }
+
+    pub fn is_vulnerable(&self) -> bool {
+        self.has_debuff(Debuff::Vulnerable)
+    }
+
+    pub fn is_weak(&self) -> bool {
+        self.has_debuff(Debuff::Weak)
     }
 }

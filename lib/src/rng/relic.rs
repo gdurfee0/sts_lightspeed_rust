@@ -1,7 +1,6 @@
 use std::collections::VecDeque;
 
-use crate::data::character::Character;
-use crate::data::relic::Relic;
+use crate::data::{Character, Relic};
 
 use super::{Seed, StsRandom};
 
@@ -67,7 +66,7 @@ impl RelicGenerator {
 mod test {
     use pretty_assertions::assert_eq;
 
-    use crate::data::character::IRONCLAD;
+    use crate::data::IRONCLAD;
 
     use super::*;
 

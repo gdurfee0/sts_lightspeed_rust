@@ -2,7 +2,7 @@ use std::cmp::Ordering;
 use std::fmt;
 
 use crate::rng::StsRandom;
-use crate::{ColumnIndex, RowIndex};
+use crate::types::{ColumnIndex, RowIndex};
 
 use super::exit::ExitBits;
 use super::grid::NodeBuilderGrid;

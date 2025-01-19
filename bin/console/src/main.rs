@@ -3,7 +3,10 @@ use std::sync::mpsc::{channel, Receiver, Sender};
 use std::{env, thread};
 
 use anyhow::anyhow;
-use lib::{Character, Choice, Prompt, Seed, StsMessage, StsSimulator};
+use sts_lib::data::Character;
+use sts_lib::message::{Choice, Prompt, StsMessage};
+use sts_lib::rng::Seed;
+use sts_lib::sim::StsSimulator;
 
 fn main() -> Result<(), anyhow::Error> {
     let (seed, character) = parse_command_line();

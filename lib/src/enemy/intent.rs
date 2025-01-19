@@ -1,7 +1,7 @@
 // Source: Slay the Spire wiki (https://slay-the-spire.fandom.com/wiki/Intent)
 
-use crate::data::effect::EnemyEffect;
-use crate::{AttackCount, AttackDamage};
+use crate::data::EnemyEffect;
+use crate::types::{AttackCount, AttackDamage};
 
 /// An `Intent` provides the user-visible view of the enemy's next action.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

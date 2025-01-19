@@ -25,7 +25,7 @@
 ///   C++ reference implementation.
 use std::fmt;
 
-use crate::{ColumnIndex, RowIndex};
+use crate::types::{ColumnIndex, RowIndex};
 
 use super::exit::ExitBits;
 use super::node::{Node, NodeBuilder};

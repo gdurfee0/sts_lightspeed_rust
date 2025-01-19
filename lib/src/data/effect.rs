@@ -1,4 +1,4 @@
-use crate::{
+use crate::types::{
     AttackDamage, Block, Dexterity, DiscardCount, DrawCount, Energy, Focus, Hp, OrbCount, OrbSlots,
     ScryCount, StackCount, Strength,
 };

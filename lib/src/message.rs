@@ -1,11 +1,6 @@
-use crate::data::card::Card;
-use crate::data::debuff::Debuff;
-use crate::data::enemy::EnemyType;
-use crate::data::neow::NeowBlessing;
-use crate::data::potion::Potion;
-use crate::data::relic::Relic;
+use crate::data::{Buff, Card, Debuff, EnemyType, NeowBlessing, Potion, Relic};
 use crate::enemy::EnemyStatus;
-use crate::{
+use crate::types::{
     Block, ColumnIndex, DeckIndex, EnemyIndex, Energy, Gold, HandIndex, Health, Hp, PotionIndex,
     StackCount,
 };
@@ -32,6 +27,7 @@ pub enum StsMessage {
     Block(Block),
     BlockGained(Block),
     BlockLost(Block),
+    Buffs(Vec<(Buff, StackCount)>),
     CardDiscarded(HandIndex, Card),
     CardDrawn(HandIndex, Card),
     DamageBlocked(Hp),

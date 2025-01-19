@@ -4,7 +4,7 @@ use std::collections::HashMap;
 
 use once_cell::sync::Lazy;
 
-use crate::Energy;
+use crate::types::Energy;
 
 use super::buff::Buff;
 use super::debuff::Debuff;
@@ -420,6 +420,12 @@ pub enum CardType {
     Power,
     Skill,
     Status,
+}
+
+impl Card {
+    pub fn is_innate(&self) -> bool {
+        CardDetails::for_card(*self).innate
+    }
 }
 
 #[derive(Debug)]

@@ -4,9 +4,10 @@ use super::encounter::EncounterSimulator;
 use super::map::MapSimulator;
 use super::neow::NeowSimulator;
 
-use crate::data::character::Character;
+use crate::data::Character;
 use crate::map::Room;
-use crate::player::{PlayerController, StsMessage};
+use crate::message::StsMessage;
+use crate::player::PlayerController;
 use crate::rng::{EncounterGenerator, RelicGenerator, Seed, StsRandom};
 
 pub struct StsSimulator {

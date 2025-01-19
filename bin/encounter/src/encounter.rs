@@ -1,4 +1,4 @@
-use lib::Encounter;
+use sts_lib::data::Encounter;
 
 pub fn str_to_encounter(name: &str) -> Encounter {
     match name.to_lowercase().as_str() {

@@ -1,8 +1,7 @@
 use std::fmt;
 
-use crate::data::debuff::Debuff;
-use crate::data::enemy::EnemyType;
-use crate::{Block, Hp, HpMax, StackCount};
+use crate::data::{Debuff, EnemyType};
+use crate::types::{Block, Hp, HpMax, StackCount};
 
 use super::intent::Intent;
 
@@ -31,7 +30,7 @@ impl fmt::Display for EnemyStatus {
                 ", debuffs: [{}]",
                 self.debuffs
                     .iter()
-                    .map(|(debuff, stack_count)| format!("{:?}({}), ", debuff, stack_count))
+                    .map(|(debuff, stack_count)| format!("{:?}({})", debuff, stack_count))
                     .collect::<Vec<_>>()
                     .join(", ")
             )?;

@@ -1,6 +1,6 @@
 use std::fmt;
 
-use crate::{Choice, PotionAction, Prompt};
+use crate::message::{Choice, PotionAction, Prompt};
 
 impl fmt::Display for Prompt {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {

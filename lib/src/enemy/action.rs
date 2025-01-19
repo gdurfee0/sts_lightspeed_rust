@@ -1,11 +1,8 @@
 use std::ops::RangeInclusive;
 
-use crate::data::card::Card;
-use crate::data::debuff::Debuff;
-use crate::data::effect::EnemyEffect;
-use crate::data::enemy::EnemyType;
+use crate::data::{Buff, Card, Debuff, EnemyEffect, EnemyType};
 use crate::rng::StsRandom;
-use crate::Hp;
+use crate::types::Hp;
 
 use super::intent::Intent;
 
@@ -57,6 +54,7 @@ pub fn enemy_params(enemy_type: EnemyType) -> (RangeInclusive<Hp>, NextActionFn)
     match enemy_type {
         EnemyType::AcidSlimeM => AcidSlimeM::params(),
         EnemyType::AcidSlimeS => AcidSlimeS::params(),
+        EnemyType::Cultist => Cultist::params(),
         EnemyType::SpikeSlimeM => SpikeSlimeM::params(),
         EnemyType::SpikeSlimeS => SpikeSlimeS::params(),
         _ => todo!(),
@@ -183,6 +181,31 @@ define_enemy!(
 );
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
+// Cultist
+// - 48 to 52 HP
+// - Incantation: Gain 3 Ritual (first turn only)
+// - Dark Strike: Deal 6 damage (all turns after the first)
+////////////////////////////////////////////////////////////////////////////////////////////////////
+define_action!(CULTIST_INCANTATION, [Buff(Buff::Ritual, 3)]);
+define_action!(CULTIST_DARK_STRIKE, [DealDamage(6)]);
+define_enemy!(
+    Cultist,
+    48..=54,
+    fn next_action(
+        _ai_rng: &mut StsRandom,
+        last_action: Option<&'static Action>,
+        _run_length: u8,
+    ) -> &'static Action {
+        // TODO: check rng behavior
+        if last_action.is_none() {
+            &CULTIST_INCANTATION
+        } else {
+            &CULTIST_DARK_STRIKE
+        }
+    }
+);
+
+////////////////////////////////////////////////////////////////////////////////////////////////////
 // SpikeSlimeM
 // - 28 to 32 HP
 // - Flame Tackle: Deal 8 damage, add a Slimed to the discard pile
@@ -238,8 +261,10 @@ define_enemy!(
 
 #[cfg(test)]
 mod test {
-    use crate::data::enemy::EnemyType;
-    use crate::enemy::state::EnemyState;
+    use super::super::state::EnemyState;
+    use super::super::status::EnemyStatus;
+
+    use crate::data::EnemyType;
     use crate::rng::Seed;
 
     use super::*;
@@ -250,7 +275,7 @@ mod test {
         let mut hp_rng = StsRandom::from(seed.with_offset(1));
         let mut ai_rng = StsRandom::from(seed.with_offset(1));
         let mut enemy = EnemyState::new(EnemyType::AcidSlimeS, &mut hp_rng, &mut ai_rng);
-        let status = enemy.status();
+        let status = EnemyStatus::from(&enemy);
         assert_eq!(status.enemy_type, EnemyType::AcidSlimeS);
         assert_eq!(status.hp, 12);
         assert_eq!(status.hp_max, 12);
@@ -267,7 +292,7 @@ mod test {
         let mut hp_rng = StsRandom::from(seed.with_offset(1));
         let mut ai_rng = StsRandom::from(seed.with_offset(1));
         let mut enemy = EnemyState::new(EnemyType::AcidSlimeM, &mut hp_rng, &mut ai_rng);
-        let status = enemy.status();
+        let status = EnemyStatus::from(&enemy);
         assert_eq!(status.enemy_type, EnemyType::AcidSlimeM);
         assert_eq!(status.hp, 32);
         assert_eq!(status.hp_max, 32);
@@ -296,7 +321,7 @@ mod test {
         let mut hp_rng = StsRandom::from(seed.with_offset(1));
         let mut ai_rng = StsRandom::from(seed.with_offset(1));
         let mut enemy = EnemyState::new(EnemyType::SpikeSlimeS, &mut hp_rng, &mut ai_rng);
-        let status = enemy.status();
+        let status = EnemyStatus::from(&enemy);
         assert_eq!(status.enemy_type, EnemyType::SpikeSlimeS);
         assert_eq!(status.hp, 13);
         assert_eq!(status.hp_max, 13);
@@ -307,7 +332,7 @@ mod test {
         let mut hp_rng = StsRandom::from(seed.with_offset(1));
         let mut ai_rng = StsRandom::from(seed.with_offset(1));
         let mut enemy = EnemyState::new(EnemyType::SpikeSlimeM, &mut hp_rng, &mut ai_rng);
-        let status = enemy.status();
+        let status = EnemyStatus::from(&enemy);
         assert_eq!(status.enemy_type, EnemyType::SpikeSlimeM);
         assert_eq!(status.hp, 31);
         assert_eq!(enemy.next_action(&mut ai_rng), &*SPIKE_SLIME_M_LICK);

@@ -1,8 +1,8 @@
 use std::iter::repeat;
 
-use crate::data::act::Act;
+use crate::data::Act;
 use crate::rng::{Seed, StsRandom};
-use crate::{ColumnIndex, RowIndex};
+use crate::types::{ColumnIndex, RowIndex};
 
 use super::graph::GraphBuilder;
 use super::grid::{NodeBuilderGrid, NodeGrid};

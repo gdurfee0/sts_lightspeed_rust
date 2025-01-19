@@ -1,1 +1,2 @@
-pub(crate) mod display;
+pub mod combat;
+pub mod display;

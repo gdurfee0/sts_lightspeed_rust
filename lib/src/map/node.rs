@@ -1,7 +1,7 @@
 use std::fmt;
 
 use crate::map::PATH_DENSITY;
-use crate::ColumnIndex;
+use crate::types::ColumnIndex;
 
 use super::exit::ExitBits;
 use super::room::Room;

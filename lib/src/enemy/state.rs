@@ -1,7 +1,6 @@
-use crate::data::debuff::Debuff;
-use crate::data::enemy::EnemyType;
+use crate::data::{Debuff, EnemyType};
 use crate::rng::StsRandom;
-use crate::{AttackDamage, Block, Hp, StackCount};
+use crate::types::{AttackDamage, Block, Hp, StackCount};
 
 use super::action::{enemy_params, Action, NextActionFn};
 use super::status::EnemyStatus;
@@ -41,17 +40,6 @@ impl EnemyState {
         self.hp
     }
 
-    pub fn status(&self) -> EnemyStatus {
-        EnemyStatus {
-            enemy_type: self.enemy_type,
-            hp: self.hp,
-            hp_max: self.hp_max,
-            block: self.block,
-            debuffs: self.debuffs.clone(),
-            intent: self.next_action.intent,
-        }
-    }
-
     pub fn next_action(&mut self, ai_rng: &mut StsRandom) -> &'static Action {
         let action = self.next_action;
         self.next_action = (self.next_action_fn)(ai_rng, Some(action), self.run_length);
@@ -72,7 +60,27 @@ impl EnemyState {
         true
     }
 
-    fn apply_debuff(&mut self, debuff: Debuff, stacks: StackCount) {
+    pub fn has_debuff(&self, debuff: Debuff) -> bool {
+        self.debuffs.iter().any(|(d, _)| *d == debuff)
+    }
+
+    pub fn is_dead(&self) -> bool {
+        self.hp == 0
+    }
+
+    pub fn is_frail(&self) -> bool {
+        self.has_debuff(Debuff::Frail)
+    }
+
+    pub fn is_vulnerable(&self) -> bool {
+        self.has_debuff(Debuff::Vulnerable)
+    }
+
+    pub fn is_weak(&self) -> bool {
+        self.has_debuff(Debuff::Weak)
+    }
+
+    pub fn apply_debuff(&mut self, debuff: Debuff, stacks: StackCount) {
         if let Some((_, c)) = self.debuffs.iter_mut().find(|(d, _)| *d == debuff) {
             *c += stacks;
         } else {
@@ -80,11 +88,24 @@ impl EnemyState {
         }
     }
 
-    fn take_damage(&mut self, amount: AttackDamage) -> (Block, AttackDamage) {
+    pub fn take_damage(&mut self, amount: AttackDamage) -> (Block, AttackDamage) {
         let block = self.block;
         let remaining_damage = amount.saturating_sub(block);
         self.block = self.block.saturating_sub(amount);
         self.hp = self.hp.saturating_sub(remaining_damage);
         (block, remaining_damage)
+    }
+}
+
+impl From<&EnemyState> for EnemyStatus {
+    fn from(enemy: &EnemyState) -> Self {
+        Self {
+            enemy_type: enemy.enemy_type,
+            hp: enemy.hp,
+            hp_max: enemy.hp_max,
+            block: enemy.block,
+            debuffs: enemy.debuffs.clone(),
+            intent: enemy.next_action.intent,
+        }
     }
 }

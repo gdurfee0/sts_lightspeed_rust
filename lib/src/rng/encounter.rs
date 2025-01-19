@@ -1,7 +1,6 @@
 use std::collections::VecDeque;
 
-use crate::data::act::Act;
-use crate::data::encounter::Encounter;
+use crate::data::{Act, Encounter};
 
 use super::{Seed, StsRandom};
 

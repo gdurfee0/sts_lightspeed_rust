@@ -1,6 +1,5 @@
-use crate::data::encounter::Encounter;
-use crate::data::enemy::EnemyType;
-use crate::{Seed, StsRandom};
+use crate::data::{Encounter, EnemyType};
+use crate::rng::{Seed, StsRandom};
 
 use super::state::EnemyState;
 
@@ -48,7 +47,7 @@ impl<'a> EnemyPartyGenerator<'a> {
             Encounter::Chosen => todo!("{:?}", self.encounter),
             Encounter::ChosenAndByrd => todo!("{:?}", self.encounter),
             Encounter::CorruptHeart => todo!("{:?}", self.encounter),
-            Encounter::Cultist => todo!("{:?}", self.encounter),
+            Encounter::Cultist => enemy_party!(Cultist),
             Encounter::CultistAndChosen => todo!("{:?}", self.encounter),
             Encounter::DonuAndDeca => todo!("{:?}", self.encounter),
             Encounter::ExordiumThugs => todo!("{:?}", self.encounter),

@@ -3,18 +3,12 @@ use std::sync::mpsc::{Receiver, Sender};
 
 use anyhow::{anyhow, Error};
 
-use crate::data::card::Card;
-use crate::data::debuff::Debuff;
-use crate::data::enemy::EnemyType;
-use crate::data::neow::NeowBlessing;
-use crate::data::potion::Potion;
-use crate::data::relic::Relic;
+use crate::data::{Card, Debuff, EnemyType, NeowBlessing, Potion, Relic};
 use crate::enemy::EnemyStatus;
-use crate::{
+use crate::message::{Choice, PotionAction, Prompt, StsMessage};
+use crate::types::{
     Block, ColumnIndex, DeckIndex, EnemyIndex, Energy, Gold, HandIndex, Health, Hp, StackCount,
 };
-
-use super::message::{Choice, PotionAction, Prompt, StsMessage};
 
 #[derive(Clone, Debug)]
 pub enum MainScreenAction {

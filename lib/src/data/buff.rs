@@ -1,6 +1,7 @@
 // Source: Slay the Spire Wiki (https://slay-the-spire.fandom.com/wiki/Buffs)
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq)]
+#[cfg_attr(test, derive(Eq, Hash))]
 pub enum Buff {
     Accuracy,        // Shivs deal X additional damage.
     AfterImage,      // Whenever you play a card, gain X Block.

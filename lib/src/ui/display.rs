@@ -40,13 +40,14 @@ impl fmt::Display for Choice {
             Choice::EndTurn => write!(f, "(End Turn)"),
             Choice::NeowBlessing(blessing) => write!(f, "{}", blessing),
             Choice::ObtainCard(card) => write!(f, "{:?}", card),
+            Choice::ObtainGold(gold) => write!(f, "Obtain {} gold", gold),
             Choice::ObtainPotion(potion) => write!(f, "{:?}", potion),
             Choice::PlayCardFromHand(_, card) => write!(f, "Play \"{:?}\"", card),
             Choice::RemoveCard(_, card) => write!(f, "{:?}", card),
             Choice::Skip => write!(f, "(Skip)"),
             Choice::TargetEnemy(_, enemy) => {
                 write!(f, "Target \"{:?}\"", enemy)
-            } // TODO: Index?
+            }
         }
     }
 }

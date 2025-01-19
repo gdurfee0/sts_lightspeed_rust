@@ -77,7 +77,7 @@ fn collect_user_choice(prompt: Prompt, choices: Vec<Choice>) -> Result<usize, an
                     Ok(i) if i <= choices.len() && i > 0 => i,
                     _ => {
                         // Help the user out if this involves movement.
-                        if prompt == Prompt::ClimbFloor {
+                        if let Prompt::ClimbFloor = prompt {
                             if let Some(index) =
                                 letter_to_choice(user_input.trim().chars().last(), &choices)
                             {

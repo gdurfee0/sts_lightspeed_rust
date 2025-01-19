@@ -19,15 +19,15 @@ pub struct PlayerState {
 /// Lives only as long as the combat encounter itself.  TODO: lock down field visibility
 #[derive(Debug)]
 pub struct CombatState {
-    shuffle_rng: StsRandom,
-    pub energy: Energy,
-    pub block: Block,
-    pub buffs: Vec<(Buff, StackCount)>,
-    pub debuffs: Vec<(Debuff, StackCount)>,
-    pub hand: Vec<Card>,
-    pub draw_pile: Vec<Card>,
-    pub discard_pile: Vec<Card>,
-    pub exhaust_pile: Vec<Card>,
+    pub(crate) shuffle_rng: StsRandom,
+    pub(crate) energy: Energy,
+    pub(crate) block: Block,
+    pub(crate) buffs: Vec<(Buff, StackCount)>,
+    pub(crate) debuffs: Vec<(Debuff, StackCount)>,
+    pub(crate) hand: Vec<Card>,
+    pub(crate) draw_pile: Vec<Card>,
+    pub(crate) discard_pile: Vec<Card>,
+    pub(crate) exhaust_pile: Vec<Card>,
 }
 
 impl PlayerState {
@@ -171,7 +171,7 @@ impl CombatState {
     }
 
     pub fn shuffle(&mut self) {
-        self.shuffle_rng.java_compat_shuffle(&mut self.draw_pile);
+        self.shuffle_rng.java_compat_shuffle(&mut self.discard_pile);
     }
 }
 

@@ -3,6 +3,7 @@ use std::fmt;
 // Source: Slay the Spire wiki (https://slay-the-spire.fandom.com/wiki/Neow)
 
 #[derive(Clone, Copy, Debug, PartialEq)]
+#[cfg_attr(test, derive(Eq, Hash))]
 pub enum NeowBlessing {
     ChooseCard,
     ChooseColorlessCard,
@@ -20,6 +21,7 @@ pub enum NeowBlessing {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
+#[cfg_attr(test, derive(Eq, Hash))]
 pub enum NeowBonus {
     ChooseRareCard,
     ChooseRareColorlessCard,
@@ -31,6 +33,7 @@ pub enum NeowBonus {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
+#[cfg_attr(test, derive(Eq, Hash))]
 pub enum NeowPenalty {
     DecreaseMaxHpByTenPercent,
     LoseAllGold,

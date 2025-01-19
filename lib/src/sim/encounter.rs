@@ -1,10 +1,12 @@
 use anyhow::Error;
 
-use crate::data::{Card, CardDetails, Encounter, PlayerEffect};
+use crate::data::{CardDetails, Debuff, Encounter, EnemyEffect, PlayerEffect};
 use crate::enemy::{EnemyPartyGenerator, EnemyState, EnemyStatus};
 use crate::player::{CombatAction, CombatController, PlayerController};
 use crate::rng::{Seed, StsRandom};
-use crate::types::{AttackDamage, Block, EnemyIndex};
+use crate::types::{AttackDamage, Block, EnemyIndex, StackCount};
+
+const ENEMY_PARTY_SIZE_MAX: usize = 5;
 
 pub struct EncounterSimulator<'a> {
     encounter: Encounter,
@@ -12,8 +14,7 @@ pub struct EncounterSimulator<'a> {
     ai_rng: StsRandom,
     misc_rng: &'a mut StsRandom,
     player: CombatController<'a>,
-    enemy_indexes: Vec<EnemyIndex>,
-    enemy_party: [Option<EnemyState>; 5],
+    enemy_party: [Option<EnemyState>; ENEMY_PARTY_SIZE_MAX],
 }
 
 impl<'a> EncounterSimulator<'a> {
@@ -31,7 +32,6 @@ impl<'a> EncounterSimulator<'a> {
             ai_rng,
             misc_rng,
             player: combat_controller,
-            enemy_indexes: vec![],
             enemy_party: [None, None, None, None, None],
         }
     }
@@ -55,7 +55,7 @@ impl<'a> EncounterSimulator<'a> {
             if self.combat_is_over() {
                 break;
             }
-            self.conduct_enemy_turn()?;
+            self.conduct_enemies_turn()?;
             if self.combat_is_over() {
                 break;
             }
@@ -69,38 +69,38 @@ impl<'a> EncounterSimulator<'a> {
         self.player.is_dead() || self.enemy_party.iter().all(|enemy| enemy.is_none())
     }
 
-    // Returns true iff the battle is over
     fn conduct_player_turn(&mut self) -> Result<(), Error> {
         self.player.start_turn()?;
         loop {
-            let mut enemy_statuses = vec![];
-            self.enemy_indexes.clear();
-            for (index, maybe_enemy) in self.enemy_party.iter().enumerate() {
-                enemy_statuses.push(maybe_enemy.as_ref().map(EnemyStatus::from));
-                if maybe_enemy.is_some() {
-                    self.enemy_indexes.push(index);
-                }
-            }
+            let enemy_statuses = self
+                .enemy_party
+                .iter()
+                .map(|maybe_enemy| maybe_enemy.as_ref().map(EnemyStatus::from))
+                .collect::<Vec<_>>();
             match self.player.choose_next_action(&enemy_statuses)? {
-                CombatAction::PlayCard(card, card_details) => {
-                    self.play_card(card, card_details, None)?
+                CombatAction::PlayCard(_, card_details) => {
+                    self.play_card(card_details)?;
+                    if self.combat_is_over() {
+                        return Ok(());
+                    }
+                    self.player.dispose_card_just_played()?;
                 }
-                CombatAction::PlayCardAgainstEnemy(card, card_details, enemy_index) => {
-                    self.play_card(card, card_details, Some(enemy_index))?
+                CombatAction::PlayCardAgainstEnemy(_, card_details, enemy_index) => {
+                    self.play_card_against_enemy(card_details, enemy_index)?;
+                    if self.combat_is_over() {
+                        return Ok(());
+                    }
+                    self.player.dispose_card_just_played()?;
                 }
                 CombatAction::Potion(_) => todo!(),
                 CombatAction::EndTurn => break,
             }
-            if self.combat_is_over() {
-                return Ok(());
-            }
-            self.player.discard_card_just_played()?;
         }
         self.player.end_turn()?;
         Ok(())
     }
 
-    fn conduct_enemy_turn(&mut self) -> Result<(), Error> {
+    fn conduct_enemies_turn(&mut self) -> Result<(), Error> {
         for enemy in self
             .enemy_party
             .iter_mut()
@@ -112,9 +112,34 @@ impl<'a> EncounterSimulator<'a> {
         }
         for maybe_enemy in self.enemy_party.iter_mut() {
             if let Some(enemy) = maybe_enemy.as_mut() {
-                for effect in enemy.next_action(&mut self.ai_rng).effect_chain.iter() {
+                let effect_chain = &enemy.next_action(&mut self.ai_rng).effect_chain;
+                for effect in effect_chain {
                     // TODO: reactions
-                    println!("[EncounterSimulator] Applying effect: {:?}", effect);
+                    match effect {
+                        EnemyEffect::AddToDiscardPile(cards) => {
+                            self.player.add_to_discard_pile(cards)?;
+                        }
+                        EnemyEffect::Buff(buff, stacks) => enemy.apply_buff(*buff, *stacks),
+                        EnemyEffect::BuffAll(_, _) => todo!(),
+                        EnemyEffect::DealDamage(amount) => {
+                            self.player.take_damage(Self::incoming_damage(
+                                &self.player,
+                                enemy,
+                                *amount,
+                            ))?;
+                        }
+                        EnemyEffect::Debuff(debuff, stacks) => {
+                            self.player.apply_debuff(*debuff, *stacks)?;
+                        }
+                        EnemyEffect::GainBlock(_) => todo!(),
+                        EnemyEffect::GiveBlockToLeader(_) => todo!(),
+                        EnemyEffect::Heal(_) => todo!(),
+                        EnemyEffect::HealAll(_) => todo!(),
+                        EnemyEffect::Reincarnate() => todo!(),
+                        EnemyEffect::Revive() => todo!(),
+                        EnemyEffect::ShuffleIntoDrawPile(_) => todo!(),
+                        EnemyEffect::StealCard() => todo!(),
+                    }
                     if enemy.is_dead() {
                         *maybe_enemy = None;
                         break;
@@ -129,12 +154,7 @@ impl<'a> EncounterSimulator<'a> {
     }
 
     // TODO: reactions
-    fn play_card(
-        &mut self,
-        card: Card,
-        card_details: &'static CardDetails,
-        enemy_index: Option<EnemyIndex>,
-    ) -> Result<(), Error> {
+    fn play_card(&mut self, card_details: &'static CardDetails) -> Result<(), Error> {
         for effect in card_details.effect_chain.iter() {
             println!("[EncounterSimulator] Applying effect: {:?}", effect);
             match effect {
@@ -145,47 +165,19 @@ impl<'a> EncounterSimulator<'a> {
                 PlayerEffect::Channel(_, _) => todo!(),
                 PlayerEffect::ChannelCustom() => todo!(),
                 PlayerEffect::ChannelRandom(_) => todo!(),
-                PlayerEffect::DealDamage(amount) => {
-                    let index = enemy_index.unwrap_or_else(|| {
-                        panic!(
-                            "No enemy at index {:?}, card played: {:?}",
-                            enemy_index, card,
-                        )
-                    });
-                    let outgoing_damage = self.outgoing_damage(*amount, enemy_index);
-                    let maybe_enemy = self.enemy_party.get_mut(index).expect("index in bounds");
-                    maybe_enemy.as_mut().map(|e| e.take_damage(outgoing_damage));
-                    if maybe_enemy.as_ref().map(|e| e.is_dead()).unwrap_or(false) {
-                        println!(
-                            "[EncounterSimulator] Enemy at index {} is dead, removing",
-                            index
-                        );
-                        *maybe_enemy = None;
-                    }
+                PlayerEffect::DealDamage(_) => unreachable!(
+                    "DealDamage should be handled by play_card_against_enemy, {:?}",
+                    card_details
+                ),
+                PlayerEffect::DealDamageToAll(amount) => {
+                    self.attack_all_enemies(*amount)?;
                 }
                 PlayerEffect::DealDamageCustom() => todo!(),
-                PlayerEffect::DealDamageToAll(amount) => {
-                    for index in self.enemy_indexes.iter() {
-                        let outgoing_damage = self.outgoing_damage(*amount, Some(*index));
-                        self.enemy_party[*index]
-                            .as_mut()
-                            .expect("Enemy exists")
-                            .take_damage(outgoing_damage);
-                    }
-                }
                 PlayerEffect::DealDamageToAllCustom() => todo!(),
-                PlayerEffect::Debuff(debuff, stacks) => {
-                    enemy_index
-                        .and_then(|index| self.enemy_party[index].as_mut())
-                        .as_mut()
-                        .unwrap_or_else(|| {
-                            panic!(
-                                "No enemy at index {:?}, card played: {:?}",
-                                enemy_index, card
-                            )
-                        })
-                        .apply_debuff(*debuff, *stacks);
-                }
+                PlayerEffect::Debuff(_, _) => unreachable!(
+                    "Debuff should be handled by play_card_against_enemy, {:?}",
+                    card_details
+                ),
                 PlayerEffect::DebuffAll(_, _) => todo!(),
                 PlayerEffect::DebuffCustom() => todo!(),
                 PlayerEffect::DebuffSelf(_, _) => todo!(),
@@ -200,7 +192,10 @@ impl<'a> EncounterSimulator<'a> {
                 PlayerEffect::ExhaustCard() => todo!(),
                 PlayerEffect::Exhume() => todo!(),
                 PlayerEffect::ExitStance() => todo!(),
-                PlayerEffect::GainBlock(_) => todo!(),
+                PlayerEffect::GainBlock(amount) => {
+                    self.player
+                        .gain_block(Self::incoming_block(&self.player, *amount))?;
+                }
                 PlayerEffect::GainBlockCustom() => todo!(),
                 PlayerEffect::GainDexterity(_) => todo!(),
                 PlayerEffect::GainEnergy(_) => todo!(),
@@ -210,6 +205,7 @@ impl<'a> EncounterSimulator<'a> {
                 PlayerEffect::GainStrength(_) => todo!(),
                 PlayerEffect::HandCustom() => todo!(),
                 PlayerEffect::Heal(_) => todo!(),
+                PlayerEffect::HealCustom() => todo!(),
                 PlayerEffect::LoseHp(_) => todo!(),
                 PlayerEffect::LoseOrbSlots(_) => todo!(),
                 PlayerEffect::ObtainRandomPotion() => todo!(),
@@ -229,35 +225,109 @@ impl<'a> EncounterSimulator<'a> {
         Ok(())
     }
 
-    fn outgoing_damage(
-        &self,
+    fn play_card_against_enemy(
+        &mut self,
+        card_details: &'static CardDetails,
+        enemy_index: EnemyIndex,
+    ) -> Result<(), Error> {
+        for effect in card_details.effect_chain.iter() {
+            match effect {
+                PlayerEffect::DealDamage(amount) => {
+                    self.attack_enemy(enemy_index, *amount)?;
+                }
+                PlayerEffect::DealDamageCustom() => todo!(),
+                PlayerEffect::Debuff(debuff, stacks) => {
+                    self.debuff_enemy(enemy_index, *debuff, *stacks)?;
+                }
+                PlayerEffect::DebuffCustom() => todo!(),
+                PlayerEffect::SapStrength(_) => todo!(),
+                _ => unreachable!(
+                    "Inappropriate card handled by play_card_against_enemy, {:?}",
+                    card_details
+                ),
+            }
+            if self.combat_is_over() {
+                break;
+            }
+        }
+        Ok(())
+    }
+
+    fn attack_enemy(&mut self, index: EnemyIndex, amount: AttackDamage) -> Result<(), Error> {
+        // TODO: reaction
+        if let Some(enemy) = self.enemy_party[index].as_mut() {
+            enemy.take_damage(Self::outgoing_damage(&self.player, enemy, amount));
+            let enemy_status = EnemyStatus::from(&*enemy);
+            let enemy_type = enemy_status.enemy_type;
+            self.player.send_enemy_status(index, enemy_status)?;
+            if enemy.is_dead() {
+                self.player.send_enemy_died(index, enemy_type)?;
+                self.enemy_party[index] = None;
+            }
+        }
+        Ok(())
+    }
+
+    fn attack_all_enemies(&mut self, amount: AttackDamage) -> Result<(), Error> {
+        for index in 0..ENEMY_PARTY_SIZE_MAX {
+            self.attack_enemy(index, amount)?;
+        }
+        Ok(())
+    }
+
+    fn debuff_enemy(
+        &mut self,
+        index: EnemyIndex,
+        debuff: Debuff,
+        stacks: StackCount,
+    ) -> Result<(), Error> {
+        if let Some(enemy) = self.enemy_party[index].as_mut() {
+            enemy.apply_debuff(debuff, stacks);
+            self.player
+                .send_enemy_status(index, EnemyStatus::from(&*enemy))?;
+        }
+        Ok(())
+    }
+
+    fn incoming_block(player: &CombatController, amount: Block) -> Block {
+        if player.is_frail() {
+            (amount as f32 * 0.75).floor() as u32
+        } else {
+            amount
+        }
+    }
+
+    fn incoming_damage(
+        player: &CombatController,
+        enemy: &EnemyState,
         amount: AttackDamage,
-        maybe_enemy_index: Option<EnemyIndex>,
     ) -> AttackDamage {
-        let caster_modified_mount = if self.player.is_weak() {
+        let enemy_modified_amount = if enemy.is_weak() {
             (amount as f32 * 0.75).floor() as u32
         } else {
             amount
         };
-        if let Some(enemy_index) = maybe_enemy_index {
-            let enemy = self.enemy_party[enemy_index]
-                .as_ref()
-                .expect("Enemy exists");
-            if enemy.is_vulnerable() {
-                (caster_modified_mount as f32 * 1.5).floor() as u32
-            } else {
-                caster_modified_mount
-            }
+        if player.is_vulnerable() {
+            (enemy_modified_amount as f32 * 1.5).floor() as u32
         } else {
-            caster_modified_mount
+            enemy_modified_amount
         }
     }
 
-    fn incoming_block(&self, amount: Block) -> Block {
-        if self.player.is_frail() {
+    fn outgoing_damage(
+        player: &CombatController,
+        enemy: &EnemyState,
+        amount: AttackDamage,
+    ) -> AttackDamage {
+        let caster_modified_mount = if player.is_weak() {
             (amount as f32 * 0.75).floor() as u32
         } else {
             amount
+        };
+        if enemy.is_vulnerable() {
+            (caster_modified_mount as f32 * 1.5).floor() as u32
+        } else {
+            caster_modified_mount
         }
     }
 }

@@ -1,4 +1,4 @@
-use crate::data::{Debuff, EnemyType};
+use crate::data::{Buff, Debuff, EnemyType};
 use crate::rng::StsRandom;
 use crate::types::{AttackDamage, Block, Hp, StackCount};
 
@@ -12,6 +12,7 @@ pub struct EnemyState {
     hp: u32,
     hp_max: u32,
     block: Block,
+    buffs: Vec<(Buff, StackCount)>,
     debuffs: Vec<(Debuff, StackCount)>,
     next_action_fn: NextActionFn,
     next_action: &'static Action,
@@ -29,6 +30,7 @@ impl EnemyState {
             hp,
             hp_max,
             block: 0,
+            buffs: Vec::new(),
             debuffs: Vec::new(),
             next_action_fn,
             next_action,
@@ -78,6 +80,14 @@ impl EnemyState {
 
     pub fn is_weak(&self) -> bool {
         self.has_debuff(Debuff::Weak)
+    }
+
+    pub fn apply_buff(&mut self, buff: Buff, stacks: StackCount) {
+        if let Some((_, c)) = self.buffs.iter_mut().find(|(b, _)| *b == buff) {
+            *c += stacks;
+        } else {
+            self.buffs.push((buff, stacks));
+        }
     }
 
     pub fn apply_debuff(&mut self, debuff: Debuff, stacks: StackCount) {

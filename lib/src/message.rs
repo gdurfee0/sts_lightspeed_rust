@@ -10,6 +10,7 @@ use crate::types::{
 /// one of the question type messages (`Choices` and `NestedChoices`), at which point control
 /// the Simulator waits for a response on the input channel.
 #[derive(Debug)]
+#[cfg_attr(test, derive(Eq, Hash, PartialEq))]
 pub enum StsMessage {
     // State updates for the main game loop, outside of an encounter or event.
     CardObtained(Card),
@@ -33,6 +34,7 @@ pub enum StsMessage {
     Buffs(Vec<(Buff, StackCount)>),
     CardDiscarded(HandIndex, Card),
     CardDrawn(HandIndex, Card),
+    CardExhausted(HandIndex, Card),
     DamageBlocked(Hp),
     DamageTaken(Hp),
     Debuffs(Vec<(Debuff, StackCount)>),
@@ -51,7 +53,8 @@ pub enum StsMessage {
     GameOver(bool),
 }
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug)]
+#[cfg_attr(test, derive(Eq, Hash, PartialEq))]
 pub enum Prompt {
     ChooseNeow,
     ChooseNext, // Expectation is that the player may accept any and all of the Choices offered.
@@ -64,12 +67,14 @@ pub enum Prompt {
 }
 
 #[derive(Clone, Debug)]
+#[cfg_attr(test, derive(Eq, Hash, PartialEq))]
 pub enum Choice {
     EndTurn,
     PotionAction(PotionAction),
     ClimbFloor(ColumnIndex),
     NeowBlessing(NeowBlessing),
     ObtainCard(Card),
+    ObtainGold(Gold),
     ObtainPotion(Potion),
     RemoveCard(DeckIndex, Card),
     PlayCardFromHand(HandIndex, Card),
@@ -78,6 +83,7 @@ pub enum Choice {
 }
 
 #[derive(Clone, Copy, Debug)]
+#[cfg_attr(test, derive(Eq, Hash, PartialEq))]
 pub enum PotionAction {
     Discard(PotionIndex, Potion),
     Drink(PotionIndex, Potion),

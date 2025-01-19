@@ -64,6 +64,7 @@ pub enum PlayerEffect {
     GainStrength(Strength),
     HandCustom(),
     Heal(Hp),
+    HealCustom(),
     LoseHp(Hp),
     LoseOrbSlots(OrbSlots),
     ObtainRandomPotion(),

@@ -104,6 +104,10 @@ impl PlayerController {
         self.comms.send_relics(self.state.relics())
     }
 
+    pub fn send_game_over(&self) -> Result<(), Error> {
+        self.comms.send_game_over(self.state.hp() > 0)
+    }
+
     pub fn send_map_string(&self, map_string: String) -> Result<(), anyhow::Error> {
         self.comms.send_map_string(map_string)
     }
@@ -269,10 +273,10 @@ impl<'a> CombatController<'a> {
             self.comms.send_block(self.combat_state.block)
         } else if self.combat_state.block > 0 {
             let remaining_damage = amount - self.combat_state.block;
-            self.combat_state.block = 0;
             self.comms.send_damage_blocked(amount)?;
-            self.comms.send_block_lost(amount)?;
-            self.comms.send_block(self.combat_state.block)?;
+            self.comms.send_block_lost(self.combat_state.block)?;
+            self.combat_state.block = 0;
+            self.comms.send_block(0)?;
             self.comms.send_damage_taken(remaining_damage)?;
             self.state.decrease_hp(remaining_damage);
             self.comms.send_health_changed(self.state.health())
@@ -293,7 +297,15 @@ impl<'a> CombatController<'a> {
             } else {
                 // Shuffle discard pile into draw pile
                 self.comms.send_shuffling_discard_to_draw()?;
+                println!(
+                    "About to shuffle discard pile into draw pile, shuffle_rng: {}",
+                    self.combat_state.shuffle_rng.get_counter()
+                );
                 self.combat_state.shuffle();
+                println!(
+                    "About to shuffle discard pile into draw pile, shuffle_rng: {}",
+                    self.combat_state.shuffle_rng.get_counter()
+                );
                 self.combat_state
                     .draw_pile
                     .append(&mut self.combat_state.discard_pile);
@@ -306,14 +318,10 @@ impl<'a> CombatController<'a> {
         Ok(())
     }
 
-    /*
     pub fn add_to_discard_pile(&mut self, cards: &[Card]) -> Result<(), Error> {
-        for card in cards {
-            self.combat_state.discard_pile.push(*card);
-        }
+        self.combat_state.discard_pile.extend_from_slice(cards);
         self.comms.send_add_to_discard_pile(cards)
     }
-    */
 
     fn discard_hand(&mut self) -> Result<(), Error> {
         // Emulating the game's behavior
@@ -371,12 +379,17 @@ impl<'a> CombatController<'a> {
         }
     }
 
-    pub fn discard_card_just_played(&mut self) -> Result<(), Error> {
+    pub fn dispose_card_just_played(&mut self) -> Result<(), Error> {
         if let Some(hand_index) = self.card_just_played {
             let card = self.combat_state.hand.remove(hand_index);
             self.combat_state.energy = self.combat_state.energy.saturating_sub(card.cost());
-            self.combat_state.discard_pile.push(card);
-            self.comms.send_card_discarded(hand_index, card)?;
+            if card.exhausts() {
+                self.combat_state.exhaust_pile.push(card);
+                self.comms.send_card_exhausted(hand_index, card)?;
+            } else {
+                self.combat_state.discard_pile.push(card);
+                self.comms.send_card_discarded(hand_index, card)?;
+            }
         }
         Ok(())
     }
@@ -423,5 +436,13 @@ impl<'a> CombatController<'a> {
 
     pub fn is_weak(&self) -> bool {
         self.has_debuff(Debuff::Weak)
+    }
+
+    pub fn send_enemy_died(&self, index: EnemyIndex, enemy_type: EnemyType) -> Result<(), Error> {
+        self.comms.send_enemy_died(index, enemy_type)
+    }
+
+    pub fn send_enemy_status(&self, index: EnemyIndex, status: EnemyStatus) -> Result<(), Error> {
+        self.comms.send_enemy_status(index, status)
     }
 }

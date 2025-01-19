@@ -211,6 +211,12 @@ impl Comms {
         Ok(())
     }
 
+    pub fn send_card_exhausted(&self, hand_index: HandIndex, card: Card) -> Result<(), Error> {
+        self.to_client
+            .send(StsMessage::CardExhausted(hand_index, card))?;
+        Ok(())
+    }
+
     pub fn send_card_obtained(&self, card: Card) -> Result<(), Error> {
         self.to_client.send(StsMessage::CardObtained(card))?;
         Ok(())
@@ -266,6 +272,11 @@ impl Comms {
 
     pub fn send_energy(&self, energy: Energy) -> Result<(), Error> {
         self.to_client.send(StsMessage::Energy(energy))?;
+        Ok(())
+    }
+
+    pub fn send_game_over(&self, victory: bool) -> Result<(), Error> {
+        self.to_client.send(StsMessage::GameOver(victory))?;
         Ok(())
     }
 

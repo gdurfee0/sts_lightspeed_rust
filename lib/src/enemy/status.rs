@@ -9,6 +9,7 @@ use super::intent::Intent;
 /// the player. The player is not allowed to know anything else about the enemy, such as its
 /// internal state or future moves.
 #[derive(Clone, Debug)]
+#[cfg_attr(test, derive(Eq, Hash, PartialEq))]
 pub struct EnemyStatus {
     pub enemy_type: EnemyType,
     pub hp: Hp,

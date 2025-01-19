@@ -1,6 +1,7 @@
 // Source: Slay the Spire Wiki (https://slay-the-spire.fandom.com/wiki/Category:Debuffs)
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq)]
+#[cfg_attr(test, derive(Eq, Hash))]
 pub enum Debuff {
     /// At the start of your turn, lose X Focus.
     Bias,

@@ -4,7 +4,8 @@ use super::card::Card;
 use super::potion::Potion;
 use super::relic::Relic;
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug)]
+#[cfg_attr(test, derive(Eq, Hash, PartialEq))]
 pub struct Character {
     /// The character's starting max hit points.
     pub starting_hp: u32,

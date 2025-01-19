@@ -428,6 +428,10 @@ impl Card {
         CardDetails::for_card(*self).cost
     }
 
+    pub fn exhausts(&self) -> bool {
+        CardDetails::for_card(*self).exhaust
+    }
+
     pub fn is_innate(&self) -> bool {
         CardDetails::for_card(*self).innate
     }
@@ -975,6 +979,19 @@ static ALL_CARDS: Lazy<Vec<CardDetails>> = Lazy::new(|| {
             [DealDamage(8), StanceCustom()],
             requires_target
         ),
+        define_card!(
+            (Feed, Attack, 1),
+            [DealDamage(10), HealCustom()],
+            [exhaust, requires_target]
+        ),
+        define_card!((FeelNoPain, Power, 1), [Buff(Buff::FeelNoPain, 1)]),
+        define_card!(
+            (FiendFire, Attack, 2),
+            [DealDamageCustom()],
+            [exhaust, requires_target]
+        ),
+        define_card!((Finesse, Skill, 0), [GainBlock(2), Draw(1)]),
+        define_card!((Slimed, Status, 1), [], exhaust),
         define_card!((Strike, Attack, 1), [DealDamage(6)], requires_target),
     ]
 });

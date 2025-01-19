@@ -1,6 +1,7 @@
 // Source: Slay the Spire wiki (https://slay-the-spire.fandom.com/wiki/Potions)
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq)]
+#[cfg_attr(test, derive(Eq, Hash))]
 #[allow(clippy::enum_variant_names)] // For consistency with the game
 pub enum Potion {
     Ambrosia,
@@ -49,11 +50,9 @@ pub enum Potion {
 
 impl Potion {
     pub fn can_drink_anywhere(&self) -> bool {
-        [
-            Potion::BloodPotion,
-            Potion::EntropicBrew,
-            Potion::FruitJuice,
-        ]
-        .contains(self)
+        matches!(
+            *self,
+            Potion::BloodPotion | Potion::EntropicBrew | Potion::FruitJuice
+        )
     }
 }

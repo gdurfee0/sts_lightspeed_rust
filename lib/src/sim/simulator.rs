@@ -4,7 +4,7 @@ use super::encounter::EncounterSimulator;
 use super::map::MapSimulator;
 use super::neow::NeowSimulator;
 
-use crate::data::Character;
+use crate::data::{Act, Character};
 use crate::map::Room;
 use crate::message::StsMessage;
 use crate::player::PlayerController;
@@ -35,7 +35,7 @@ impl StsSimulator {
         to_client: Sender<StsMessage>,
     ) -> Self {
         let encounter_generator = EncounterGenerator::new(seed);
-        let card_generator = CardGenerator::new(seed, character);
+        let card_generator = CardGenerator::new(seed, character, Act::get(1));
         let misc_rng = StsRandom::from(seed);
         let potion_rng = StsRandom::from(seed);
         let treasure_rng = StsRandom::from(seed);
@@ -97,7 +97,7 @@ impl StsSimulator {
                         break;
                     }
                     let gold_reward = self.treasure_rng.gen_range(10..=20);
-                    let card_rewards = self.card_generator.three_card_choices();
+                    let card_rewards = self.card_generator.combat_rewards();
                     self.player
                         .choose_combat_rewards(gold_reward, &card_rewards)?;
                 }
@@ -505,10 +505,6 @@ mod test {
             )
         );
         to_server.send(0).unwrap(); // Target SpikeSlimeM
-
-        // EnemyStatus(1, EnemyStatus { enemy_type: SpikeSlimeM, hp: 5, hp_max: 31, block: 0, strength: 0, conditions: [Vulnerable(1, false)], intent: StrategicDebuff })
-        //
-
         assert_eq!(
             next_prompt(
                 &from_server,
@@ -877,13 +873,6 @@ mod test {
             StsMessage::Choices(Prompt::CombatAction, vec![Choice::EndTurn])
         );
         to_server.send(0).unwrap(); // End Turn
-
-        /*
-        // EnemyParty([None, Some(EnemyStatus { enemy_type: SpikeSlimeM, hp: 23, hp_max: 31, block: 0, strength: 0, conditions: [Vulnerable(1, false)], intent: StrategicDebuff }), None, None, None]): 1
-        // EnemyParty([None, Some(EnemyStatus { enemy_type: SpikeSlimeM, hp: 23, hp_max: 31, block: 0, strength: 0, conditions: [Vulnerable(2, false)], intent: StrategicDebuff }), None, None, None]): 1
-
-        XXX here - need to track Strength for the 9x1 attack
-
         assert_eq!(
             next_prompt(
                 &from_server,
@@ -893,14 +882,12 @@ mod test {
                     StsMessage::Block(1),
                     StsMessage::Block(0),
                     StsMessage::EnemyParty(vec![
-                        Some(EnemyStatus {
-                            enemy_type: EnemyType::Cultist,
-                            hp: 9,
-                            hp_max: 50,
-                            block: 0,
-                            debuffs: vec![(Debuff::Vulnerable, 1)],
-                            intent: Intent::Aggressive(6, 1),
-                        }),
+                        Some(
+                            EnemyStatus::new(EnemyType::Cultist, (9, 50), Intent::Aggressive(6, 1))
+                                .with_condition(EnemyCondition::Ritual(3, false))
+                                .with_condition(EnemyCondition::Vulnerable(1))
+                                .with_strength(6)
+                        ),
                         None,
                         None,
                         None,
@@ -911,19 +898,58 @@ mod test {
             StsMessage::Choices(
                 Prompt::CombatAction,
                 vec![
-                    Choice::PlayCardFromHand(0, Card::Defend),
+                    Choice::PlayCardFromHand(0, Card::Strike),
                     Choice::PlayCardFromHand(1, Card::Strike),
                     Choice::PlayCardFromHand(2, Card::Strike),
-                    Choice::PlayCardFromHand(3, Card::Strike),
+                    Choice::PlayCardFromHand(3, Card::Defend),
                     Choice::PlayCardFromHand(4, Card::Bash),
                     Choice::EndTurn,
                 ]
             )
         );
-        to_server.send(1).unwrap(); // Play "Strike"
+        to_server.send(0).unwrap(); // Play "Strike"
+        assert_eq!(
+            next_prompt(&from_server, &[]),
+            StsMessage::Choices(
+                Prompt::TargetEnemy,
+                vec![Choice::TargetEnemy(0, EnemyType::Cultist)]
+            )
+        );
+        to_server.send(0).unwrap(); // Target Cultist
+        assert_eq!(
+            next_prompt(
+                &from_server,
+                &[
+                    StsMessage::EnemyDied(0, EnemyType::Cultist),
+                    StsMessage::Health((80, 80)), // Burning Blood heals 6
+                    StsMessage::EndingCombat
+                ]
+            ),
+            StsMessage::Choices(
+                Prompt::ChooseNext,
+                vec![
+                    Choice::ObtainGold(10),
+                    Choice::ObtainCard(Card::Anger),
+                    Choice::ObtainCard(Card::HeavyBlade),
+                    Choice::ObtainCard(Card::Armaments)
+                ]
+            )
+        );
+        to_server.send(0).unwrap(); // Take Gold
+        assert_eq!(
+            next_prompt(&from_server, &[StsMessage::Gold(99 + 100 + 11 + 10)]),
+            StsMessage::Choices(
+                Prompt::ChooseOne,
+                vec![
+                    Choice::ObtainCard(Card::Anger),
+                    Choice::ObtainCard(Card::HeavyBlade),
+                    Choice::ObtainCard(Card::Armaments)
+                ]
+            )
+        );
+        to_server.send(2).unwrap(); // Take Armaments
 
-        assert_eq!(next_prompt(&from_server, &[]), StsMessage::GameOver(true));
-        */
+        //assert_eq!(next_prompt(&from_server, &[]), StsMessage::GameOver(true));
 
         drop(to_server);
         let _ = simulator_thread.join();

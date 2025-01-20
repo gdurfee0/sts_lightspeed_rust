@@ -4,6 +4,8 @@ use super::encounter::Encounter;
 
 #[derive(Debug, PartialEq)]
 pub struct Act {
+    pub number: usize,
+
     /// Offset used in the random number generator seed used in map generation.
     pub map_seed_offset: u64,
 
@@ -59,6 +61,7 @@ impl TryFrom<i8> for &'static Act {
 static ACTS: &[Act] = &[
     // ACT 1
     Act {
+        number: 1,
         map_seed_offset: 1,
         weak_monster_encounter_count: 3,
         weak_monster_encounter_pool: &[
@@ -92,6 +95,7 @@ static ACTS: &[Act] = &[
     },
     // ACT 2
     Act {
+        number: 2,
         map_seed_offset: 200,
         weak_monster_encounter_count: 2,
         weak_monster_encounter_pool: &[
@@ -124,6 +128,7 @@ static ACTS: &[Act] = &[
     },
     // ACT 3
     Act {
+        number: 3,
         map_seed_offset: 600,
         weak_monster_encounter_count: 2,
         weak_monster_encounter_pool: &[
@@ -154,6 +159,7 @@ static ACTS: &[Act] = &[
     },
     // ACT 4
     Act {
+        number: 4,
         map_seed_offset: 1200,
         weak_monster_encounter_count: 0,
         weak_monster_encounter_pool: &[],

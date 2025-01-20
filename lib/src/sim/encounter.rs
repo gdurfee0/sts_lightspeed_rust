@@ -148,7 +148,6 @@ impl<'a> EncounterSimulator<'a> {
     // TODO: reactions
     fn play_card(&mut self, card_details: &'static CardDetails) -> Result<(), Error> {
         for effect in card_details.effect_chain.iter() {
-            println!("[EncounterSimulator] Applying effect: {:?}", effect);
             match effect {
                 PlayerEffect::Apply(_) => unreachable!(
                     "Debuff should be handled by play_card_against_enemy, {:?}",
@@ -260,6 +259,7 @@ impl<'a> EncounterSimulator<'a> {
         enemy: &EnemyState,
         amount: AttackDamage,
     ) -> AttackDamage {
+        let amount = amount + enemy.strength() as AttackDamage;
         let enemy_modified_amount = if enemy.is_weak() {
             (amount as f32 * 0.75).floor() as u32
         } else {

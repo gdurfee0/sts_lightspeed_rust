@@ -42,6 +42,10 @@ impl EnemyState {
         self.hp
     }
 
+    pub fn strength(&self) -> Strength {
+        self.strength
+    }
+
     pub fn next_action(&mut self, ai_rng: &mut StsRandom) -> &'static Action {
         let action = self.next_action;
         self.next_action = (self.next_action_fn)(ai_rng, Some(action), self.run_length);

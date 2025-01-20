@@ -4,13 +4,10 @@ use std::collections::HashMap;
 
 use once_cell::sync::Lazy;
 
+use crate::data::EnemyCondition;
 use crate::types::Energy;
 
-use super::buff::Buff;
-use super::debuff::Debuff;
 use super::effect::PlayerEffect;
-use super::orb::Orb;
-use super::stance::Stance;
 
 // TODO: Use Card(Energy, bool) for all of these, and Card(Energy, u32) for SearingBlow.
 #[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
@@ -577,6 +574,7 @@ macro_rules! define_card {
 
 static ALL_CARDS: Lazy<Vec<CardDetails>> = Lazy::new(|| {
     vec![
+        /*
         define_card!((Accuracy, Power, 1), [Buff(Buff::Accuracy, 4)]),
         define_card!((Acrobatics, Skill, 1), [Draw(3), Discard(1)]),
         define_card!((Adrenaline, Skill, 1), [GainEnergy(1), Draw(2)], exhaust),
@@ -609,10 +607,12 @@ static ALL_CARDS: Lazy<Vec<CardDetails>> = Lazy::new(|| {
             [Buff(Buff::Intangible, 1)],
             [ethereal, exhaust]
         ),
+        */
         define_card!(
             (Armaments, Skill, 1),
             [GainBlock(5), UpgradeOneCardInCombat()]
         ),
+        /*
         define_card!(
             (AscendersBane, Curse, 1),
             [],
@@ -639,11 +639,13 @@ static ALL_CARDS: Lazy<Vec<CardDetails>> = Lazy::new(|| {
         ),
         define_card!((Barrage, Attack, 1), [DealDamageCustom()], requires_target),
         define_card!((Barricade, Power, 3), [Buff(Buff::Barricade, 1)]),
+        */
         define_card!(
             (Bash, Attack, 2),
-            [DealDamage(8), Debuff(Debuff::Vulnerable, 2)],
+            [DealDamage(8), Apply(EnemyCondition::Vulnerable(2))],
             requires_target
         ),
+        /*
         define_card!((BattleHymn, Power, 1), [Buff(Buff::BattleHymn, 1)]),
         define_card!(
             (BattleTrance, Skill, 0),
@@ -878,7 +880,9 @@ static ALL_CARDS: Lazy<Vec<CardDetails>> = Lazy::new(|| {
             (DeepBreath, Skill, 0),
             [ShuffleIntoDrawPileCustom(), Draw(1)]
         ),
+        */
         define_card!((Defend, Skill, 1), [GainBlock(5)]),
+        /*
         define_card!((Deflect, Skill, 0), [GainBlock(4)]),
         define_card!((Defragment, Power, 1), [GainFocus(1)]),
         define_card!((DemonForm, Power, 3), [Buff(Buff::DemonForm, 2)]),
@@ -996,11 +1000,15 @@ static ALL_CARDS: Lazy<Vec<CardDetails>> = Lazy::new(|| {
             [DealDamageCustom()],
             requires_target
         ),
+        */
         define_card!((Slimed, Status, 1), [], exhaust),
         define_card!((Strike, Attack, 1), [DealDamage(6)], requires_target),
         define_card!(
             (Thunderclap, Attack, 1),
-            [DealDamageToAll(4), DebuffAll(Debuff::Vulnerable, 1)]
+            [
+                DealDamageToAll(4),
+                ApplyToAll(EnemyCondition::Vulnerable(1))
+            ]
         ),
     ]
 });
@@ -1018,11 +1026,10 @@ mod test {
             let should_require_target = card.effect_chain.iter().any(|effect| {
                 matches!(
                     effect,
-                    PlayerEffect::DealDamage(_)
-                        | PlayerEffect::Debuff(_, _)
-                        | PlayerEffect::SapStrength(_)
+                    PlayerEffect::DealDamage(_) | PlayerEffect::Apply(_) //| PlayerEffect::SapStrength(_)
                 )
             });
+            /*
             if card.effect_chain.iter().any(|effect| {
                 matches!(
                     effect,
@@ -1031,6 +1038,7 @@ mod test {
             }) {
                 continue;
             }
+            */
             assert_eq!(
                 (card.card, card.requires_target),
                 (card.card, should_require_target)

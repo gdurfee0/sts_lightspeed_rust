@@ -1,8 +1,9 @@
 mod act;
-mod buff;
+//mod buff;
 mod card;
 mod character;
-mod debuff;
+mod condition;
+//mod debuff;
 mod effect;
 mod encounter;
 mod enemy;
@@ -14,10 +15,11 @@ mod relic;
 mod stance;
 
 pub use act::Act;
-pub use buff::Buff;
+//pub use buff::Buff;
 pub use card::{Card, CardDetails, CURSE_CARD_POOL, UNCOMMON_COLORLESS_CARDS};
 pub use character::Character;
-pub use debuff::Debuff;
+pub use condition::{EnemyCondition, PlayerCondition};
+//pub use debuff::Debuff;
 pub use effect::{EnemyEffect, PlayerEffect};
 pub use encounter::Encounter;
 pub use enemy::EnemyType;

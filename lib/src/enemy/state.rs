@@ -1,6 +1,6 @@
-use crate::data::{Buff, Debuff, EnemyType};
+use crate::data::{EnemyCondition, EnemyType};
 use crate::rng::StsRandom;
-use crate::types::{AttackDamage, Block, Hp, StackCount};
+use crate::types::{AttackDamage, Block, Hp, HpMax, Strength};
 
 use super::action::{enemy_params, Action, NextActionFn};
 use super::status::EnemyStatus;
@@ -9,11 +9,11 @@ use super::status::EnemyStatus;
 #[derive(Debug)]
 pub struct EnemyState {
     enemy_type: EnemyType,
-    hp: u32,
-    hp_max: u32,
+    hp: Hp,
+    hp_max: HpMax,
     block: Block,
-    buffs: Vec<(Buff, StackCount)>,
-    debuffs: Vec<(Debuff, StackCount)>,
+    strength: Strength,
+    conditions: Vec<EnemyCondition>,
     next_action_fn: NextActionFn,
     next_action: &'static Action,
     run_length: u8,
@@ -30,8 +30,8 @@ impl EnemyState {
             hp,
             hp_max,
             block: 0,
-            buffs: Vec::new(),
-            debuffs: Vec::new(),
+            strength: 0,
+            conditions: Vec::new(),
             next_action_fn,
             next_action,
             run_length: 1,
@@ -53,6 +53,7 @@ impl EnemyState {
         action
     }
 
+    /*
     pub fn start_turn(&mut self) -> bool {
         // TODO: Should this go at the end of the enemy's turn?
         for (_, stacks) in self.debuffs.iter_mut() {
@@ -61,43 +62,88 @@ impl EnemyState {
         self.debuffs.retain(|(_, stacks)| *stacks > 0);
         true
     }
+    */
 
-    pub fn has_debuff(&self, debuff: Debuff) -> bool {
-        self.debuffs.iter().any(|(d, _)| *d == debuff)
+    pub fn end_turn(&mut self) {
+        for condition in self.conditions.iter_mut() {
+            match condition {
+                EnemyCondition::Ritual(intensity, just_applied) => {
+                    if !*just_applied {
+                        self.strength += *intensity as i32;
+                    }
+                    *just_applied = false;
+                }
+                EnemyCondition::Vulnerable(turns) => *turns = turns.saturating_sub(1),
+                EnemyCondition::Weak(turns) => *turns = turns.saturating_sub(1),
+            }
+        }
+        /*
+        self.conditions.retain(|c| {
+            !matches!(
+                c,
+                EnemyCondition::Ritual(0, _)
+                    | EnemyCondition::Vulnerable(0, _)
+                    | EnemyCondition::Weak(0, _)
+            )
+        });
+        */
     }
 
     pub fn is_dead(&self) -> bool {
         self.hp == 0
     }
 
-    pub fn is_frail(&self) -> bool {
-        self.has_debuff(Debuff::Frail)
-    }
-
     pub fn is_vulnerable(&self) -> bool {
-        self.has_debuff(Debuff::Vulnerable)
+        self.conditions
+            .iter()
+            .any(|c| matches!(c, EnemyCondition::Vulnerable(_)))
     }
 
     pub fn is_weak(&self) -> bool {
-        self.has_debuff(Debuff::Weak)
+        self.conditions
+            .iter()
+            .any(|c| matches!(c, EnemyCondition::Weak(_)))
     }
 
-    pub fn apply_buff(&mut self, buff: Buff, stacks: StackCount) {
-        if let Some((_, c)) = self.buffs.iter_mut().find(|(b, _)| *b == buff) {
-            *c += stacks;
-        } else {
-            self.buffs.push((buff, stacks));
+    pub fn apply(&mut self, condition: &EnemyCondition) {
+        for preexisting_condition in self.conditions.iter_mut() {
+            if Self::maybe_merge_conditions(preexisting_condition, condition) {
+                return;
+            }
         }
+        // If we make it here, we didn't have this condition already.
+        self.conditions.push(condition.clone());
     }
 
-    pub fn apply_debuff(&mut self, debuff: Debuff, stacks: StackCount) {
-        if let Some((_, c)) = self.debuffs.iter_mut().find(|(d, _)| *d == debuff) {
-            *c += stacks;
-        } else {
-            self.debuffs.push((debuff, stacks));
+    fn maybe_merge_conditions(
+        existing_condition: &mut EnemyCondition,
+        incoming_condition: &EnemyCondition,
+    ) -> bool {
+        match existing_condition {
+            EnemyCondition::Ritual(intensity, just_applied) => {
+                if let EnemyCondition::Ritual(additional_intensity, _) = incoming_condition {
+                    *intensity = intensity.saturating_add(*additional_intensity);
+                    *just_applied = true;
+                    return true;
+                }
+            }
+            EnemyCondition::Vulnerable(turns) => {
+                if let EnemyCondition::Vulnerable(additional_turns) = incoming_condition {
+                    *turns = turns.saturating_add(*additional_turns);
+                    return true;
+                }
+            }
+            EnemyCondition::Weak(turns) => {
+                if let EnemyCondition::Weak(additional_turns) = incoming_condition {
+                    *turns = turns.saturating_add(*additional_turns);
+                    return true;
+                }
+            }
         }
+        false
     }
 
+    /// Damage amount must already have player and enemy conditions applied.
     pub fn take_damage(&mut self, amount: AttackDamage) -> (Block, AttackDamage) {
         let block = self.block;
         let remaining_damage = amount.saturating_sub(block);
@@ -113,8 +159,9 @@ impl From<&EnemyState> for EnemyStatus {
             enemy_type: enemy.enemy_type,
             hp: enemy.hp,
             hp_max: enemy.hp_max,
+            strength: enemy.strength,
             block: enemy.block,
-            debuffs: enemy.debuffs.clone(),
+            conditions: enemy.conditions.clone(),
             intent: enemy.next_action.intent,
         }
     }

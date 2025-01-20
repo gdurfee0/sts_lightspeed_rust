@@ -26,16 +26,17 @@ impl From<&[EnemyEffect]> for Intent {
     fn from(effect_chain: &[EnemyEffect]) -> Intent {
         let has_debuff = effect_chain
             .iter()
-            .any(|effect| matches!(effect, EnemyEffect::Debuff(_, _)));
+            .any(|effect| matches!(effect, EnemyEffect::Apply(_)));
         let has_buff = effect_chain
             .iter()
-            .any(|effect| matches!(effect, EnemyEffect::Buff(_, _)));
-        let has_defense = effect_chain.iter().any(|effect| {
+            .any(|effect| matches!(effect, EnemyEffect::ApplyToSelf(_)));
+        let has_defense = false;
+        /* effect_chain.iter().any(|effect| {
             matches!(
                 effect,
                 EnemyEffect::GainBlock(_) | EnemyEffect::GiveBlockToLeader(_)
             )
-        });
+        }); */
         let attack_damage: Option<AttackDamage> = effect_chain.iter().find_map(|effect| {
             if let EnemyEffect::DealDamage(attack_damage) = effect {
                 Some(*attack_damage)

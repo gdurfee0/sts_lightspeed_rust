@@ -121,10 +121,14 @@ mod test {
     use std::thread;
     use std::time::Duration;
 
-    use crate::data::{Card, Debuff, EnemyType, NeowBlessing, NeowBonus, NeowPenalty, IRONCLAD};
+    use crate::data::{
+        Card, EnemyCondition, EnemyType, NeowBlessing, NeowBonus, NeowPenalty, PlayerCondition,
+        IRONCLAD,
+    };
     use crate::enemy::{EnemyStatus, Intent};
     use crate::message::{Choice, Prompt};
 
+    #[track_caller]
     pub fn next_prompt(
         from_server: &Receiver<StsMessage>,
         expected_in_any_order: &[StsMessage],
@@ -134,19 +138,27 @@ mod test {
             *expected.entry(message).or_insert_with(|| 0) += 1;
         }
         let mut maybe_message;
+        let mut unrecognized_messages = HashMap::new();
         loop {
             let message = from_server.recv_timeout(Duration::from_secs(5)).unwrap();
-            println!("Received message: {:?}", message);
             if let StsMessage::Choices(_, _) = message {
                 maybe_message = Some(message);
                 break;
             }
-            let _ = expected.get_mut(&message).map(|count| *count -= 1);
+            if expected
+                .get_mut(&message)
+                .map(|count| *count -= 1)
+                .is_none()
+            {
+                *unrecognized_messages.entry(message).or_insert_with(|| 0) += 1;
+            }
             expected.retain(|_, count| *count > 0);
         }
-        assert_eq!(
-            ("did not see the following", expected),
-            ("did not see the following", HashMap::new())
+        assert!(
+            expected.is_empty(),
+            "did not see: {:?}; maybe mismatched one of these? {:?}",
+            expected,
+            unrecognized_messages
         );
         maybe_message.take().expect("expected a prompt")
     }
@@ -162,7 +174,7 @@ mod test {
         let simulator_thread = thread::spawn(move || simulator.run());
 
         assert_eq!(
-            next_prompt(&from_server, &[StsMessage::Health((80, 80)),]),
+            next_prompt(&from_server, &[StsMessage::Health((80, 80))]),
             StsMessage::Choices(
                 Prompt::ChooseNeow,
                 vec![
@@ -195,22 +207,16 @@ mod test {
                 &[
                     StsMessage::StartingCombat,
                     StsMessage::EnemyParty(vec![
-                        Some(EnemyStatus {
-                            enemy_type: EnemyType::AcidSlimeS,
-                            hp: 12,
-                            hp_max: 12,
-                            block: 0,
-                            debuffs: vec![],
-                            intent: Intent::StrategicDebuff,
-                        }),
-                        Some(EnemyStatus {
-                            enemy_type: EnemyType::SpikeSlimeM,
-                            hp: 31,
-                            hp_max: 31,
-                            block: 0,
-                            debuffs: vec![],
-                            intent: Intent::StrategicDebuff,
-                        }),
+                        Some(EnemyStatus::new(
+                            EnemyType::AcidSlimeS,
+                            (12, 12),
+                            Intent::StrategicDebuff
+                        )),
+                        Some(EnemyStatus::new(
+                            EnemyType::SpikeSlimeM,
+                            (31, 31),
+                            Intent::StrategicDebuff
+                        )),
                         None,
                         None,
                         None
@@ -249,14 +255,7 @@ mod test {
                     StsMessage::Energy(2),
                     StsMessage::EnemyStatus(
                         0,
-                        EnemyStatus {
-                            enemy_type: EnemyType::AcidSlimeS,
-                            hp: 6,
-                            hp_max: 12,
-                            block: 0,
-                            debuffs: vec![],
-                            intent: Intent::StrategicDebuff,
-                        }
+                        EnemyStatus::new(EnemyType::AcidSlimeS, (6, 12), Intent::StrategicDebuff)
                     )
                 ]
             ),
@@ -305,17 +304,15 @@ mod test {
             next_prompt(
                 &from_server,
                 &[
-                    StsMessage::Debuffs(vec![(Debuff::Frail, 1)]), // 1 stack of Frail on player
+                    // 1 stack of Frail on player
+                    StsMessage::Conditions(vec![PlayerCondition::Frail(1)]),
                     StsMessage::EnemyParty(vec![
                         None, // AcidSlimeS now gone
-                        Some(EnemyStatus {
-                            enemy_type: EnemyType::SpikeSlimeM,
-                            hp: 31,
-                            hp_max: 31,
-                            block: 0,
-                            debuffs: vec![],
-                            intent: Intent::Aggressive(8, 1),
-                        }),
+                        Some(EnemyStatus::new(
+                            EnemyType::SpikeSlimeM,
+                            (31, 31),
+                            Intent::Aggressive(8, 1)
+                        )),
                         None,
                         None,
                         None
@@ -371,14 +368,11 @@ mod test {
                     StsMessage::Health((78, 80)), // Took 2 damage
                     StsMessage::EnemyParty(vec![
                         None,
-                        Some(EnemyStatus {
-                            enemy_type: EnemyType::SpikeSlimeM,
-                            hp: 31,
-                            hp_max: 31,
-                            block: 0,
-                            debuffs: vec![],
-                            intent: Intent::StrategicDebuff,
-                        }),
+                        Some(EnemyStatus::new(
+                            EnemyType::SpikeSlimeM,
+                            (31, 31),
+                            Intent::StrategicDebuff
+                        )),
                         None,
                         None,
                         None
@@ -413,14 +407,8 @@ mod test {
                     StsMessage::Energy(1),
                     StsMessage::EnemyStatus(
                         1,
-                        EnemyStatus {
-                            enemy_type: EnemyType::SpikeSlimeM,
-                            hp: 23,
-                            hp_max: 31,
-                            block: 0,
-                            debuffs: vec![(Debuff::Vulnerable, 2)], // now Vulnerable
-                            intent: Intent::StrategicDebuff,
-                        }
+                        EnemyStatus::new(EnemyType::SpikeSlimeM, (23, 31), Intent::StrategicDebuff)
+                            .with_condition(EnemyCondition::Vulnerable(2))
                     )
                 ]
             ),
@@ -445,17 +433,19 @@ mod test {
             next_prompt(
                 &from_server,
                 &[
-                    StsMessage::Debuffs(vec![(Debuff::Frail, 1)]), // 1 stack of Frail on player
+                    // 1 stack of Frail on player
+                    StsMessage::Conditions(vec![PlayerCondition::Frail(1)]),
                     StsMessage::EnemyParty(vec![
                         None,
-                        Some(EnemyStatus {
-                            enemy_type: EnemyType::SpikeSlimeM,
-                            hp: 23,
-                            hp_max: 31,
-                            block: 0,
-                            debuffs: vec![(Debuff::Vulnerable, 1)], // 1 stack of Vulnerable,
-                            intent: Intent::StrategicDebuff,
-                        }),
+                        Some(
+                            EnemyStatus::new(
+                                EnemyType::SpikeSlimeM,
+                                (23, 31),
+                                Intent::StrategicDebuff
+                            )
+                            // One stack of Vulnerable drops off by the next turn
+                            .with_condition(EnemyCondition::Vulnerable(1))
+                        ),
                         None,
                         None,
                         None
@@ -490,14 +480,8 @@ mod test {
                     StsMessage::Energy(2),
                     StsMessage::EnemyStatus(
                         1,
-                        EnemyStatus {
-                            enemy_type: EnemyType::SpikeSlimeM,
-                            hp: 14,
-                            hp_max: 31,
-                            block: 0,
-                            debuffs: vec![(Debuff::Vulnerable, 1)],
-                            intent: Intent::StrategicDebuff,
-                        }
+                        EnemyStatus::new(EnemyType::SpikeSlimeM, (14, 31), Intent::StrategicDebuff)
+                            .with_condition(EnemyCondition::Vulnerable(1))
                     )
                 ]
             ),
@@ -521,6 +505,10 @@ mod test {
             )
         );
         to_server.send(0).unwrap(); // Target SpikeSlimeM
+
+        // EnemyStatus(1, EnemyStatus { enemy_type: SpikeSlimeM, hp: 5, hp_max: 31, block: 0, strength: 0, conditions: [Vulnerable(1, false)], intent: StrategicDebuff })
+        //
+
         assert_eq!(
             next_prompt(
                 &from_server,
@@ -528,14 +516,8 @@ mod test {
                     StsMessage::Energy(1),
                     StsMessage::EnemyStatus(
                         1,
-                        EnemyStatus {
-                            enemy_type: EnemyType::SpikeSlimeM,
-                            hp: 5,
-                            hp_max: 31,
-                            block: 0,
-                            debuffs: vec![(Debuff::Vulnerable, 1)],
-                            intent: Intent::StrategicDebuff,
-                        }
+                        EnemyStatus::new(EnemyType::SpikeSlimeM, (5, 31), Intent::StrategicDebuff)
+                            .with_condition(EnemyCondition::Vulnerable(1))
                     )
                 ]
             ),
@@ -602,14 +584,11 @@ mod test {
                     StsMessage::StartingCombat,
                     StsMessage::Energy(3),
                     StsMessage::EnemyParty(vec![
-                        Some(EnemyStatus {
-                            enemy_type: EnemyType::Cultist,
-                            hp: 50,
-                            hp_max: 50,
-                            block: 0,
-                            debuffs: vec![],
-                            intent: Intent::StrategicBuff,
-                        }),
+                        Some(EnemyStatus::new(
+                            EnemyType::Cultist,
+                            (50, 50),
+                            Intent::StrategicBuff
+                        )),
                         None,
                         None,
                         None,
@@ -645,14 +624,7 @@ mod test {
                     StsMessage::Energy(2),
                     StsMessage::EnemyStatus(
                         0,
-                        EnemyStatus {
-                            enemy_type: EnemyType::Cultist,
-                            hp: 44,
-                            hp_max: 50,
-                            block: 0,
-                            debuffs: vec![],
-                            intent: Intent::StrategicBuff,
-                        }
+                        EnemyStatus::new(EnemyType::Cultist, (44, 50), Intent::StrategicBuff)
                     )
                 ]
             ),
@@ -683,14 +655,7 @@ mod test {
                     StsMessage::Energy(1),
                     StsMessage::EnemyStatus(
                         0,
-                        EnemyStatus {
-                            enemy_type: EnemyType::Cultist,
-                            hp: 38,
-                            hp_max: 50,
-                            block: 0,
-                            debuffs: vec![],
-                            intent: Intent::StrategicBuff,
-                        }
+                        EnemyStatus::new(EnemyType::Cultist, (38, 50), Intent::StrategicBuff)
                     )
                 ]
             ),
@@ -720,14 +685,7 @@ mod test {
                     StsMessage::Energy(0),
                     StsMessage::EnemyStatus(
                         0,
-                        EnemyStatus {
-                            enemy_type: EnemyType::Cultist,
-                            hp: 32,
-                            hp_max: 50,
-                            block: 0,
-                            debuffs: vec![],
-                            intent: Intent::StrategicBuff,
-                        }
+                        EnemyStatus::new(EnemyType::Cultist, (32, 50), Intent::StrategicBuff)
                     )
                 ]
             ),
@@ -740,14 +698,14 @@ mod test {
                 &[
                     StsMessage::Energy(3),
                     StsMessage::EnemyParty(vec![
-                        Some(EnemyStatus {
-                            enemy_type: EnemyType::Cultist,
-                            hp: 32,
-                            hp_max: 50,
-                            block: 0,
-                            debuffs: vec![],
-                            intent: Intent::Aggressive(6, 1),
-                        }),
+                        Some(
+                            EnemyStatus::new(
+                                EnemyType::Cultist,
+                                (32, 50),
+                                Intent::Aggressive(6, 1)
+                            )
+                            .with_condition(EnemyCondition::Ritual(3, false))
+                        ),
                         None,
                         None,
                         None,
@@ -783,14 +741,9 @@ mod test {
                     StsMessage::Energy(1),
                     StsMessage::EnemyStatus(
                         0,
-                        EnemyStatus {
-                            enemy_type: EnemyType::Cultist,
-                            hp: 24,
-                            hp_max: 50,
-                            block: 0,
-                            debuffs: vec![(Debuff::Vulnerable, 2)],
-                            intent: Intent::Aggressive(6, 1),
-                        }
+                        EnemyStatus::new(EnemyType::Cultist, (24, 50), Intent::Aggressive(6, 1))
+                            .with_condition(EnemyCondition::Ritual(3, false))
+                            .with_condition(EnemyCondition::Vulnerable(2))
                     )
                 ]
             ),
@@ -821,14 +774,9 @@ mod test {
                     StsMessage::Energy(0),
                     StsMessage::EnemyStatus(
                         0,
-                        EnemyStatus {
-                            enemy_type: EnemyType::Cultist,
-                            hp: 15,
-                            hp_max: 50,
-                            block: 0,
-                            debuffs: vec![(Debuff::Vulnerable, 2)],
-                            intent: Intent::Aggressive(6, 1),
-                        }
+                        EnemyStatus::new(EnemyType::Cultist, (15, 50), Intent::Aggressive(6, 1))
+                            .with_condition(EnemyCondition::Ritual(3, false))
+                            .with_condition(EnemyCondition::Vulnerable(2))
                     )
                 ]
             ),
@@ -841,14 +789,16 @@ mod test {
                 &[
                     StsMessage::Energy(3),
                     StsMessage::EnemyParty(vec![
-                        Some(EnemyStatus {
-                            enemy_type: EnemyType::Cultist,
-                            hp: 15,
-                            hp_max: 50,
-                            block: 0,
-                            debuffs: vec![(Debuff::Vulnerable, 1)],
-                            intent: Intent::Aggressive(6, 1), // Strength-scaled in the UI, not here
-                        }),
+                        Some(
+                            EnemyStatus::new(
+                                EnemyType::Cultist,
+                                (15, 50),
+                                Intent::Aggressive(6, 1)
+                            )
+                            .with_condition(EnemyCondition::Ritual(3, false))
+                            .with_condition(EnemyCondition::Vulnerable(1))
+                            .with_strength(3)
+                        ),
                         None,
                         None,
                         None,
@@ -876,14 +826,10 @@ mod test {
                     StsMessage::Energy(2),
                     StsMessage::EnemyStatus(
                         0,
-                        EnemyStatus {
-                            enemy_type: EnemyType::Cultist,
-                            hp: 9,
-                            hp_max: 50,
-                            block: 0,
-                            debuffs: vec![(Debuff::Vulnerable, 2)],
-                            intent: Intent::Aggressive(6, 1),
-                        }
+                        EnemyStatus::new(EnemyType::Cultist, (9, 50), Intent::Aggressive(6, 1))
+                            .with_condition(EnemyCondition::Ritual(3, false))
+                            .with_condition(EnemyCondition::Vulnerable(2))
+                            .with_strength(3)
                     )
                 ]
             ),
@@ -933,6 +879,9 @@ mod test {
         to_server.send(0).unwrap(); // End Turn
 
         /*
+        // EnemyParty([None, Some(EnemyStatus { enemy_type: SpikeSlimeM, hp: 23, hp_max: 31, block: 0, strength: 0, conditions: [Vulnerable(1, false)], intent: StrategicDebuff }), None, None, None]): 1
+        // EnemyParty([None, Some(EnemyStatus { enemy_type: SpikeSlimeM, hp: 23, hp_max: 31, block: 0, strength: 0, conditions: [Vulnerable(2, false)], intent: StrategicDebuff }), None, None, None]): 1
+
         XXX here - need to track Strength for the 9x1 attack
 
         assert_eq!(

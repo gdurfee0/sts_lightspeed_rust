@@ -1,20 +1,17 @@
-use crate::types::{
-    AttackDamage, Block, Dexterity, DiscardCount, DrawCount, Energy, Focus, Hp, OrbCount, OrbSlots,
-    ScryCount, StackCount, Strength,
-};
+use crate::types::{AttackDamage, Block};
 
-use super::buff::Buff;
 use super::card::Card;
-use super::debuff::Debuff;
-use super::orb::Orb;
-use super::stance::Stance;
+use super::{EnemyCondition, PlayerCondition};
 
 #[derive(Debug)]
 pub enum EnemyEffect {
     AddToDiscardPile(&'static [Card]),
+    Apply(PlayerCondition),
+    ApplyToSelf(EnemyCondition),
+    DealDamage(AttackDamage),
+    /*
     Buff(Buff, StackCount),
     BuffAll(Buff, StackCount),
-    DealDamage(AttackDamage),
     Debuff(Debuff, StackCount),
     GainBlock(Block),
     GiveBlockToLeader(Block),
@@ -24,10 +21,19 @@ pub enum EnemyEffect {
     Revive(),
     ShuffleIntoDrawPile(&'static [Card]),
     StealCard(),
+    */
 }
 
 #[derive(Debug)]
 pub enum PlayerEffect {
+    Apply(EnemyCondition),
+    ApplyToAll(EnemyCondition),
+    ApplyToSelf(PlayerCondition),
+    DealDamage(AttackDamage),
+    DealDamageToAll(AttackDamage),
+    GainBlock(Block),
+    UpgradeOneCardInCombat(),
+    /*
     AddToDiscardPile(&'static [Card]),
     AddToHand(&'static [Card]),
     Buff(Buff, StackCount),
@@ -76,4 +82,5 @@ pub enum PlayerEffect {
     TakeDamage(AttackDamage),
     UpgradeOneCardInCombat(),
     UpgradeAllCardsInCombat(),
+    */
 }

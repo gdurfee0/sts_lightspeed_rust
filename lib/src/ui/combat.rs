@@ -3,14 +3,13 @@ use std::sync::mpsc::{Receiver, Sender};
 
 use anyhow::{anyhow, Error};
 
-use crate::data::{Buff, CardDetails, Debuff, PlayerEffect};
+use crate::data::{CardDetails, PlayerCondition, PlayerEffect};
 use crate::enemy::EnemyStatus;
 use crate::message::{Choice, Prompt, StsMessage};
-use crate::types::{AttackDamage, Block, EnemyIndex, StackCount};
+use crate::types::{AttackDamage, Block, EnemyIndex};
 
 pub struct CombatClient<'a> {
-    my_buffs: Vec<(Buff, StackCount)>,
-    my_debuffs: Vec<(Debuff, StackCount)>,
+    my_conditions: Vec<PlayerCondition>,
     enemy_party: Vec<Option<EnemyStatus>>,
     card_chosen: Option<&'static CardDetails>,
 
@@ -21,8 +20,7 @@ pub struct CombatClient<'a> {
 impl<'a> CombatClient<'a> {
     pub fn new(from_server: &'a Receiver<StsMessage>, to_server: &'a Sender<usize>) -> Self {
         Self {
-            my_buffs: vec![],
-            my_debuffs: vec![],
+            my_conditions: vec![],
             enemy_party: vec![],
             card_chosen: None,
             from_server,
@@ -33,17 +31,13 @@ impl<'a> CombatClient<'a> {
     pub fn run(mut self) -> Result<(), anyhow::Error> {
         loop {
             match self.from_server.recv()? {
-                StsMessage::Buffs(buffs) => {
-                    self.my_buffs = buffs;
-                    println!("Buffs: {:?}", self.my_buffs);
+                StsMessage::Conditions(conditions) => {
+                    self.my_conditions = conditions;
+                    println!("Buffs: {:?}", self.my_conditions);
                 }
                 StsMessage::Choices(prompt, choices) => {
                     let choice = self.collect_user_choice(prompt, choices)?;
                     self.to_server.send(choice)?;
-                }
-                StsMessage::Debuffs(debuffs) => {
-                    self.my_debuffs = debuffs;
-                    println!("Debuffs: {:?}", self.my_debuffs);
                 }
                 StsMessage::EndingCombat => {
                     println!("Combat ended");
@@ -121,16 +115,24 @@ impl<'a> CombatClient<'a> {
         }
     }
 
+    fn is_frail(&self) -> bool {
+        self.my_conditions
+            .iter()
+            .any(|c| matches!(c, PlayerCondition::Frail(_)))
+    }
+
+    fn is_weak(&self) -> bool {
+        self.my_conditions
+            .iter()
+            .any(|c| matches!(c, PlayerCondition::Weak(_)))
+    }
+
     fn outgoing_damage(
         &self,
         amount: AttackDamage,
         maybe_enemy_index: Option<EnemyIndex>,
     ) -> AttackDamage {
-        let caster_modified_mount = if self
-            .my_debuffs
-            .iter()
-            .any(|(debuff, _)| *debuff == Debuff::Weak)
-        {
+        let caster_modified_mount = if self.is_weak() {
             (amount as f32 * 0.75).floor() as u32
         } else {
             amount
@@ -139,11 +141,7 @@ impl<'a> CombatClient<'a> {
             let enemy = self.enemy_party[enemy_index]
                 .as_ref()
                 .expect("Enemy exists");
-            if enemy
-                .debuffs
-                .iter()
-                .any(|(debuff, _)| *debuff == Debuff::Vulnerable)
-            {
+            if enemy.is_vulnerable() {
                 (caster_modified_mount as f32 * 1.5).floor() as u32
             } else {
                 caster_modified_mount
@@ -154,11 +152,7 @@ impl<'a> CombatClient<'a> {
     }
 
     fn incoming_block(&self, amount: Block) -> Block {
-        if self
-            .my_debuffs
-            .iter()
-            .any(|(debuff, _)| *debuff == Debuff::Frail)
-        {
+        if self.is_frail() {
             (amount as f32 * 0.75).floor() as u32
         } else {
             amount

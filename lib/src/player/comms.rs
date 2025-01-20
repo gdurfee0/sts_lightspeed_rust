@@ -3,11 +3,11 @@ use std::sync::mpsc::{Receiver, Sender};
 
 use anyhow::{anyhow, Error};
 
-use crate::data::{Card, Debuff, EnemyType, NeowBlessing, Potion, Relic};
+use crate::data::{Card, EnemyType, NeowBlessing, PlayerCondition, Potion, Relic};
 use crate::enemy::EnemyStatus;
 use crate::message::{Choice, PotionAction, Prompt, StsMessage};
 use crate::types::{
-    Block, ColumnIndex, DeckIndex, EnemyIndex, Energy, Gold, HandIndex, Health, Hp, StackCount,
+    Block, ColumnIndex, DeckIndex, EnemyIndex, Energy, Gold, HandIndex, Health, Hp,
 };
 
 #[derive(Clone, Debug)]
@@ -256,6 +256,12 @@ impl Comms {
         Ok(())
     }
 
+    pub fn send_conditions(&self, conditions: &[PlayerCondition]) -> Result<(), Error> {
+        self.to_client
+            .send(StsMessage::Conditions(conditions.to_vec()))?;
+        Ok(())
+    }
+
     pub fn send_damage_blocked(&self, amount: Hp) -> Result<(), Error> {
         self.to_client.send(StsMessage::DamageBlocked(amount))?;
         Ok(())
@@ -263,11 +269,6 @@ impl Comms {
 
     pub fn send_damage_taken(&self, amount: Hp) -> Result<(), Error> {
         self.to_client.send(StsMessage::DamageTaken(amount))?;
-        Ok(())
-    }
-
-    pub fn send_debuffs(&self, debuffs: &[(Debuff, StackCount)]) -> Result<(), Error> {
-        self.to_client.send(StsMessage::Debuffs(debuffs.to_vec()))?;
         Ok(())
     }
 

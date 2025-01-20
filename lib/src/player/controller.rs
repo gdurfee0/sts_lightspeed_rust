@@ -2,13 +2,13 @@ use std::sync::mpsc::{Receiver, Sender};
 
 use anyhow::Error;
 
-use crate::data::{Card, CardDetails, Character, Debuff, EnemyType, NeowBlessing, Potion, Relic};
+use crate::data::{
+    Card, CardDetails, Character, EnemyType, NeowBlessing, PlayerCondition, Potion, Relic,
+};
 use crate::enemy::EnemyStatus;
 use crate::message::{PotionAction, StsMessage};
 use crate::rng::StsRandom;
-use crate::types::{
-    AttackDamage, Block, ColumnIndex, EnemyIndex, Gold, HandIndex, Hp, HpMax, StackCount,
-};
+use crate::types::{AttackDamage, Block, ColumnIndex, EnemyIndex, Gold, HandIndex, Hp, HpMax};
 
 use super::comms::{Comms, MainScreenAction};
 use super::state::{CombatState, PlayerState};
@@ -286,11 +286,14 @@ impl<'a> CombatController<'a> {
         self.discard_hand()?;
 
         // Tick down debuffs
+        self.combat_state.tick_down_conditions();
+        /*
         for (_, stacks) in self.combat_state.debuffs.iter_mut() {
             *stacks = stacks.saturating_sub(1);
         }
         self.combat_state.debuffs.retain(|(_, stacks)| *stacks > 0);
-        self.comms.send_debuffs(&self.combat_state.debuffs)?;
+        */
+        self.comms.send_conditions(&self.combat_state.conditions)?;
 
         // TODO: Apply other end-of-turn effects
         Ok(())
@@ -432,18 +435,9 @@ impl<'a> CombatController<'a> {
         Ok(())
     }
 
-    pub fn apply_debuff(&mut self, debuff: Debuff, stacks: StackCount) -> Result<(), Error> {
-        if let Some((_, c)) = self
-            .combat_state
-            .debuffs
-            .iter_mut()
-            .find(|(d, _)| *d == debuff)
-        {
-            *c += stacks;
-        } else {
-            self.combat_state.debuffs.push((debuff, stacks));
-        }
-        self.comms.send_debuffs(&self.combat_state.debuffs)
+    pub fn apply(&mut self, condition: &PlayerCondition) -> Result<(), Error> {
+        self.combat_state.apply(condition);
+        self.comms.send_conditions(&self.combat_state.conditions)
     }
 
     pub fn gain_block(&mut self, amount: Block) -> Result<(), Error> {
@@ -456,24 +450,20 @@ impl<'a> CombatController<'a> {
         self.comms.send_enemy_status(index, status)
     }
 
-    pub fn has_debuff(&self, debuff: Debuff) -> bool {
-        self.combat_state.has_debuff(debuff)
-    }
-
     pub fn is_dead(&self) -> bool {
         self.hp() == 0
     }
 
     pub fn is_frail(&self) -> bool {
-        self.has_debuff(Debuff::Frail)
+        self.combat_state.is_frail()
     }
 
     pub fn is_vulnerable(&self) -> bool {
-        self.has_debuff(Debuff::Vulnerable)
+        self.combat_state.is_vulnerable()
     }
 
     pub fn is_weak(&self) -> bool {
-        self.has_debuff(Debuff::Weak)
+        self.combat_state.is_weak()
     }
 
     pub fn send_enemy_died(&self, index: EnemyIndex, enemy_type: EnemyType) -> Result<(), Error> {

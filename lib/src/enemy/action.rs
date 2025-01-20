@@ -1,6 +1,6 @@
 use std::ops::RangeInclusive;
 
-use crate::data::{Buff, Card, Debuff, EnemyEffect, EnemyType};
+use crate::data::{Card, EnemyCondition, EnemyEffect, EnemyType, PlayerCondition};
 use crate::rng::StsRandom;
 use crate::types::Hp;
 
@@ -110,7 +110,7 @@ define_action!(
     ACID_SLIME_M_CORROSIVE_SPIT,
     [DealDamage(7), AddToDiscardPile(&[Card::Slimed])]
 );
-define_action!(ACID_SLIME_M_LICK, [Debuff(Debuff::Weak, 1)]);
+define_action!(ACID_SLIME_M_LICK, [Apply(PlayerCondition::Weak(1))]);
 define_action!(ACID_SLIME_M_TACKLE, [DealDamage(10)]);
 define_enemy!(
     AcidSlimeM,
@@ -154,7 +154,7 @@ define_enemy!(
 // - 50% Lick, 50% Tackle for initial action; alternates attacks thereafter
 // - https://slay-the-spire.fandom.com/wiki/Acid_Slime
 ////////////////////////////////////////////////////////////////////////////////////////////////////
-define_action!(ACID_SLIME_S_LICK, [Debuff(Debuff::Weak, 1)]);
+define_action!(ACID_SLIME_S_LICK, [Apply(PlayerCondition::Weak(1))]);
 define_action!(ACID_SLIME_S_TACKLE, [DealDamage(3)]);
 define_enemy!(
     AcidSlimeS,
@@ -186,7 +186,10 @@ define_enemy!(
 // - Incantation: Gain 3 Ritual (first turn only)
 // - Dark Strike: Deal 6 damage (all turns after the first)
 ////////////////////////////////////////////////////////////////////////////////////////////////////
-define_action!(CULTIST_INCANTATION, [Buff(Buff::Ritual, 3)]);
+define_action!(
+    CULTIST_INCANTATION,
+    [ApplyToSelf(EnemyCondition::Ritual(3, true))]
+);
 define_action!(CULTIST_DARK_STRIKE, [DealDamage(6)]);
 define_enemy!(
     Cultist,
@@ -218,7 +221,7 @@ define_action!(
     SPIKE_SLIME_M_FLAME_TACKLE,
     [DealDamage(8), AddToDiscardPile(&[Card::Slimed])]
 );
-define_action!(SPIKE_SLIME_M_LICK, [Debuff(Debuff::Frail, 1)]);
+define_action!(SPIKE_SLIME_M_LICK, [Apply(PlayerCondition::Frail(1))]);
 define_enemy!(
     SpikeSlimeM,
     28..=32,
@@ -279,7 +282,7 @@ mod test {
         assert_eq!(status.enemy_type, EnemyType::AcidSlimeS);
         assert_eq!(status.hp, 12);
         assert_eq!(status.hp_max, 12);
-        assert_eq!(status.debuffs, Vec::new());
+        assert_eq!(status.conditions, Vec::new());
         assert_eq!(enemy.next_action(&mut ai_rng), &*ACID_SLIME_S_LICK);
         assert_eq!(enemy.next_action(&mut ai_rng), &*ACID_SLIME_S_TACKLE);
         assert_eq!(enemy.next_action(&mut ai_rng), &*ACID_SLIME_S_LICK);

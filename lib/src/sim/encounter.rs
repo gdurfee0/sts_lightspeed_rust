@@ -1,10 +1,10 @@
 use anyhow::Error;
 
-use crate::data::{CardDetails, Debuff, Encounter, EnemyEffect, PlayerEffect};
+use crate::data::{CardDetails, Encounter, EnemyCondition, EnemyEffect, PlayerEffect};
 use crate::enemy::{EnemyPartyGenerator, EnemyState, EnemyStatus};
 use crate::player::{CombatAction, CombatController, PlayerController};
 use crate::rng::{Seed, StsRandom};
-use crate::types::{AttackDamage, Block, EnemyIndex, StackCount};
+use crate::types::{AttackDamage, Block, EnemyIndex};
 
 const ENEMY_PARTY_SIZE_MAX: usize = 5;
 
@@ -101,15 +101,6 @@ impl<'a> EncounterSimulator<'a> {
     }
 
     fn conduct_enemies_turn(&mut self) -> Result<(), Error> {
-        for enemy in self
-            .enemy_party
-            .iter_mut()
-            .filter_map(|enemy| enemy.as_mut())
-        {
-            // TODO: check for death and remove
-            let _ = enemy.start_turn();
-            //enemy_party.retain(|enemy| enemy.health().0 > 0);
-        }
         for maybe_enemy in self.enemy_party.iter_mut() {
             if let Some(enemy) = maybe_enemy.as_mut() {
                 let effect_chain = &enemy.next_action(&mut self.ai_rng).effect_chain;
@@ -119,8 +110,12 @@ impl<'a> EncounterSimulator<'a> {
                         EnemyEffect::AddToDiscardPile(cards) => {
                             self.player.add_to_discard_pile(cards)?;
                         }
-                        EnemyEffect::Buff(buff, stacks) => enemy.apply_buff(*buff, *stacks),
-                        EnemyEffect::BuffAll(_, _) => todo!(),
+                        EnemyEffect::Apply(condition) => {
+                            self.player.apply(condition)?;
+                        }
+                        EnemyEffect::ApplyToSelf(enemy_condition) => {
+                            enemy.apply(enemy_condition);
+                        }
                         EnemyEffect::DealDamage(amount) => {
                             self.player.take_damage(Self::incoming_damage(
                                 &self.player,
@@ -128,17 +123,6 @@ impl<'a> EncounterSimulator<'a> {
                                 *amount,
                             ))?;
                         }
-                        EnemyEffect::Debuff(debuff, stacks) => {
-                            self.player.apply_debuff(*debuff, *stacks)?;
-                        }
-                        EnemyEffect::GainBlock(_) => todo!(),
-                        EnemyEffect::GiveBlockToLeader(_) => todo!(),
-                        EnemyEffect::Heal(_) => todo!(),
-                        EnemyEffect::HealAll(_) => todo!(),
-                        EnemyEffect::Reincarnate() => todo!(),
-                        EnemyEffect::Revive() => todo!(),
-                        EnemyEffect::ShuffleIntoDrawPile(_) => todo!(),
-                        EnemyEffect::StealCard() => todo!(),
                     }
                     if enemy.is_dead() {
                         *maybe_enemy = None;
@@ -150,6 +134,14 @@ impl<'a> EncounterSimulator<'a> {
                 }
             }
         }
+        for enemy in self
+            .enemy_party
+            .iter_mut()
+            .filter_map(|enemy| enemy.as_mut())
+        {
+            enemy.end_turn();
+        }
+
         Ok(())
     }
 
@@ -158,13 +150,16 @@ impl<'a> EncounterSimulator<'a> {
         for effect in card_details.effect_chain.iter() {
             println!("[EncounterSimulator] Applying effect: {:?}", effect);
             match effect {
-                PlayerEffect::AddToDiscardPile(_) => todo!(),
-                PlayerEffect::AddToHand(_) => todo!(),
-                PlayerEffect::Buff(_, _) => todo!(),
-                PlayerEffect::BuffCustom() => todo!(),
-                PlayerEffect::Channel(_, _) => todo!(),
-                PlayerEffect::ChannelCustom() => todo!(),
-                PlayerEffect::ChannelRandom(_) => todo!(),
+                PlayerEffect::Apply(_) => unreachable!(
+                    "Debuff should be handled by play_card_against_enemy, {:?}",
+                    card_details
+                ),
+                PlayerEffect::ApplyToAll(condition) => {
+                    self.apply_to_all_enemies(condition)?;
+                }
+                PlayerEffect::ApplyToSelf(player_condition) => {
+                    self.player.apply(player_condition)?;
+                }
                 PlayerEffect::DealDamage(_) => unreachable!(
                     "DealDamage should be handled by play_card_against_enemy, {:?}",
                     card_details
@@ -172,53 +167,11 @@ impl<'a> EncounterSimulator<'a> {
                 PlayerEffect::DealDamageToAll(amount) => {
                     self.attack_all_enemies(*amount)?;
                 }
-                PlayerEffect::DealDamageCustom() => todo!(),
-                PlayerEffect::DealDamageToAllCustom() => todo!(),
-                PlayerEffect::Debuff(_, _) => unreachable!(
-                    "Debuff should be handled by play_card_against_enemy, {:?}",
-                    card_details
-                ),
-                PlayerEffect::DebuffAll(debuff, stacks) => {
-                    self.debuff_all_enemies(*debuff, *stacks)?;
-                }
-                PlayerEffect::DebuffCustom() => todo!(),
-                PlayerEffect::DebuffSelf(_, _) => todo!(),
-                PlayerEffect::Discard(_) => todo!(),
-                PlayerEffect::DiscardCustom() => todo!(),
-                PlayerEffect::DiscardAtRandom() => todo!(),
-                PlayerEffect::Draw(_) => todo!(),
-                PlayerEffect::DrawCustom() => todo!(),
-                PlayerEffect::EndTurn() => todo!(),
-                PlayerEffect::EnterStance(_) => todo!(),
-                PlayerEffect::EvokeCustom() => todo!(),
-                PlayerEffect::ExhaustCard() => todo!(),
-                PlayerEffect::Exhume() => todo!(),
-                PlayerEffect::ExitStance() => todo!(),
                 PlayerEffect::GainBlock(amount) => {
                     self.player
                         .gain_block(Self::incoming_block(&self.player, *amount))?;
                 }
-                PlayerEffect::GainBlockCustom() => todo!(),
-                PlayerEffect::GainDexterity(_) => todo!(),
-                PlayerEffect::GainEnergy(_) => todo!(),
-                PlayerEffect::GainEnergyCustom() => todo!(),
-                PlayerEffect::GainFocus(_) => todo!(),
-                PlayerEffect::GainOrbSlots(_) => todo!(),
-                PlayerEffect::GainStrength(_) => todo!(),
-                PlayerEffect::HandCustom() => todo!(),
-                PlayerEffect::Heal(_) => todo!(),
-                PlayerEffect::HealCustom() => todo!(),
-                PlayerEffect::LoseHp(_) => todo!(),
-                PlayerEffect::LoseOrbSlots(_) => todo!(),
-                PlayerEffect::ObtainRandomPotion() => todo!(),
-                PlayerEffect::SapStrength(_) => todo!(),
-                PlayerEffect::Scry(_) => todo!(),
-                PlayerEffect::ShuffleIntoDrawPile(_) => todo!(),
-                PlayerEffect::ShuffleIntoDrawPileCustom() => todo!(),
-                PlayerEffect::StanceCustom() => todo!(),
-                PlayerEffect::TakeDamage(_) => todo!(),
                 PlayerEffect::UpgradeOneCardInCombat() => todo!(),
-                PlayerEffect::UpgradeAllCardsInCombat() => todo!(),
             }
             if self.combat_should_end() {
                 break;
@@ -234,15 +187,12 @@ impl<'a> EncounterSimulator<'a> {
     ) -> Result<(), Error> {
         for effect in card_details.effect_chain.iter() {
             match effect {
+                PlayerEffect::Apply(condition) => {
+                    self.apply_to_enemy(enemy_index, condition)?;
+                }
                 PlayerEffect::DealDamage(amount) => {
                     self.attack_enemy(enemy_index, *amount)?;
                 }
-                PlayerEffect::DealDamageCustom() => todo!(),
-                PlayerEffect::Debuff(debuff, stacks) => {
-                    self.debuff_enemy(enemy_index, *debuff, *stacks)?;
-                }
-                PlayerEffect::DebuffCustom() => todo!(),
-                PlayerEffect::SapStrength(_) => todo!(),
                 _ => unreachable!(
                     "Inappropriate card handled by play_card_against_enemy, {:?}",
                     card_details
@@ -277,23 +227,22 @@ impl<'a> EncounterSimulator<'a> {
         Ok(())
     }
 
-    fn debuff_enemy(
+    fn apply_to_enemy(
         &mut self,
         index: EnemyIndex,
-        debuff: Debuff,
-        stacks: StackCount,
+        condition: &EnemyCondition,
     ) -> Result<(), Error> {
         if let Some(enemy) = self.enemy_party[index].as_mut() {
-            enemy.apply_debuff(debuff, stacks);
+            enemy.apply(condition);
             self.player
                 .send_enemy_status(index, EnemyStatus::from(&*enemy))?;
         }
         Ok(())
     }
 
-    fn debuff_all_enemies(&mut self, debuff: Debuff, stacks: StackCount) -> Result<(), Error> {
+    fn apply_to_all_enemies(&mut self, condition: &EnemyCondition) -> Result<(), Error> {
         for index in 0..ENEMY_PARTY_SIZE_MAX {
-            self.debuff_enemy(index, debuff, stacks)?;
+            self.apply_to_enemy(index, condition)?;
         }
         Ok(())
     }

@@ -1,6 +1,6 @@
-use crate::data::{Buff, Card, Character, Debuff, Potion, Relic};
+use crate::data::{Card, Character, PlayerCondition, Potion, Relic};
 use crate::rng::StsRandom;
-use crate::types::{Block, DeckIndex, Energy, Gold, Health, Hp, HpMax, PotionIndex, StackCount};
+use crate::types::{Block, DeckIndex, Energy, Gold, Health, Hp, HpMax, PotionIndex};
 
 /// Encapsulates the state of the player in the game, e.g. HP, gold, deck, etc.
 /// Mostly a dumb container.
@@ -22,8 +22,7 @@ pub struct CombatState {
     pub(crate) shuffle_rng: StsRandom,
     pub(crate) energy: Energy,
     pub(crate) block: Block,
-    pub(crate) buffs: Vec<(Buff, StackCount)>,
-    pub(crate) debuffs: Vec<(Debuff, StackCount)>,
+    pub(crate) conditions: Vec<PlayerCondition>,
     pub(crate) hand: Vec<Card>,
     pub(crate) draw_pile: Vec<Card>,
     pub(crate) discard_pile: Vec<Card>,
@@ -144,13 +143,11 @@ impl CombatState {
 
         let discard_pile = Vec::new();
         let exhaust_pile = Vec::new();
-        let debuffs = Vec::new();
         Self {
             shuffle_rng,
             energy: 3,
             block: 0,
-            buffs: Vec::new(),
-            debuffs,
+            conditions: Vec::new(),
             hand,
             draw_pile,
             discard_pile,
@@ -158,24 +155,81 @@ impl CombatState {
         }
     }
 
-    pub fn has_debuff(&self, debuff: Debuff) -> bool {
-        self.debuffs.iter().any(|(d, _)| *d == debuff)
+    pub fn apply(&mut self, condition: &PlayerCondition) {
+        for preexisting_condition in self.conditions.iter_mut() {
+            if Self::maybe_merge_conditions(preexisting_condition, condition) {
+                return;
+            }
+        }
+        // If we make it here, we didn't have this condition already.
+        self.conditions.push(condition.clone());
+    }
+
+    fn maybe_merge_conditions(
+        existing_condition: &mut PlayerCondition,
+        incoming_condition: &PlayerCondition,
+    ) -> bool {
+        match existing_condition {
+            PlayerCondition::Frail(turns) => {
+                if let PlayerCondition::Frail(additional_turns) = incoming_condition {
+                    *turns = turns.saturating_add(*additional_turns);
+                    return true;
+                }
+            }
+            PlayerCondition::Vulnerable(turns) => {
+                if let PlayerCondition::Vulnerable(additional_turns) = incoming_condition {
+                    *turns = turns.saturating_add(*additional_turns);
+                    return true;
+                }
+            }
+            PlayerCondition::Weak(turns) => {
+                if let PlayerCondition::Weak(additional_turns) = incoming_condition {
+                    *turns = turns.saturating_add(*additional_turns);
+                    return true;
+                }
+            }
+        }
+        return false;
     }
 
     pub fn is_frail(&self) -> bool {
-        self.has_debuff(Debuff::Frail)
+        self.conditions
+            .iter()
+            .any(|c| matches!(c, PlayerCondition::Frail(_)))
     }
 
     pub fn is_vulnerable(&self) -> bool {
-        self.has_debuff(Debuff::Vulnerable)
+        self.conditions
+            .iter()
+            .any(|c| matches!(c, PlayerCondition::Vulnerable(_)))
     }
 
     pub fn is_weak(&self) -> bool {
-        self.has_debuff(Debuff::Weak)
+        self.conditions
+            .iter()
+            .any(|c| matches!(c, PlayerCondition::Weak(_)))
     }
 
     pub fn shuffle(&mut self) {
         self.shuffle_rng.java_compat_shuffle(&mut self.discard_pile);
+    }
+
+    pub fn tick_down_conditions(&mut self) {
+        for condition in self.conditions.iter_mut() {
+            match condition {
+                PlayerCondition::Frail(turns) => *turns = turns.saturating_sub(1),
+                PlayerCondition::Vulnerable(turns) => *turns = turns.saturating_sub(1),
+                PlayerCondition::Weak(turns) => *turns = turns.saturating_sub(1),
+            }
+        }
+        self.conditions.retain(|c| {
+            !matches!(
+                c,
+                PlayerCondition::Frail(0)
+                    | PlayerCondition::Vulnerable(0)
+                    | PlayerCondition::Weak(0)
+            )
+        });
     }
 }
 

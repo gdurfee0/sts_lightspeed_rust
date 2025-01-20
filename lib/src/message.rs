@@ -1,8 +1,7 @@
-use crate::data::{Buff, Card, Debuff, EnemyType, NeowBlessing, Potion, Relic};
+use crate::data::{Card, EnemyType, NeowBlessing, PlayerCondition, Potion, Relic};
 use crate::enemy::EnemyStatus;
 use crate::types::{
     Block, ColumnIndex, DeckIndex, EnemyIndex, Energy, Gold, HandIndex, Health, Hp, PotionIndex,
-    StackCount,
 };
 
 /// Message type for communication from the Simualtor to a client (human operator or AI agent).
@@ -31,13 +30,12 @@ pub enum StsMessage {
     Block(Block),
     BlockGained(Block),
     BlockLost(Block),
-    Buffs(Vec<(Buff, StackCount)>),
     CardDiscarded(HandIndex, Card),
     CardDrawn(HandIndex, Card),
     CardExhausted(HandIndex, Card),
+    Conditions(Vec<PlayerCondition>),
     DamageBlocked(Hp),
     DamageTaken(Hp),
-    Debuffs(Vec<(Debuff, StackCount)>),
     DiscardPile(Vec<Card>),
     EnemyStatus(EnemyIndex, EnemyStatus),
     EnemyDied(EnemyIndex, EnemyType),

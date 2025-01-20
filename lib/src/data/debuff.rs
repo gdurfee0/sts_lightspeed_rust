@@ -41,6 +41,8 @@ pub enum Debuff {
     Shackled,
     /// The enemy receives (X*10)% more damage from attacks this turn.
     Slow,
+    /// Penalty to Strength
+    Strength,
     /// At the end of your turn, lose X Strength.
     StrengthDown,
     /// Lose X Strength this turn.

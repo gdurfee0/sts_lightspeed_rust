@@ -8,7 +8,7 @@ use crate::data::Character;
 use crate::map::Room;
 use crate::message::StsMessage;
 use crate::player::PlayerController;
-use crate::rng::{EncounterGenerator, RelicGenerator, Seed, StsRandom};
+use crate::rng::{CardGenerator, EncounterGenerator, RelicGenerator, Seed, StsRandom};
 
 pub struct StsSimulator {
     // Information typically set on the command line
@@ -17,7 +17,7 @@ pub struct StsSimulator {
 
     // Random number generators for various game elements
     encounter_generator: EncounterGenerator,
-    card_rng: StsRandom,
+    card_generator: CardGenerator,
     misc_rng: StsRandom,
     potion_rng: StsRandom,
     treasure_rng: StsRandom,
@@ -35,7 +35,7 @@ impl StsSimulator {
         to_client: Sender<StsMessage>,
     ) -> Self {
         let encounter_generator = EncounterGenerator::new(seed);
-        let card_rng = StsRandom::from(seed);
+        let card_generator = CardGenerator::new(seed, character);
         let misc_rng = StsRandom::from(seed);
         let potion_rng = StsRandom::from(seed);
         let treasure_rng = StsRandom::from(seed);
@@ -45,7 +45,7 @@ impl StsSimulator {
             seed,
             character,
             encounter_generator,
-            card_rng,
+            card_generator,
             misc_rng,
             potion_rng,
             treasure_rng,
@@ -66,7 +66,7 @@ impl StsSimulator {
         let neow_simulator = NeowSimulator::new(
             self.seed,
             self.character,
-            &mut self.card_rng,
+            &mut self.card_generator,
             &mut self.potion_rng,
             &mut self.relic_generator,
             &mut self.player,
@@ -74,7 +74,7 @@ impl StsSimulator {
         neow_simulator.run()?;
         let mut floor = 1;
         loop {
-            self.card_rng = self.seed.with_offset(floor).into();
+            //self.card_generator = CardGenerator::new(self.seed.with_offset(floor), self.character);
             self.misc_rng = self.seed.with_offset(floor).into();
             match map_simulator.advance(&mut self.player)? {
                 Room::Boss => todo!(),
@@ -96,6 +96,10 @@ impl StsSimulator {
                     {
                         break;
                     }
+                    let gold_reward = self.treasure_rng.gen_range(10..=20);
+                    let card_rewards = self.card_generator.three_card_choices();
+                    self.player
+                        .choose_combat_rewards(gold_reward, &card_rewards)?;
                 }
                 Room::Shop => todo!(),
                 Room::Treasure => todo!(),
@@ -132,12 +136,12 @@ mod test {
         let mut maybe_message;
         loop {
             let message = from_server.recv_timeout(Duration::from_secs(5)).unwrap();
+            println!("Received message: {:?}", message);
             if let StsMessage::Choices(_, _) = message {
                 maybe_message = Some(message);
                 break;
             }
             let _ = expected.get_mut(&message).map(|count| *count -= 1);
-            println!("Received message: {:?}", message);
             expected.retain(|_, count| *count > 0);
         }
         assert_eq!(
@@ -449,7 +453,7 @@ mod test {
                             hp: 23,
                             hp_max: 31,
                             block: 0,
-                            debuffs: vec![(Debuff::Vulnerable, 1)], // 1 stack of Vulnerable],
+                            debuffs: vec![(Debuff::Vulnerable, 1)], // 1 stack of Vulnerable,
                             intent: Intent::StrategicDebuff,
                         }),
                         None,
@@ -554,19 +558,424 @@ mod test {
             )
         );
         to_server.send(0).unwrap(); // Target SpikeSlimeM
-
-        /*
         assert_eq!(
             next_prompt(
                 &from_server,
-                &[StsMessage::EnemyDied(1, EnemyType::SpikeSlimeM)]
+                &[
+                    StsMessage::EnemyDied(1, EnemyType::SpikeSlimeM),
+                    StsMessage::Health((80, 80)), // Burning Blood heals 6
+                    StsMessage::EndingCombat
+                ]
             ),
-            StsMessage::Choices(Prompt::ChooseNext, vec![Choice::ObtainGold(11)])
+            StsMessage::Choices(
+                Prompt::ChooseNext,
+                vec![
+                    Choice::ObtainGold(11),
+                    Choice::ObtainCard(Card::Thunderclap),
+                    Choice::ObtainCard(Card::HeavyBlade),
+                    Choice::ObtainCard(Card::Armaments)
+                ]
+            )
         );
-
         to_server.send(0).unwrap(); // Take Gold
+        assert_eq!(
+            next_prompt(&from_server, &[StsMessage::Gold(99 + 100 + 11)]),
+            StsMessage::Choices(
+                Prompt::ChooseOne,
+                vec![
+                    Choice::ObtainCard(Card::Thunderclap),
+                    Choice::ObtainCard(Card::HeavyBlade),
+                    Choice::ObtainCard(Card::Armaments)
+                ]
+            )
+        );
+        to_server.send(0).unwrap(); // Take Thunderclap
+        assert_eq!(
+            next_prompt(&from_server, &[StsMessage::CardObtained(Card::Thunderclap)]),
+            StsMessage::Choices(Prompt::ClimbFloor, vec![Choice::ClimbFloor(0)])
+        );
+        to_server.send(0).unwrap(); // Column 0
+        assert_eq!(
+            next_prompt(
+                &from_server,
+                &[
+                    StsMessage::StartingCombat,
+                    StsMessage::Energy(3),
+                    StsMessage::EnemyParty(vec![
+                        Some(EnemyStatus {
+                            enemy_type: EnemyType::Cultist,
+                            hp: 50,
+                            hp_max: 50,
+                            block: 0,
+                            debuffs: vec![],
+                            intent: Intent::StrategicBuff,
+                        }),
+                        None,
+                        None,
+                        None,
+                        None
+                    ])
+                ]
+            ),
+            StsMessage::Choices(
+                Prompt::CombatAction,
+                vec![
+                    Choice::PlayCardFromHand(0, Card::Strike),
+                    Choice::PlayCardFromHand(1, Card::Strike),
+                    Choice::PlayCardFromHand(2, Card::Strike),
+                    Choice::PlayCardFromHand(3, Card::Defend),
+                    Choice::PlayCardFromHand(4, Card::Defend),
+                    Choice::EndTurn,
+                ]
+            )
+        );
+        to_server.send(0).unwrap(); // Play "Strike"
+        assert_eq!(
+            next_prompt(&from_server, &[]),
+            StsMessage::Choices(
+                Prompt::TargetEnemy,
+                vec![Choice::TargetEnemy(0, EnemyType::Cultist)]
+            )
+        );
+        to_server.send(0).unwrap(); // Target Cultist
+        assert_eq!(
+            next_prompt(
+                &from_server,
+                &[
+                    StsMessage::Energy(2),
+                    StsMessage::EnemyStatus(
+                        0,
+                        EnemyStatus {
+                            enemy_type: EnemyType::Cultist,
+                            hp: 44,
+                            hp_max: 50,
+                            block: 0,
+                            debuffs: vec![],
+                            intent: Intent::StrategicBuff,
+                        }
+                    )
+                ]
+            ),
+            StsMessage::Choices(
+                Prompt::CombatAction,
+                vec![
+                    Choice::PlayCardFromHand(0, Card::Strike),
+                    Choice::PlayCardFromHand(1, Card::Strike),
+                    Choice::PlayCardFromHand(2, Card::Defend),
+                    Choice::PlayCardFromHand(3, Card::Defend),
+                    Choice::EndTurn,
+                ]
+            )
+        );
+        to_server.send(0).unwrap(); // Play "Strike"
+        assert_eq!(
+            next_prompt(&from_server, &[]),
+            StsMessage::Choices(
+                Prompt::TargetEnemy,
+                vec![Choice::TargetEnemy(0, EnemyType::Cultist)]
+            )
+        );
+        to_server.send(0).unwrap(); // Target Cultist
+        assert_eq!(
+            next_prompt(
+                &from_server,
+                &[
+                    StsMessage::Energy(1),
+                    StsMessage::EnemyStatus(
+                        0,
+                        EnemyStatus {
+                            enemy_type: EnemyType::Cultist,
+                            hp: 38,
+                            hp_max: 50,
+                            block: 0,
+                            debuffs: vec![],
+                            intent: Intent::StrategicBuff,
+                        }
+                    )
+                ]
+            ),
+            StsMessage::Choices(
+                Prompt::CombatAction,
+                vec![
+                    Choice::PlayCardFromHand(0, Card::Strike),
+                    Choice::PlayCardFromHand(1, Card::Defend),
+                    Choice::PlayCardFromHand(2, Card::Defend),
+                    Choice::EndTurn,
+                ]
+            )
+        );
+        to_server.send(0).unwrap(); // Play "Strike"
+        assert_eq!(
+            next_prompt(&from_server, &[]),
+            StsMessage::Choices(
+                Prompt::TargetEnemy,
+                vec![Choice::TargetEnemy(0, EnemyType::Cultist)]
+            )
+        );
+        to_server.send(0).unwrap(); // Target Cultist
+        assert_eq!(
+            next_prompt(
+                &from_server,
+                &[
+                    StsMessage::Energy(0),
+                    StsMessage::EnemyStatus(
+                        0,
+                        EnemyStatus {
+                            enemy_type: EnemyType::Cultist,
+                            hp: 32,
+                            hp_max: 50,
+                            block: 0,
+                            debuffs: vec![],
+                            intent: Intent::StrategicBuff,
+                        }
+                    )
+                ]
+            ),
+            StsMessage::Choices(Prompt::CombatAction, vec![Choice::EndTurn])
+        );
+        to_server.send(0).unwrap(); // End Turn
+        assert_eq!(
+            next_prompt(
+                &from_server,
+                &[
+                    StsMessage::Energy(3),
+                    StsMessage::EnemyParty(vec![
+                        Some(EnemyStatus {
+                            enemy_type: EnemyType::Cultist,
+                            hp: 32,
+                            hp_max: 50,
+                            block: 0,
+                            debuffs: vec![],
+                            intent: Intent::Aggressive(6, 1),
+                        }),
+                        None,
+                        None,
+                        None,
+                        None
+                    ])
+                ]
+            ),
+            StsMessage::Choices(
+                Prompt::CombatAction,
+                vec![
+                    Choice::PlayCardFromHand(0, Card::Defend),
+                    Choice::PlayCardFromHand(1, Card::Strike),
+                    Choice::PlayCardFromHand(2, Card::Bash),
+                    Choice::PlayCardFromHand(3, Card::Defend),
+                    Choice::PlayCardFromHand(4, Card::Strike),
+                    Choice::EndTurn,
+                ]
+            )
+        );
+        to_server.send(2).unwrap(); // Play "Bash"
+        assert_eq!(
+            next_prompt(&from_server, &[]),
+            StsMessage::Choices(
+                Prompt::TargetEnemy,
+                vec![Choice::TargetEnemy(0, EnemyType::Cultist)]
+            )
+        );
+        to_server.send(0).unwrap(); // Target Cultist
+        assert_eq!(
+            next_prompt(
+                &from_server,
+                &[
+                    StsMessage::Energy(1),
+                    StsMessage::EnemyStatus(
+                        0,
+                        EnemyStatus {
+                            enemy_type: EnemyType::Cultist,
+                            hp: 24,
+                            hp_max: 50,
+                            block: 0,
+                            debuffs: vec![(Debuff::Vulnerable, 2)],
+                            intent: Intent::Aggressive(6, 1),
+                        }
+                    )
+                ]
+            ),
+            StsMessage::Choices(
+                Prompt::CombatAction,
+                vec![
+                    Choice::PlayCardFromHand(0, Card::Defend),
+                    Choice::PlayCardFromHand(1, Card::Strike),
+                    Choice::PlayCardFromHand(2, Card::Defend),
+                    Choice::PlayCardFromHand(3, Card::Strike),
+                    Choice::EndTurn,
+                ]
+            )
+        );
+        to_server.send(1).unwrap(); // Play "Strike"
+        assert_eq!(
+            next_prompt(&from_server, &[]),
+            StsMessage::Choices(
+                Prompt::TargetEnemy,
+                vec![Choice::TargetEnemy(0, EnemyType::Cultist)]
+            )
+        );
+        to_server.send(0).unwrap(); // Target Cultist
+        assert_eq!(
+            next_prompt(
+                &from_server,
+                &[
+                    StsMessage::Energy(0),
+                    StsMessage::EnemyStatus(
+                        0,
+                        EnemyStatus {
+                            enemy_type: EnemyType::Cultist,
+                            hp: 15,
+                            hp_max: 50,
+                            block: 0,
+                            debuffs: vec![(Debuff::Vulnerable, 2)],
+                            intent: Intent::Aggressive(6, 1),
+                        }
+                    )
+                ]
+            ),
+            StsMessage::Choices(Prompt::CombatAction, vec![Choice::EndTurn])
+        );
+        to_server.send(0).unwrap(); // End Turn
+        assert_eq!(
+            next_prompt(
+                &from_server,
+                &[
+                    StsMessage::Energy(3),
+                    StsMessage::EnemyParty(vec![
+                        Some(EnemyStatus {
+                            enemy_type: EnemyType::Cultist,
+                            hp: 15,
+                            hp_max: 50,
+                            block: 0,
+                            debuffs: vec![(Debuff::Vulnerable, 1)],
+                            intent: Intent::Aggressive(6, 1), // Strength-scaled in the UI, not here
+                        }),
+                        None,
+                        None,
+                        None,
+                        None
+                    ])
+                ]
+            ),
+            StsMessage::Choices(
+                Prompt::CombatAction,
+                vec![
+                    Choice::PlayCardFromHand(0, Card::Thunderclap),
+                    Choice::PlayCardFromHand(1, Card::Defend),
+                    Choice::PlayCardFromHand(2, Card::Defend),
+                    Choice::PlayCardFromHand(3, Card::Strike),
+                    Choice::PlayCardFromHand(4, Card::Defend),
+                    Choice::EndTurn,
+                ]
+            )
+        );
+        to_server.send(0).unwrap(); // Play "Thunderclap"
+        assert_eq!(
+            next_prompt(
+                &from_server,
+                &[
+                    StsMessage::Energy(2),
+                    StsMessage::EnemyStatus(
+                        0,
+                        EnemyStatus {
+                            enemy_type: EnemyType::Cultist,
+                            hp: 9,
+                            hp_max: 50,
+                            block: 0,
+                            debuffs: vec![(Debuff::Vulnerable, 2)],
+                            intent: Intent::Aggressive(6, 1),
+                        }
+                    )
+                ]
+            ),
+            StsMessage::Choices(
+                Prompt::CombatAction,
+                vec![
+                    Choice::PlayCardFromHand(0, Card::Defend),
+                    Choice::PlayCardFromHand(1, Card::Defend),
+                    Choice::PlayCardFromHand(2, Card::Strike),
+                    Choice::PlayCardFromHand(3, Card::Defend),
+                    Choice::EndTurn,
+                ]
+            )
+        );
+        to_server.send(0).unwrap(); // Play "Defend"
+        assert_eq!(
+            next_prompt(
+                &from_server,
+                &[
+                    StsMessage::Energy(1),
+                    StsMessage::BlockGained(5),
+                    StsMessage::Block(5)
+                ]
+            ),
+            StsMessage::Choices(
+                Prompt::CombatAction,
+                vec![
+                    Choice::PlayCardFromHand(0, Card::Defend),
+                    Choice::PlayCardFromHand(1, Card::Strike),
+                    Choice::PlayCardFromHand(2, Card::Defend),
+                    Choice::EndTurn,
+                ]
+            )
+        );
+        to_server.send(0).unwrap(); // Play "Defend"
+        assert_eq!(
+            next_prompt(
+                &from_server,
+                &[
+                    StsMessage::Energy(0),
+                    StsMessage::BlockGained(5),
+                    StsMessage::Block(10)
+                ]
+            ),
+            StsMessage::Choices(Prompt::CombatAction, vec![Choice::EndTurn])
+        );
+        to_server.send(0).unwrap(); // End Turn
+
+        /*
+        XXX here - need to track Strength for the 9x1 attack
+
+        assert_eq!(
+            next_prompt(
+                &from_server,
+                &[
+                    StsMessage::Energy(3),
+                    StsMessage::BlockLost(9),
+                    StsMessage::Block(1),
+                    StsMessage::Block(0),
+                    StsMessage::EnemyParty(vec![
+                        Some(EnemyStatus {
+                            enemy_type: EnemyType::Cultist,
+                            hp: 9,
+                            hp_max: 50,
+                            block: 0,
+                            debuffs: vec![(Debuff::Vulnerable, 1)],
+                            intent: Intent::Aggressive(6, 1),
+                        }),
+                        None,
+                        None,
+                        None,
+                        None
+                    ])
+                ]
+            ),
+            StsMessage::Choices(
+                Prompt::CombatAction,
+                vec![
+                    Choice::PlayCardFromHand(0, Card::Defend),
+                    Choice::PlayCardFromHand(1, Card::Strike),
+                    Choice::PlayCardFromHand(2, Card::Strike),
+                    Choice::PlayCardFromHand(3, Card::Strike),
+                    Choice::PlayCardFromHand(4, Card::Bash),
+                    Choice::EndTurn,
+                ]
+            )
+        );
+        to_server.send(1).unwrap(); // Play "Strike"
+
         assert_eq!(next_prompt(&from_server, &[]), StsMessage::GameOver(true));
         */
+
         drop(to_server);
         let _ = simulator_thread.join();
     }

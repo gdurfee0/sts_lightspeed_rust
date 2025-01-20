@@ -1,19 +1,22 @@
 use crate::data::{
-    Card, Character, NeowBlessing, CURSE_CARD_POOL, FIRST_NEOW_POOL, SECOND_NEOW_POOL,
-    THIRD_NEOW_POOL, UNCOMMON_COLORLESS_CARDS,
+    Card, Character, NeowBlessing, FIRST_NEOW_POOL, SECOND_NEOW_POOL, THIRD_NEOW_POOL,
 };
 
-use super::{Seed, StsRandom};
+use super::{CardGenerator, Seed, StsRandom};
 
 pub struct NeowGenerator<'a> {
     neow_rng: StsRandom,
-    card_rng: &'a mut StsRandom,
+    card_generator: &'a mut CardGenerator,
     character: &'static Character,
     blessing_choices: [NeowBlessing; 4],
 }
 
 impl<'a> NeowGenerator<'a> {
-    pub fn new(seed: Seed, character: &'static Character, card_rng: &'a mut StsRandom) -> Self {
+    pub fn new(
+        seed: Seed,
+        character: &'static Character,
+        card_generator: &'a mut CardGenerator,
+    ) -> Self {
         let mut neow_rng = StsRandom::from(seed);
         let first_blessing = *neow_rng.choose(FIRST_NEOW_POOL);
         let second_blessing = *neow_rng.choose(SECOND_NEOW_POOL);
@@ -30,7 +33,7 @@ impl<'a> NeowGenerator<'a> {
         neow_rng.advance();
         Self {
             neow_rng,
-            card_rng,
+            card_generator,
             character,
             blessing_choices,
         }
@@ -58,19 +61,17 @@ impl<'a> NeowGenerator<'a> {
     }
 
     pub fn three_colorless_card_choices(&mut self) -> Vec<Card> {
-        // Intentionally using card_rng here for fidelity to the original game
-        self.card_rng
-            .sample_without_replacement(UNCOMMON_COLORLESS_CARDS, 3)
+        // Intentionally using card_generator here for fidelity to the original game
+        self.card_generator.three_colorless_card_choices()
     }
 
     pub fn one_random_rare_card(&mut self) -> Card {
-        let pool = self.character.rare_card_pool;
-        *self.neow_rng.choose(pool)
+        *self.neow_rng.choose(self.character.rare_card_pool)
     }
 
     pub fn one_curse(&mut self) -> Card {
-        // Intentionally using card_rng here for fidelity to the original game
-        *self.card_rng.choose(CURSE_CARD_POOL)
+        // Intentionally using card_generator here for fidelity to the original game
+        self.card_generator.one_curse()
     }
 }
 
@@ -85,8 +86,8 @@ mod test {
     #[test]
     fn test_blessing_choices() {
         let seed = 3.into();
-        let mut card_rng = StsRandom::from(seed);
-        let mut generator = NeowGenerator::new(seed, IRONCLAD, &mut card_rng);
+        let mut card_generator = CardGenerator::new(seed, IRONCLAD);
+        let mut generator = NeowGenerator::new(seed, IRONCLAD, &mut card_generator);
         assert_eq!(
             generator.blessing_choices().to_vec(),
             vec![
@@ -101,8 +102,8 @@ mod test {
         );
 
         let seed = 15.into();
-        let mut card_rng = StsRandom::from(seed);
-        let mut generator = NeowGenerator::new(seed, IRONCLAD, &mut card_rng);
+        let mut card_generator = CardGenerator::new(seed, IRONCLAD);
+        let mut generator = NeowGenerator::new(seed, IRONCLAD, &mut card_generator);
         assert_eq!(
             generator.blessing_choices().to_vec(),
             vec![
@@ -117,41 +118,41 @@ mod test {
     #[test]
     fn test_three_cards() {
         let seed = 3.into();
-        let mut card_rng = StsRandom::from(seed);
-        let mut generator = NeowGenerator::new(seed, IRONCLAD, &mut card_rng);
+        let mut card_generator = CardGenerator::new(seed, IRONCLAD);
+        let mut generator = NeowGenerator::new(seed, IRONCLAD, &mut card_generator);
         assert_eq!(
             generator.three_card_choices(),
             vec![Card::SeeingRed, Card::Clothesline, Card::BloodForBlood]
         );
         let seed = 40.into();
-        let mut card_rng = StsRandom::from(seed);
-        let mut generator = NeowGenerator::new(seed, IRONCLAD, &mut card_rng);
+        let mut card_generator = CardGenerator::new(seed, IRONCLAD);
+        let mut generator = NeowGenerator::new(seed, IRONCLAD, &mut card_generator);
         assert_eq!(
             generator.three_card_choices(),
             vec![Card::IronWave, Card::Cleave, Card::Headbutt]
         );
         let seed = 3.into();
-        let mut card_rng = StsRandom::from(seed);
-        let mut generator = NeowGenerator::new(seed, SILENT, &mut card_rng);
+        let mut card_generator = CardGenerator::new(seed, IRONCLAD);
+        let mut generator = NeowGenerator::new(seed, SILENT, &mut card_generator);
         assert_eq!(
             generator.three_card_choices(),
             vec![Card::Dash, Card::Backflip, Card::Choke]
         );
-        let mut card_rng = StsRandom::from(seed);
-        let mut generator = NeowGenerator::new(seed, DEFECT, &mut card_rng);
+        let mut card_generator = CardGenerator::new(seed, IRONCLAD);
+        let mut generator = NeowGenerator::new(seed, DEFECT, &mut card_generator);
         assert_eq!(
             generator.three_card_choices(),
             vec![Card::Equilibrium, Card::CompileDriver, Card::Aggregate]
         );
-        let mut card_rng = StsRandom::from(seed);
-        let mut generator = NeowGenerator::new(seed, WATCHER, &mut card_rng);
+        let mut card_generator = CardGenerator::new(seed, IRONCLAD);
+        let mut generator = NeowGenerator::new(seed, WATCHER, &mut card_generator);
         assert_eq!(
             generator.three_card_choices(),
             vec![Card::Worship, Card::CutThroughFate, Card::WheelKick]
         );
         let seed = 40.into();
-        let mut card_rng = StsRandom::from(seed);
-        let mut generator = NeowGenerator::new(seed, WATCHER, &mut card_rng);
+        let mut card_generator = CardGenerator::new(seed, IRONCLAD);
+        let mut generator = NeowGenerator::new(seed, WATCHER, &mut card_generator);
         assert_eq!(
             generator.three_card_choices(),
             vec![Card::FlyingSleeves, Card::Tranquility, Card::Evaluate]
@@ -161,32 +162,32 @@ mod test {
     #[test]
     fn test_one_random_rare_card() {
         let seed = 2.into();
-        let mut card_rng = StsRandom::from(seed);
-        let mut generator = NeowGenerator::new(seed, IRONCLAD, &mut card_rng);
+        let mut card_generator = CardGenerator::new(seed, IRONCLAD);
+        let mut generator = NeowGenerator::new(seed, IRONCLAD, &mut card_generator);
         assert_eq!(generator.one_random_rare_card(), Card::DemonForm);
         let seed = 13.into();
-        let mut card_rng = StsRandom::from(seed);
-        let mut generator = NeowGenerator::new(seed, IRONCLAD, &mut card_rng);
+        let mut card_generator = CardGenerator::new(seed, IRONCLAD);
+        let mut generator = NeowGenerator::new(seed, IRONCLAD, &mut card_generator);
         assert_eq!(generator.one_random_rare_card(), Card::Reaper);
     }
 
     #[test]
     fn test_one_curse() {
         let seed = 2.into();
-        let mut card_rng = StsRandom::from(seed);
-        let mut generator = NeowGenerator::new(seed, IRONCLAD, &mut card_rng);
+        let mut card_generator = CardGenerator::new(seed, IRONCLAD);
+        let mut generator = NeowGenerator::new(seed, IRONCLAD, &mut card_generator);
         assert_eq!(generator.one_curse(), Card::Clumsy);
         let seed = 11.into();
-        let mut card_rng = StsRandom::from(seed);
-        let mut generator = NeowGenerator::new(seed, IRONCLAD, &mut card_rng);
+        let mut card_generator = CardGenerator::new(seed, IRONCLAD);
+        let mut generator = NeowGenerator::new(seed, IRONCLAD, &mut card_generator);
         assert_eq!(generator.one_curse(), Card::Clumsy);
         let seed = 12.into();
-        let mut card_rng = StsRandom::from(seed);
-        let mut generator = NeowGenerator::new(seed, IRONCLAD, &mut card_rng);
+        let mut card_generator = CardGenerator::new(seed, IRONCLAD);
+        let mut generator = NeowGenerator::new(seed, IRONCLAD, &mut card_generator);
         assert_eq!(generator.one_curse(), Card::Decay); // TODO: Writhe?
         let seed = 13.into();
-        let mut card_rng = StsRandom::from(seed);
-        let mut generator = NeowGenerator::new(seed, IRONCLAD, &mut card_rng);
+        let mut card_generator = CardGenerator::new(seed, IRONCLAD);
+        let mut generator = NeowGenerator::new(seed, IRONCLAD, &mut card_generator);
         assert_eq!(generator.one_curse(), Card::Parasite);
     }
 }

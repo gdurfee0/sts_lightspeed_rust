@@ -2,7 +2,7 @@ use anyhow::Error;
 
 use crate::data::{Character, NeowBlessing, NeowBonus, NeowPenalty, Relic};
 use crate::player::PlayerController;
-use crate::rng::{NeowGenerator, RelicGenerator, Seed, StsRandom};
+use crate::rng::{CardGenerator, NeowGenerator, RelicGenerator, Seed, StsRandom};
 
 pub struct NeowSimulator<'a> {
     // Information typically set on the command line
@@ -21,12 +21,12 @@ impl<'a> NeowSimulator<'a> {
     pub fn new(
         seed: Seed,
         character: &'static Character,
-        card_rng: &'a mut StsRandom,
+        card_generator: &'a mut CardGenerator,
         potion_rng: &'a mut StsRandom,
         relic_generator: &'a mut RelicGenerator,
         player: &'a mut PlayerController,
     ) -> Self {
-        let neow_generator = NeowGenerator::new(seed, character, card_rng);
+        let neow_generator = NeowGenerator::new(seed, character, card_generator);
         Self {
             character,
             neow_generator,

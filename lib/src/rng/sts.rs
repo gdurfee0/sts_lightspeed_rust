@@ -49,6 +49,7 @@ use super::seed::Seed;
 /// testing, and gaming environments.
 #[derive(Debug)]
 pub struct StsRandom {
+    initial_seed: u64,
     state0: u64,
     state1: u64,
     counter: usize,
@@ -59,6 +60,12 @@ impl StsRandom {
     #[allow(dead_code)]
     pub fn get_counter(&self) -> usize {
         self.counter
+    }
+
+    // For debugging only
+    #[allow(dead_code)]
+    pub fn get_initial_seed(&self) -> u64 {
+        self.initial_seed
     }
 
     /// Implements the Xorshift128+ algorithm for generating random numbers.
@@ -231,6 +238,7 @@ impl From<u64> for StsRandom {
         let state0 = StsRandom::murmur_hash_3(if seed == 0 { 1u64 << 63 } else { seed });
         let state1 = StsRandom::murmur_hash_3(state0);
         Self {
+            initial_seed: seed,
             state0,
             state1,
             counter: 0,

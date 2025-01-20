@@ -52,11 +52,11 @@ impl<'a> EncounterSimulator<'a> {
 
         loop {
             self.conduct_player_turn()?;
-            if self.combat_is_over() {
+            if self.combat_should_end() {
                 break;
             }
             self.conduct_enemies_turn()?;
-            if self.combat_is_over() {
+            if self.combat_should_end() {
                 break;
             }
         }
@@ -65,7 +65,7 @@ impl<'a> EncounterSimulator<'a> {
         Ok(victorious)
     }
 
-    fn combat_is_over(&self) -> bool {
+    fn combat_should_end(&self) -> bool {
         self.player.is_dead() || self.enemy_party.iter().all(|enemy| enemy.is_none())
     }
 
@@ -80,14 +80,14 @@ impl<'a> EncounterSimulator<'a> {
             match self.player.choose_next_action(&enemy_statuses)? {
                 CombatAction::PlayCard(_, card_details) => {
                     self.play_card(card_details)?;
-                    if self.combat_is_over() {
+                    if self.combat_should_end() {
                         return Ok(());
                     }
                     self.player.dispose_card_just_played()?;
                 }
                 CombatAction::PlayCardAgainstEnemy(_, card_details, enemy_index) => {
                     self.play_card_against_enemy(card_details, enemy_index)?;
-                    if self.combat_is_over() {
+                    if self.combat_should_end() {
                         return Ok(());
                     }
                     self.player.dispose_card_just_played()?;
@@ -178,7 +178,9 @@ impl<'a> EncounterSimulator<'a> {
                     "Debuff should be handled by play_card_against_enemy, {:?}",
                     card_details
                 ),
-                PlayerEffect::DebuffAll(_, _) => todo!(),
+                PlayerEffect::DebuffAll(debuff, stacks) => {
+                    self.debuff_all_enemies(*debuff, *stacks)?;
+                }
                 PlayerEffect::DebuffCustom() => todo!(),
                 PlayerEffect::DebuffSelf(_, _) => todo!(),
                 PlayerEffect::Discard(_) => todo!(),
@@ -218,7 +220,7 @@ impl<'a> EncounterSimulator<'a> {
                 PlayerEffect::UpgradeOneCardInCombat() => todo!(),
                 PlayerEffect::UpgradeAllCardsInCombat() => todo!(),
             }
-            if self.combat_is_over() {
+            if self.combat_should_end() {
                 break;
             }
         }
@@ -246,7 +248,7 @@ impl<'a> EncounterSimulator<'a> {
                     card_details
                 ),
             }
-            if self.combat_is_over() {
+            if self.combat_should_end() {
                 break;
             }
         }
@@ -285,6 +287,13 @@ impl<'a> EncounterSimulator<'a> {
             enemy.apply_debuff(debuff, stacks);
             self.player
                 .send_enemy_status(index, EnemyStatus::from(&*enemy))?;
+        }
+        Ok(())
+    }
+
+    fn debuff_all_enemies(&mut self, debuff: Debuff, stacks: StackCount) -> Result<(), Error> {
+        for index in 0..ENEMY_PARTY_SIZE_MAX {
+            self.debuff_enemy(index, debuff, stacks)?;
         }
         Ok(())
     }

@@ -991,8 +991,17 @@ static ALL_CARDS: Lazy<Vec<CardDetails>> = Lazy::new(|| {
             [exhaust, requires_target]
         ),
         define_card!((Finesse, Skill, 0), [GainBlock(2), Draw(1)]),
+        define_card!(
+            (HeavyBlade, Attack, 2),
+            [DealDamageCustom()],
+            requires_target
+        ),
         define_card!((Slimed, Status, 1), [], exhaust),
         define_card!((Strike, Attack, 1), [DealDamage(6)], requires_target),
+        define_card!(
+            (Thunderclap, Attack, 1),
+            [DealDamageToAll(4), DebuffAll(Debuff::Vulnerable, 1)]
+        ),
     ]
 });
 

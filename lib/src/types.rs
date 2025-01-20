@@ -23,6 +23,7 @@ pub type DrawIndex = usize;
 pub type EnemyIndex = usize;
 pub type HandIndex = usize;
 pub type PotionIndex = usize;
+pub type RewardIndex = usize;
 
 // Map coordinates.
 pub type ColumnIndex = usize;

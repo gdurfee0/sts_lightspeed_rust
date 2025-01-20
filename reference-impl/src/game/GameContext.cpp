@@ -1631,6 +1631,7 @@ void GameContext::relicsOnEnterRoom(Room room) {
 
 CardRarity GameContext::rollCardRarity(Room room) {
     int roll = cardRng.random(99) + cardRarityFactor;
+    std::cout << "roll: " << roll << " with counter " << cardRng.counter << " and initial seed " << cardRng.initial_seed << std::endl;
 
     if (room == Room::BOSS) {
         return CardRarity::RARE;
@@ -1846,6 +1847,7 @@ CardReward GameContext::createCardReward(Room room) {
                 }
             }
         }
+        std::cout << "card reward " << i << " assigned at rng counter " << cardRng.counter << std::endl;
         cards[i] = id;
     }
 

@@ -1,7 +1,7 @@
 // Source: Slay the Spire Wiki (https://slay-the-spire.fandom.com/wiki/Category:Relic)
 
-#[derive(Clone, Copy, Debug)]
-#[cfg_attr(test, derive(Eq, Hash, PartialEq))]
+#[derive(Clone, Copy, Debug, PartialEq)]
+#[cfg_attr(test, derive(Eq, Hash))]
 pub enum Relic {
     /// Start each combat with 8 Vigor.
     Akabeko,

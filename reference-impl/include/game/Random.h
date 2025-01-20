@@ -71,6 +71,7 @@ namespace sts {
         static constexpr double NORM_FLOAT = 5.9604644775390625E-8;
         static constexpr std::uint64_t ONE_IN_MOST_SIGNIFICANT = static_cast<std::uint64_t>(1) << 63;
 
+        std::uint64_t initial_seed;
         std::int32_t counter;
         std::int32_t counter1;
         std::uint64_t seed0;
@@ -139,6 +140,7 @@ namespace sts {
         Random() : Random(0) {}
 
         Random(std::uint64_t seed) {
+            initial_seed = seed;
             counter = 0;
             counter1 = 0;
             seed0 = murmurHash3(seed == 0 ? ONE_IN_MOST_SIGNIFICANT : seed);

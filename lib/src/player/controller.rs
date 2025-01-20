@@ -159,6 +159,7 @@ impl PlayerController {
                     self.comms.send_potions(self.state.potions())?;
                     self.consume_potion(potion)?;
                 }
+                action => unreachable!("Unexpected action {:?}", action),
             }
         }
     }
@@ -198,6 +199,35 @@ impl PlayerController {
         Ok(())
     }
 
+    pub fn choose_combat_rewards(&mut self, gold: Gold, cards: &[Card]) -> Result<(), Error> {
+        let mut gold_option: Option<Gold> = Some(gold);
+        let mut card_vec = cards.to_vec();
+        let mut cards_left_to_choose = 1;
+        while gold_option.is_some() || (!card_vec.is_empty() && cards_left_to_choose > 0) {
+            if cards_left_to_choose == 0 {
+                card_vec.clear();
+            }
+            match self.comms.choose_reward_to_obtain(gold_option, &card_vec)? {
+                MainScreenAction::ObtainGold(g) => {
+                    self.increase_gold(g)?;
+                    gold_option = None;
+                }
+                MainScreenAction::ObtainCard(card) => {
+                    self.obtain_card(card)?;
+                    let reward_index = card_vec
+                        .iter()
+                        .position(|c| *c == card)
+                        .expect("Card not found");
+                    card_vec.remove(reward_index);
+                    cards_left_to_choose -= 1;
+                }
+                MainScreenAction::SkipCombatRewards => break,
+                action => unreachable!("Unexpected action {:?}", action),
+            }
+        }
+        Ok(())
+    }
+
     pub fn choose_card_to_remove(&mut self) -> Result<(), Error> {
         let deck_index = self.comms.choose_card_to_remove(self.state.deck())?;
         let card = self.state.remove_card(deck_index);
@@ -223,6 +253,11 @@ impl<'a> CombatController<'a> {
 
     pub fn hp(&self) -> Hp {
         self.state.hp()
+    }
+
+    pub fn increase_hp(&mut self, amount: Hp) -> Result<(), Error> {
+        self.state.increase_hp(amount);
+        self.comms.send_health_changed(self.state.health())
     }
 
     pub fn start_combat(&self) -> Result<(), Error> {
@@ -261,7 +296,10 @@ impl<'a> CombatController<'a> {
         Ok(())
     }
 
-    pub fn end_combat(self) -> Result<(), Error> {
+    pub fn end_combat(mut self) -> Result<(), Error> {
+        if self.state.has_relic(Relic::BurningBlood) {
+            self.increase_hp(6)?;
+        }
         self.comms.send_ending_combat()
     }
 

@@ -69,6 +69,10 @@ impl PlayerState {
         self.relics.push(relic);
     }
 
+    pub fn has_relic(&self, relic: Relic) -> bool {
+        self.relics.contains(&relic)
+    }
+
     pub fn deck(&self) -> &[Card] {
         &self.deck
     }

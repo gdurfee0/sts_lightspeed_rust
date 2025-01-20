@@ -1,6 +1,9 @@
 use std::fmt;
 
-use crate::message::{Choice, PotionAction, Prompt};
+use crate::{
+    data::CardDetails,
+    message::{Choice, PotionAction, Prompt},
+};
 
 impl fmt::Display for Prompt {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -39,7 +42,14 @@ impl fmt::Display for Choice {
 
             Choice::EndTurn => write!(f, "(End Turn)"),
             Choice::NeowBlessing(blessing) => write!(f, "{}", blessing),
-            Choice::ObtainCard(card) => write!(f, "{:?}", card),
+            Choice::ObtainCard(card) => {
+                write!(
+                    f,
+                    "{:?} {:?}",
+                    card,
+                    CardDetails::for_card(*card).effect_chain
+                )
+            }
             Choice::ObtainGold(gold) => write!(f, "Obtain {} gold", gold),
             Choice::ObtainPotion(potion) => write!(f, "{:?}", potion),
             Choice::PlayCardFromHand(_, card) => write!(f, "Play \"{:?}\"", card),

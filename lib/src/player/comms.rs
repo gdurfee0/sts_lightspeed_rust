@@ -13,7 +13,11 @@ use crate::types::{
 #[derive(Clone, Debug)]
 pub enum MainScreenAction {
     ClimbFloor(ColumnIndex),
+    ObtainCard(Card),
+    ObtainGold(Gold),
+    ObtainPotion(Potion),
     Potion(PotionAction),
+    SkipCombatRewards,
 }
 
 /// Handles all interactions with the player via the from_client and to_client channels, sending
@@ -53,7 +57,8 @@ impl Comms {
     ) -> Result<MainScreenAction, Error> {
         let choices = columns
             .iter()
-            .map(|column_index| Choice::ClimbFloor(*column_index))
+            .copied()
+            .map(Choice::ClimbFloor)
             .chain(potion_actions.iter().copied().map(Choice::PotionAction))
             .collect::<Vec<_>>();
         let prompt = if potion_actions.is_empty() {
@@ -96,34 +101,6 @@ impl Comms {
         }
     }
 
-    /// Prompts the user to choose a potion from a list of potions or to skip the choice.
-    /// If `one_only` is true, the expectation is that the user will be able to pick at most
-    /// one potion. Returns the index of the potion chosen.
-    pub fn choose_potion_to_obtain(
-        &mut self,
-        potions: &[Potion],
-        one_only: bool,
-    ) -> Result<Option<Potion>, Error> {
-        let choices = potions
-            .iter()
-            .copied()
-            .map(Choice::ObtainPotion)
-            .chain(once(Choice::Skip))
-            .collect::<Vec<_>>();
-        match self.prompt_for_choice(
-            if one_only {
-                Prompt::ChooseOne
-            } else {
-                Prompt::ChooseNext
-            },
-            choices,
-        )? {
-            Choice::ObtainPotion(potion) => Ok(Some(potion)),
-            Choice::Skip => Ok(None),
-            _ => unreachable!(),
-        }
-    }
-
     /// Prompts the user to choose a card from a list of cards to remove from their deck.
     pub fn choose_card_to_remove(&self, deck: &[Card]) -> Result<DeckIndex, Error> {
         let choices = deck
@@ -158,6 +135,30 @@ impl Comms {
         }
     }
 
+    pub fn choose_reward_to_obtain(
+        &self,
+        maybe_gold: Option<Gold>,
+        cards: &[Card],
+    ) -> Result<MainScreenAction, Error> {
+        let choices = maybe_gold
+            .into_iter()
+            .map(Choice::ObtainGold)
+            .chain(cards.iter().copied().map(Choice::ObtainCard))
+            .collect::<Vec<_>>();
+        match self.prompt_for_choice(
+            if maybe_gold.is_some() {
+                Prompt::ChooseNext
+            } else {
+                Prompt::ChooseOne
+            },
+            choices,
+        )? {
+            Choice::ObtainGold(gold) => Ok(MainScreenAction::ObtainGold(gold)),
+            Choice::ObtainCard(card) => Ok(MainScreenAction::ObtainCard(card)),
+            choice => unreachable!("{:?}", choice),
+        }
+    }
+
     /// Prompts the user to choose an enemy to target for their card or potion effect.
     pub fn choose_enemy_to_target(
         &self,
@@ -174,6 +175,34 @@ impl Comms {
             .collect::<Vec<_>>();
         match self.prompt_for_choice(Prompt::TargetEnemy, choices)? {
             Choice::TargetEnemy(enemy_index, _) => Ok(enemy_index),
+            _ => unreachable!(),
+        }
+    }
+
+    /// Prompts the user to choose a potion from a list of potions or to skip the choice.
+    /// If `one_only` is true, the expectation is that the user will be able to pick at most
+    /// one potion. Returns the index of the potion chosen.
+    pub fn choose_potion_to_obtain(
+        &mut self,
+        potions: &[Potion],
+        one_only: bool,
+    ) -> Result<Option<Potion>, Error> {
+        let choices = potions
+            .iter()
+            .copied()
+            .map(Choice::ObtainPotion)
+            .chain(once(Choice::Skip))
+            .collect::<Vec<_>>();
+        match self.prompt_for_choice(
+            if one_only {
+                Prompt::ChooseOne
+            } else {
+                Prompt::ChooseNext
+            },
+            choices,
+        )? {
+            Choice::ObtainPotion(potion) => Ok(Some(potion)),
+            Choice::Skip => Ok(None),
             _ => unreachable!(),
         }
     }

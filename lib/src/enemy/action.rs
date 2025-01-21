@@ -1,10 +1,8 @@
 use std::ops::RangeInclusive;
 
-use crate::data::{Card, EnemyCondition, EnemyEffect, EnemyType, PlayerCondition};
+use crate::data::{Card, Enemy, EnemyCondition, EnemyEffect, Intent, PlayerCondition};
 use crate::rng::StsRandom;
 use crate::types::Hp;
-
-use super::intent::Intent;
 
 // rng, last_action, run_length
 pub type NextActionFn = fn(&mut StsRandom, Option<&'static Action>, u8) -> &'static Action;
@@ -50,13 +48,13 @@ impl ActionBuilder {
     }
 }
 
-pub fn enemy_params(enemy_type: EnemyType) -> (RangeInclusive<Hp>, NextActionFn) {
+pub fn enemy_params(enemy_type: Enemy) -> (RangeInclusive<Hp>, NextActionFn) {
     match enemy_type {
-        EnemyType::AcidSlimeM => AcidSlimeM::params(),
-        EnemyType::AcidSlimeS => AcidSlimeS::params(),
-        EnemyType::Cultist => Cultist::params(),
-        EnemyType::SpikeSlimeM => SpikeSlimeM::params(),
-        EnemyType::SpikeSlimeS => SpikeSlimeS::params(),
+        Enemy::AcidSlimeM => AcidSlimeM::params(),
+        Enemy::AcidSlimeS => AcidSlimeS::params(),
+        Enemy::Cultist => Cultist::params(),
+        Enemy::SpikeSlimeM => SpikeSlimeM::params(),
+        Enemy::SpikeSlimeS => SpikeSlimeS::params(),
         _ => todo!(),
     }
 }
@@ -267,7 +265,7 @@ mod test {
     use super::super::state::EnemyState;
     use super::super::status::EnemyStatus;
 
-    use crate::data::EnemyType;
+    use crate::data::Enemy;
     use crate::rng::Seed;
 
     use super::*;
@@ -277,9 +275,9 @@ mod test {
         let seed: Seed = 3u64.into();
         let mut hp_rng = StsRandom::from(seed.with_offset(1));
         let mut ai_rng = StsRandom::from(seed.with_offset(1));
-        let mut enemy = EnemyState::new(EnemyType::AcidSlimeS, &mut hp_rng, &mut ai_rng);
+        let mut enemy = EnemyState::new(Enemy::AcidSlimeS, &mut hp_rng, &mut ai_rng);
         let status = EnemyStatus::from(&enemy);
-        assert_eq!(status.enemy_type, EnemyType::AcidSlimeS);
+        assert_eq!(status.enemy_type, Enemy::AcidSlimeS);
         assert_eq!(status.hp, 12);
         assert_eq!(status.hp_max, 12);
         assert_eq!(status.conditions, Vec::new());
@@ -294,9 +292,9 @@ mod test {
 
         let mut hp_rng = StsRandom::from(seed.with_offset(1));
         let mut ai_rng = StsRandom::from(seed.with_offset(1));
-        let mut enemy = EnemyState::new(EnemyType::AcidSlimeM, &mut hp_rng, &mut ai_rng);
+        let mut enemy = EnemyState::new(Enemy::AcidSlimeM, &mut hp_rng, &mut ai_rng);
         let status = EnemyStatus::from(&enemy);
-        assert_eq!(status.enemy_type, EnemyType::AcidSlimeM);
+        assert_eq!(status.enemy_type, Enemy::AcidSlimeM);
         assert_eq!(status.hp, 32);
         assert_eq!(status.hp_max, 32);
         assert_eq!(
@@ -323,9 +321,9 @@ mod test {
         let seed: Seed = 8u64.into();
         let mut hp_rng = StsRandom::from(seed.with_offset(1));
         let mut ai_rng = StsRandom::from(seed.with_offset(1));
-        let mut enemy = EnemyState::new(EnemyType::SpikeSlimeS, &mut hp_rng, &mut ai_rng);
+        let mut enemy = EnemyState::new(Enemy::SpikeSlimeS, &mut hp_rng, &mut ai_rng);
         let status = EnemyStatus::from(&enemy);
-        assert_eq!(status.enemy_type, EnemyType::SpikeSlimeS);
+        assert_eq!(status.enemy_type, Enemy::SpikeSlimeS);
         assert_eq!(status.hp, 13);
         assert_eq!(status.hp_max, 13);
         assert_eq!(enemy.next_action(&mut ai_rng), &*SPIKE_SLIME_S_TACKLE);
@@ -334,9 +332,9 @@ mod test {
 
         let mut hp_rng = StsRandom::from(seed.with_offset(1));
         let mut ai_rng = StsRandom::from(seed.with_offset(1));
-        let mut enemy = EnemyState::new(EnemyType::SpikeSlimeM, &mut hp_rng, &mut ai_rng);
+        let mut enemy = EnemyState::new(Enemy::SpikeSlimeM, &mut hp_rng, &mut ai_rng);
         let status = EnemyStatus::from(&enemy);
-        assert_eq!(status.enemy_type, EnemyType::SpikeSlimeM);
+        assert_eq!(status.enemy_type, Enemy::SpikeSlimeM);
         assert_eq!(status.hp, 31);
         assert_eq!(enemy.next_action(&mut ai_rng), &*SPIKE_SLIME_M_LICK);
         assert_eq!(enemy.next_action(&mut ai_rng), &*SPIKE_SLIME_M_LICK);

@@ -3,7 +3,7 @@ use std::sync::mpsc::{Receiver, Sender};
 use anyhow::Error;
 
 use crate::data::{
-    Card, CardDetails, Character, EnemyType, NeowBlessing, PlayerCondition, Potion, Relic,
+    Card, CardDetails, Character, Enemy, NeowBlessing, PlayerCondition, Potion, Relic,
 };
 use crate::enemy::EnemyStatus;
 use crate::message::{PotionAction, StsMessage};
@@ -378,7 +378,7 @@ impl<'a> CombatController<'a> {
         self.comms.send_hand_discarded()
     }
 
-    pub fn enemy_died(&self, index: EnemyIndex, enemy_type: EnemyType) -> Result<(), Error> {
+    pub fn enemy_died(&self, index: EnemyIndex, enemy_type: Enemy) -> Result<(), Error> {
         self.comms.send_enemy_died(index, enemy_type)
     }
 
@@ -472,7 +472,7 @@ impl<'a> CombatController<'a> {
         self.combat_state.is_weak()
     }
 
-    pub fn send_enemy_died(&self, index: EnemyIndex, enemy_type: EnemyType) -> Result<(), Error> {
+    pub fn send_enemy_died(&self, index: EnemyIndex, enemy_type: Enemy) -> Result<(), Error> {
         self.comms.send_enemy_died(index, enemy_type)
     }
 

@@ -1,9 +1,7 @@
 use std::fmt;
 
-use crate::data::{EnemyCondition, EnemyType};
+use crate::data::{Enemy, EnemyCondition, Intent};
 use crate::types::{Block, Hp, HpMax, Strength};
-
-use super::intent::Intent;
 
 /// `EnemyStatus` is a small bundle of information about the enemy that is made available to
 /// the player. The player is not allowed to know anything else about the enemy, such as its
@@ -11,7 +9,7 @@ use super::intent::Intent;
 #[derive(Clone, Debug)]
 #[cfg_attr(test, derive(Eq, Hash, PartialEq))]
 pub struct EnemyStatus {
-    pub enemy_type: EnemyType,
+    pub enemy_type: Enemy,
     pub hp: Hp,
     pub hp_max: HpMax,
     pub block: Block,
@@ -61,7 +59,7 @@ mod tests {
     use crate::types::Health;
 
     impl EnemyStatus {
-        pub fn new(enemy_type: EnemyType, health: Health, intent: Intent) -> Self {
+        pub fn new(enemy_type: Enemy, health: Health, intent: Intent) -> Self {
             Self {
                 enemy_type,
                 hp: health.0,

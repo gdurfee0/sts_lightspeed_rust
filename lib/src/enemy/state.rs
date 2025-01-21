@@ -1,4 +1,4 @@
-use crate::data::{EnemyCondition, EnemyType};
+use crate::data::{EnemyCondition, Enemy};
 use crate::rng::StsRandom;
 use crate::types::{AttackDamage, Block, Hp, HpMax, Strength};
 
@@ -8,7 +8,7 @@ use super::status::EnemyStatus;
 /// The `EnemyState` is the basic unit representing enemy combatants in the game.
 #[derive(Debug)]
 pub struct EnemyState {
-    enemy_type: EnemyType,
+    enemy_type: Enemy,
     hp: Hp,
     hp_max: HpMax,
     block: Block,
@@ -20,7 +20,7 @@ pub struct EnemyState {
 }
 
 impl EnemyState {
-    pub fn new(enemy_type: EnemyType, hp_rng: &mut StsRandom, ai_rng: &mut StsRandom) -> Self {
+    pub fn new(enemy_type: Enemy, hp_rng: &mut StsRandom, ai_rng: &mut StsRandom) -> Self {
         let (health_range, next_action_fn) = enemy_params(enemy_type);
         let hp = hp_rng.gen_range(health_range);
         let hp_max = hp;

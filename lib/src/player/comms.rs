@@ -3,7 +3,7 @@ use std::sync::mpsc::{Receiver, Sender};
 
 use anyhow::{anyhow, Error};
 
-use crate::data::{Card, EnemyType, NeowBlessing, PlayerCondition, Potion, Relic};
+use crate::data::{Card, Enemy, NeowBlessing, PlayerCondition, Potion, Relic};
 use crate::enemy::EnemyStatus;
 use crate::message::{Choice, PotionAction, Prompt, StsMessage};
 use crate::types::{
@@ -282,7 +282,7 @@ impl Comms {
         Ok(())
     }
 
-    pub fn send_enemy_died(&self, index: EnemyIndex, enemy_type: EnemyType) -> Result<(), Error> {
+    pub fn send_enemy_died(&self, index: EnemyIndex, enemy_type: Enemy) -> Result<(), Error> {
         self.to_client
             .send(StsMessage::EnemyDied(index, enemy_type))?;
         Ok(())

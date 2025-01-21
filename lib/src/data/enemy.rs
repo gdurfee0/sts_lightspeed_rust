@@ -5,7 +5,7 @@
 
 #[derive(Clone, Copy, Debug)]
 #[cfg_attr(test, derive(Eq, Hash, PartialEq))]
-pub enum EnemyType {
+pub enum Enemy {
     AcidSlimeL,
     AcidSlimeM,
     AcidSlimeS,

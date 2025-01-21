@@ -1,4 +1,4 @@
-use crate::data::{Card, EnemyType, NeowBlessing, PlayerCondition, Potion, Relic};
+use crate::data::{Card, Enemy, NeowBlessing, PlayerCondition, Potion, Relic};
 use crate::enemy::EnemyStatus;
 use crate::types::{
     Block, ColumnIndex, DeckIndex, EnemyIndex, Energy, Gold, HandIndex, Health, Hp, PotionIndex,
@@ -38,7 +38,7 @@ pub enum StsMessage {
     DamageTaken(Hp),
     DiscardPile(Vec<Card>),
     EnemyStatus(EnemyIndex, EnemyStatus),
-    EnemyDied(EnemyIndex, EnemyType),
+    EnemyDied(EnemyIndex, Enemy),
     EnemyParty(Vec<Option<EnemyStatus>>),
     Energy(Energy),
     HandDiscarded,
@@ -77,7 +77,7 @@ pub enum Choice {
     RemoveCard(DeckIndex, Card),
     PlayCardFromHand(HandIndex, Card),
     Skip,
-    TargetEnemy(EnemyIndex, EnemyType),
+    TargetEnemy(EnemyIndex, Enemy),
 }
 
 #[derive(Clone, Copy, Debug)]

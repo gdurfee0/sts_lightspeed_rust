@@ -1,4 +1,4 @@
-use crate::data::{Encounter, EnemyType};
+use crate::data::{Encounter, Enemy};
 use crate::rng::{Seed, StsRandom};
 
 use super::state::EnemyState;
@@ -27,12 +27,12 @@ impl<'a> EnemyPartyGenerator<'a> {
 
     pub fn generate(&mut self, enemy_party: &mut [Option<EnemyState>; 5]) {
         macro_rules! enemy_party {
-            ( $( $enemy_type:ident ),* ) => {{
+            ( $( $enemy:ident ),* ) => {{
                 let mut iter = enemy_party.iter_mut();
                 $(
                     if let Some(slot) = iter.next() {
                         *slot = Some(
-                            EnemyState::new(EnemyType::$enemy_type, &mut self.hp_rng, self.ai_rng)
+                            EnemyState::new(Enemy::$enemy, &mut self.hp_rng, self.ai_rng)
                         );
                     }
                 )*

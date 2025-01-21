@@ -145,10 +145,10 @@ mod test {
     use std::time::Duration;
 
     use crate::data::{
-        Card, EnemyCondition, EnemyType, NeowBlessing, NeowBonus, NeowPenalty, PlayerCondition,
+        Card, Enemy, EnemyCondition, Intent, NeowBlessing, NeowBonus, NeowPenalty, PlayerCondition,
         IRONCLAD,
     };
-    use crate::enemy::{EnemyStatus, Intent};
+    use crate::enemy::EnemyStatus;
     use crate::message::{Choice, Prompt};
 
     #[track_caller]
@@ -231,12 +231,12 @@ mod test {
                     StsMessage::StartingCombat,
                     StsMessage::EnemyParty(vec![
                         Some(EnemyStatus::new(
-                            EnemyType::AcidSlimeS,
+                            Enemy::AcidSlimeS,
                             (12, 12),
                             Intent::StrategicDebuff
                         )),
                         Some(EnemyStatus::new(
-                            EnemyType::SpikeSlimeM,
+                            Enemy::SpikeSlimeM,
                             (31, 31),
                             Intent::StrategicDebuff
                         )),
@@ -265,8 +265,8 @@ mod test {
             StsMessage::Choices(
                 Prompt::TargetEnemy,
                 vec![
-                    Choice::TargetEnemy(0, EnemyType::AcidSlimeS),
-                    Choice::TargetEnemy(1, EnemyType::SpikeSlimeM),
+                    Choice::TargetEnemy(0, Enemy::AcidSlimeS),
+                    Choice::TargetEnemy(1, Enemy::SpikeSlimeM),
                 ]
             )
         );
@@ -278,7 +278,7 @@ mod test {
                     StsMessage::Energy(2),
                     StsMessage::EnemyStatus(
                         0,
-                        EnemyStatus::new(EnemyType::AcidSlimeS, (6, 12), Intent::StrategicDebuff)
+                        EnemyStatus::new(Enemy::AcidSlimeS, (6, 12), Intent::StrategicDebuff)
                     )
                 ]
             ),
@@ -299,8 +299,8 @@ mod test {
             StsMessage::Choices(
                 Prompt::TargetEnemy,
                 vec![
-                    Choice::TargetEnemy(0, EnemyType::AcidSlimeS),
-                    Choice::TargetEnemy(1, EnemyType::SpikeSlimeM),
+                    Choice::TargetEnemy(0, Enemy::AcidSlimeS),
+                    Choice::TargetEnemy(1, Enemy::SpikeSlimeM),
                 ]
             )
         );
@@ -310,7 +310,7 @@ mod test {
                 &from_server,
                 &[
                     StsMessage::Energy(1),
-                    StsMessage::EnemyDied(0, EnemyType::AcidSlimeS) // AcidSlimeS dies
+                    StsMessage::EnemyDied(0, Enemy::AcidSlimeS) // AcidSlimeS dies
                 ]
             ),
             StsMessage::Choices(
@@ -332,7 +332,7 @@ mod test {
                     StsMessage::EnemyParty(vec![
                         None, // AcidSlimeS now gone
                         Some(EnemyStatus::new(
-                            EnemyType::SpikeSlimeM,
+                            Enemy::SpikeSlimeM,
                             (31, 31),
                             Intent::Aggressive(8, 1)
                         )),
@@ -392,7 +392,7 @@ mod test {
                     StsMessage::EnemyParty(vec![
                         None,
                         Some(EnemyStatus::new(
-                            EnemyType::SpikeSlimeM,
+                            Enemy::SpikeSlimeM,
                             (31, 31),
                             Intent::StrategicDebuff
                         )),
@@ -419,7 +419,7 @@ mod test {
             next_prompt(&from_server, &[]),
             StsMessage::Choices(
                 Prompt::TargetEnemy,
-                vec![Choice::TargetEnemy(1, EnemyType::SpikeSlimeM)]
+                vec![Choice::TargetEnemy(1, Enemy::SpikeSlimeM)]
             )
         );
         to_server.send(0).unwrap(); // Target SpikeSlimeM
@@ -430,7 +430,7 @@ mod test {
                     StsMessage::Energy(1),
                     StsMessage::EnemyStatus(
                         1,
-                        EnemyStatus::new(EnemyType::SpikeSlimeM, (23, 31), Intent::StrategicDebuff)
+                        EnemyStatus::new(Enemy::SpikeSlimeM, (23, 31), Intent::StrategicDebuff)
                             .with_condition(EnemyCondition::Vulnerable(2))
                     )
                 ]
@@ -461,13 +461,9 @@ mod test {
                     StsMessage::EnemyParty(vec![
                         None,
                         Some(
-                            EnemyStatus::new(
-                                EnemyType::SpikeSlimeM,
-                                (23, 31),
-                                Intent::StrategicDebuff
-                            )
-                            // One stack of Vulnerable drops off by the next turn
-                            .with_condition(EnemyCondition::Vulnerable(1))
+                            EnemyStatus::new(Enemy::SpikeSlimeM, (23, 31), Intent::StrategicDebuff)
+                                // One stack of Vulnerable drops off by the next turn
+                                .with_condition(EnemyCondition::Vulnerable(1))
                         ),
                         None,
                         None,
@@ -492,7 +488,7 @@ mod test {
             next_prompt(&from_server, &[]),
             StsMessage::Choices(
                 Prompt::TargetEnemy,
-                vec![Choice::TargetEnemy(1, EnemyType::SpikeSlimeM)]
+                vec![Choice::TargetEnemy(1, Enemy::SpikeSlimeM)]
             )
         );
         to_server.send(0).unwrap(); // Target SpikeSlimeM
@@ -503,7 +499,7 @@ mod test {
                     StsMessage::Energy(2),
                     StsMessage::EnemyStatus(
                         1,
-                        EnemyStatus::new(EnemyType::SpikeSlimeM, (14, 31), Intent::StrategicDebuff)
+                        EnemyStatus::new(Enemy::SpikeSlimeM, (14, 31), Intent::StrategicDebuff)
                             .with_condition(EnemyCondition::Vulnerable(1))
                     )
                 ]
@@ -524,7 +520,7 @@ mod test {
             next_prompt(&from_server, &[]),
             StsMessage::Choices(
                 Prompt::TargetEnemy,
-                vec![Choice::TargetEnemy(1, EnemyType::SpikeSlimeM)]
+                vec![Choice::TargetEnemy(1, Enemy::SpikeSlimeM)]
             )
         );
         to_server.send(0).unwrap(); // Target SpikeSlimeM
@@ -535,7 +531,7 @@ mod test {
                     StsMessage::Energy(1),
                     StsMessage::EnemyStatus(
                         1,
-                        EnemyStatus::new(EnemyType::SpikeSlimeM, (5, 31), Intent::StrategicDebuff)
+                        EnemyStatus::new(Enemy::SpikeSlimeM, (5, 31), Intent::StrategicDebuff)
                             .with_condition(EnemyCondition::Vulnerable(1))
                     )
                 ]
@@ -555,7 +551,7 @@ mod test {
             next_prompt(&from_server, &[]),
             StsMessage::Choices(
                 Prompt::TargetEnemy,
-                vec![Choice::TargetEnemy(1, EnemyType::SpikeSlimeM)]
+                vec![Choice::TargetEnemy(1, Enemy::SpikeSlimeM)]
             )
         );
         to_server.send(0).unwrap(); // Target SpikeSlimeM
@@ -563,7 +559,7 @@ mod test {
             next_prompt(
                 &from_server,
                 &[
-                    StsMessage::EnemyDied(1, EnemyType::SpikeSlimeM),
+                    StsMessage::EnemyDied(1, Enemy::SpikeSlimeM),
                     StsMessage::Health((80, 80)), // Burning Blood heals 6
                     StsMessage::EndingCombat
                 ]
@@ -604,7 +600,7 @@ mod test {
                     StsMessage::Energy(3),
                     StsMessage::EnemyParty(vec![
                         Some(EnemyStatus::new(
-                            EnemyType::Cultist,
+                            Enemy::Cultist,
                             (50, 50),
                             Intent::StrategicBuff
                         )),
@@ -632,7 +628,7 @@ mod test {
             next_prompt(&from_server, &[]),
             StsMessage::Choices(
                 Prompt::TargetEnemy,
-                vec![Choice::TargetEnemy(0, EnemyType::Cultist)]
+                vec![Choice::TargetEnemy(0, Enemy::Cultist)]
             )
         );
         to_server.send(0).unwrap(); // Target Cultist
@@ -643,7 +639,7 @@ mod test {
                     StsMessage::Energy(2),
                     StsMessage::EnemyStatus(
                         0,
-                        EnemyStatus::new(EnemyType::Cultist, (44, 50), Intent::StrategicBuff)
+                        EnemyStatus::new(Enemy::Cultist, (44, 50), Intent::StrategicBuff)
                     )
                 ]
             ),
@@ -663,7 +659,7 @@ mod test {
             next_prompt(&from_server, &[]),
             StsMessage::Choices(
                 Prompt::TargetEnemy,
-                vec![Choice::TargetEnemy(0, EnemyType::Cultist)]
+                vec![Choice::TargetEnemy(0, Enemy::Cultist)]
             )
         );
         to_server.send(0).unwrap(); // Target Cultist
@@ -674,7 +670,7 @@ mod test {
                     StsMessage::Energy(1),
                     StsMessage::EnemyStatus(
                         0,
-                        EnemyStatus::new(EnemyType::Cultist, (38, 50), Intent::StrategicBuff)
+                        EnemyStatus::new(Enemy::Cultist, (38, 50), Intent::StrategicBuff)
                     )
                 ]
             ),
@@ -693,7 +689,7 @@ mod test {
             next_prompt(&from_server, &[]),
             StsMessage::Choices(
                 Prompt::TargetEnemy,
-                vec![Choice::TargetEnemy(0, EnemyType::Cultist)]
+                vec![Choice::TargetEnemy(0, Enemy::Cultist)]
             )
         );
         to_server.send(0).unwrap(); // Target Cultist
@@ -704,7 +700,7 @@ mod test {
                     StsMessage::Energy(0),
                     StsMessage::EnemyStatus(
                         0,
-                        EnemyStatus::new(EnemyType::Cultist, (32, 50), Intent::StrategicBuff)
+                        EnemyStatus::new(Enemy::Cultist, (32, 50), Intent::StrategicBuff)
                     )
                 ]
             ),
@@ -718,12 +714,8 @@ mod test {
                     StsMessage::Energy(3),
                     StsMessage::EnemyParty(vec![
                         Some(
-                            EnemyStatus::new(
-                                EnemyType::Cultist,
-                                (32, 50),
-                                Intent::Aggressive(6, 1)
-                            )
-                            .with_condition(EnemyCondition::Ritual(3, false))
+                            EnemyStatus::new(Enemy::Cultist, (32, 50), Intent::Aggressive(6, 1))
+                                .with_condition(EnemyCondition::Ritual(3, false))
                         ),
                         None,
                         None,
@@ -749,7 +741,7 @@ mod test {
             next_prompt(&from_server, &[]),
             StsMessage::Choices(
                 Prompt::TargetEnemy,
-                vec![Choice::TargetEnemy(0, EnemyType::Cultist)]
+                vec![Choice::TargetEnemy(0, Enemy::Cultist)]
             )
         );
         to_server.send(0).unwrap(); // Target Cultist
@@ -760,7 +752,7 @@ mod test {
                     StsMessage::Energy(1),
                     StsMessage::EnemyStatus(
                         0,
-                        EnemyStatus::new(EnemyType::Cultist, (24, 50), Intent::Aggressive(6, 1))
+                        EnemyStatus::new(Enemy::Cultist, (24, 50), Intent::Aggressive(6, 1))
                             .with_condition(EnemyCondition::Ritual(3, false))
                             .with_condition(EnemyCondition::Vulnerable(2))
                     )
@@ -782,7 +774,7 @@ mod test {
             next_prompt(&from_server, &[]),
             StsMessage::Choices(
                 Prompt::TargetEnemy,
-                vec![Choice::TargetEnemy(0, EnemyType::Cultist)]
+                vec![Choice::TargetEnemy(0, Enemy::Cultist)]
             )
         );
         to_server.send(0).unwrap(); // Target Cultist
@@ -793,7 +785,7 @@ mod test {
                     StsMessage::Energy(0),
                     StsMessage::EnemyStatus(
                         0,
-                        EnemyStatus::new(EnemyType::Cultist, (15, 50), Intent::Aggressive(6, 1))
+                        EnemyStatus::new(Enemy::Cultist, (15, 50), Intent::Aggressive(6, 1))
                             .with_condition(EnemyCondition::Ritual(3, false))
                             .with_condition(EnemyCondition::Vulnerable(2))
                     )
@@ -809,14 +801,10 @@ mod test {
                     StsMessage::Energy(3),
                     StsMessage::EnemyParty(vec![
                         Some(
-                            EnemyStatus::new(
-                                EnemyType::Cultist,
-                                (15, 50),
-                                Intent::Aggressive(6, 1)
-                            )
-                            .with_condition(EnemyCondition::Ritual(3, false))
-                            .with_condition(EnemyCondition::Vulnerable(1))
-                            .with_strength(3)
+                            EnemyStatus::new(Enemy::Cultist, (15, 50), Intent::Aggressive(6, 1))
+                                .with_condition(EnemyCondition::Ritual(3, false))
+                                .with_condition(EnemyCondition::Vulnerable(1))
+                                .with_strength(3)
                         ),
                         None,
                         None,
@@ -845,7 +833,7 @@ mod test {
                     StsMessage::Energy(2),
                     StsMessage::EnemyStatus(
                         0,
-                        EnemyStatus::new(EnemyType::Cultist, (9, 50), Intent::Aggressive(6, 1))
+                        EnemyStatus::new(Enemy::Cultist, (9, 50), Intent::Aggressive(6, 1))
                             .with_condition(EnemyCondition::Ritual(3, false))
                             .with_condition(EnemyCondition::Vulnerable(2))
                             .with_strength(3)
@@ -906,7 +894,7 @@ mod test {
                     StsMessage::Block(0),
                     StsMessage::EnemyParty(vec![
                         Some(
-                            EnemyStatus::new(EnemyType::Cultist, (9, 50), Intent::Aggressive(6, 1))
+                            EnemyStatus::new(Enemy::Cultist, (9, 50), Intent::Aggressive(6, 1))
                                 .with_condition(EnemyCondition::Ritual(3, false))
                                 .with_condition(EnemyCondition::Vulnerable(1))
                                 .with_strength(6)
@@ -935,7 +923,7 @@ mod test {
             next_prompt(&from_server, &[]),
             StsMessage::Choices(
                 Prompt::TargetEnemy,
-                vec![Choice::TargetEnemy(0, EnemyType::Cultist)]
+                vec![Choice::TargetEnemy(0, Enemy::Cultist)]
             )
         );
         to_server.send(0).unwrap(); // Target Cultist
@@ -943,7 +931,7 @@ mod test {
             next_prompt(
                 &from_server,
                 &[
-                    StsMessage::EnemyDied(0, EnemyType::Cultist),
+                    StsMessage::EnemyDied(0, Enemy::Cultist),
                     StsMessage::Health((80, 80)), // Burning Blood heals 6
                     StsMessage::EndingCombat
                 ]

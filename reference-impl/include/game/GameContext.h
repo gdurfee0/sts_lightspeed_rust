@@ -149,9 +149,9 @@ namespace sts {
 
         sts::Card noteForYourselfCard = Card(CardId::IRON_WAVE);
 
-        static constexpr bool disableColosseum = true;
-        static constexpr bool disableMatchAndKeep = true;
-        static constexpr bool disablePrismaticShard = true;
+        static constexpr bool disableColosseum = false;
+        static constexpr bool disableMatchAndKeep = false;
+        static constexpr bool disablePrismaticShard = false;
         bool skipBattles = false;
 
         // ********* hidden from player *********

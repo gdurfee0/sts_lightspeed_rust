@@ -40,7 +40,7 @@ impl CardGenerator {
     pub fn combat_rewards(&mut self) -> Vec<Card> {
         let mut result: Vec<Card> = Vec::with_capacity(3);
         let mut is_rare_vec: Vec<bool> = Vec::with_capacity(3);
-        for i in 0..3 {
+        for _ in 0..3 {
             let is_rare_and_pool = self.pool_for_class();
             is_rare_vec.push(is_rare_and_pool.0);
             let pool = is_rare_and_pool.1;
@@ -48,11 +48,6 @@ impl CardGenerator {
             while result.contains(card) {
                 card = self.card_rng.choose(pool);
             }
-            println!(
-                "card reward {} assigned with card_rng counter {}",
-                i,
-                self.card_rng.get_counter()
-            );
             result.push(*card);
         }
         for is_rare in is_rare_vec {
@@ -69,12 +64,6 @@ impl CardGenerator {
 
     fn pool_for_class(&mut self) -> (bool, &'static [Card]) {
         let roll = self.card_rng.gen_range(0..100) + self.rarity_bias;
-        println!(
-            "roll: {}, counter: {}, seed: {}",
-            roll,
-            self.card_rng.get_counter(),
-            self.card_rng.get_initial_seed()
-        );
         if roll < 3 {
             self.rarity_bias = 5;
             (true, self.character.rare_card_pool)

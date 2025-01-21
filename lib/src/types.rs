@@ -7,6 +7,7 @@ pub type DrawCount = u32; // Number of cards drawn by a skill.
 pub type Gold = u32;
 pub type Energy = u32;
 pub type Focus = i32;
+pub type Floor = u64;
 pub type JustApplied = bool; // Whether a buff or debuff was just applied.
 pub type Health = (Hp, HpMax); // Current and maximum hit points.
 pub type Hp = u32; // Player or enemy current hit points.

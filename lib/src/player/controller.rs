@@ -54,6 +54,10 @@ impl PlayerController {
         Self { state, comms }
     }
 
+    pub fn deck(&self) -> &[Card] {
+        self.state.deck()
+    }
+
     pub fn hp(&self) -> Hp {
         self.state.hp()
     }
@@ -64,6 +68,10 @@ impl PlayerController {
 
     pub fn gold(&self) -> Gold {
         self.state.gold()
+    }
+
+    pub fn relics(&self) -> &[Relic] {
+        self.state.relics()
     }
 
     pub fn increase_hp(&mut self, amount: Hp) -> Result<(), Error> {
@@ -338,15 +346,7 @@ impl<'a> CombatController<'a> {
             } else {
                 // Shuffle discard pile into draw pile
                 self.comms.send_shuffling_discard_to_draw()?;
-                println!(
-                    "About to shuffle discard pile into draw pile, shuffle_rng: {}",
-                    self.combat_state.shuffle_rng.get_counter()
-                );
                 self.combat_state.shuffle();
-                println!(
-                    "About to shuffle discard pile into draw pile, shuffle_rng: {}",
-                    self.combat_state.shuffle_rng.get_counter()
-                );
                 self.combat_state
                     .draw_pile
                     .append(&mut self.combat_state.discard_pile);

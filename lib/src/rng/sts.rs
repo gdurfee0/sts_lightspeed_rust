@@ -47,7 +47,7 @@ use super::seed::Seed;
 /// Overall, this generator is designed for scenarios requiring fast,
 /// deterministic random sequences—particularly useful for simulations,
 /// testing, and gaming environments.
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct StsRandom {
     initial_seed: u64,
     state0: u64,
@@ -175,7 +175,16 @@ impl StsRandom {
     where
         T: fmt::Debug,
     {
-        &slice[self.gen_range(0..slice.len())]
+        let index = self.gen_range(0..slice.len());
+        /*
+        println!(
+            "index: {} of {}, counter: {}",
+            index,
+            slice.len(),
+            self.counter
+        );
+        */
+        &slice[index]
     }
 
     /// Chooses an element from the given slice randomly using weighted probabilities.
@@ -184,6 +193,7 @@ impl StsRandom {
         N: Copy + Into<f32>,
     {
         let mut choice = self.next_f32();
+        //println!("choice: {}, counter: {}", choice, self.counter);
         for (item, weight) in choices {
             choice -= (*weight).into();
             if choice <= 0.0f32 {

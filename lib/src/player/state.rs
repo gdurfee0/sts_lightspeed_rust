@@ -189,7 +189,7 @@ impl CombatState {
                 }
             }
         }
-        return false;
+        false
     }
 
     pub fn is_frail(&self) -> bool {

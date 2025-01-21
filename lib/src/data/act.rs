@@ -1,6 +1,7 @@
 use anyhow::anyhow;
 
 use super::encounter::Encounter;
+use super::event::Event;
 
 #[derive(Debug, PartialEq)]
 pub struct Act {
@@ -23,6 +24,9 @@ pub struct Act {
 
     /// Pool of boss encounters for the Act.
     pub boss_encounter_pool: &'static [Encounter],
+
+    pub event_pool: &'static [Event],
+    pub shrine_pool: &'static [Event],
 }
 
 impl Act {
@@ -92,6 +96,27 @@ static ACTS: &[Act] = &[
             Encounter::Hexaghost,
             Encounter::SlimeBoss,
         ],
+        event_pool: &[
+            Event::BigFish,
+            Event::TheCleric,
+            Event::DeadAdventurer,
+            Event::GoldenIdol,
+            Event::WingStatue,
+            Event::WorldOfGoop,
+            Event::TheSsssserpent,
+            Event::LivingWall,
+            Event::HypnotizingColoredMushrooms,
+            Event::ScrapOoze,
+            Event::ShiningLight,
+        ],
+        shrine_pool: &[
+            Event::MatchAndKeep,
+            Event::GoldenShrine,
+            Event::Transmogrifier,
+            Event::Purifier,
+            Event::UpgradeShrine,
+            Event::WheelOfChange,
+        ],
     },
     // ACT 2
     Act {
@@ -125,6 +150,29 @@ static ACTS: &[Act] = &[
             Encounter::TheCollector,
             Encounter::TheChamp,
         ],
+        event_pool: &[
+            Event::PleadingVagrant,
+            Event::AncientWriting,
+            Event::OldBeggar,
+            Event::TheColosseum,
+            Event::CursedTome,
+            Event::Augmenter,
+            Event::ForgottenAltar,
+            Event::CouncilOfGhosts,
+            Event::MaskedBandits,
+            Event::TheNest,
+            Event::TheLibrary,
+            Event::TheMausoleum,
+            Event::Vampires,
+        ],
+        shrine_pool: &[
+            Event::MatchAndKeep,
+            Event::WheelOfChange,
+            Event::GoldenShrine,
+            Event::Transmogrifier,
+            Event::Purifier,
+            Event::UpgradeShrine,
+        ],
     },
     // ACT 3
     Act {
@@ -156,6 +204,23 @@ static ACTS: &[Act] = &[
             Encounter::TimeEater,
             Encounter::DonuAndDeca,
         ],
+        event_pool: &[
+            Event::Falling,
+            Event::MindBloom,
+            Event::TheMoaiHead,
+            Event::MysteriousSphere,
+            Event::SensoryStone,
+            Event::TombOfLordRedMask,
+            Event::WindingHalls,
+        ],
+        shrine_pool: &[
+            Event::MatchAndKeep,
+            Event::WheelOfChange,
+            Event::GoldenShrine,
+            Event::Transmogrifier,
+            Event::Purifier,
+            Event::UpgradeShrine,
+        ],
     },
     // ACT 4
     Act {
@@ -166,6 +231,8 @@ static ACTS: &[Act] = &[
         strong_monster_encounter_pool: &[],
         elite_encounter_pool: &[(Encounter::SpireShieldAndSpireSpear, 1.)],
         boss_encounter_pool: &[Encounter::CorruptHeart],
+        event_pool: &[],
+        shrine_pool: &[],
     },
 ];
 

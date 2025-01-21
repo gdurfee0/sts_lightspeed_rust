@@ -8,7 +8,10 @@ use crate::data::{Act, Character};
 use crate::map::Room;
 use crate::message::StsMessage;
 use crate::player::PlayerController;
-use crate::rng::{CardGenerator, EncounterGenerator, RelicGenerator, Seed, StsRandom};
+use crate::rng::{
+    CardGenerator, EncounterGenerator, EventGenerator, RelicGenerator, Seed, StsRandom,
+};
+use crate::types::Floor;
 
 pub struct StsSimulator {
     // Information typically set on the command line
@@ -22,6 +25,7 @@ pub struct StsSimulator {
     potion_rng: StsRandom,
     treasure_rng: StsRandom,
     relic_generator: RelicGenerator,
+    event_generator: EventGenerator,
 
     // Connection to the player state and player I/O
     player: PlayerController,
@@ -40,6 +44,7 @@ impl StsSimulator {
         let potion_rng = StsRandom::from(seed);
         let treasure_rng = StsRandom::from(seed);
         let relic_generator = RelicGenerator::new(seed, character);
+        let event_generator = EventGenerator::new(seed);
         let player = PlayerController::new(character, from_client, to_client);
         Self {
             seed,
@@ -50,6 +55,7 @@ impl StsSimulator {
             potion_rng,
             treasure_rng,
             relic_generator,
+            event_generator,
             player,
         }
     }
@@ -72,7 +78,7 @@ impl StsSimulator {
             &mut self.player,
         );
         neow_simulator.run()?;
-        let mut floor = 1;
+        let mut floor: Floor = 1;
         loop {
             //self.card_generator = CardGenerator::new(self.seed.with_offset(floor), self.character);
             self.misc_rng = self.seed.with_offset(floor).into();
@@ -84,7 +90,24 @@ impl StsSimulator {
                 Room::BurningElite4 => todo!(),
                 Room::RestSite => todo!(),
                 Room::Elite => todo!(),
-                Room::Event => todo!(),
+                Room::Event => {
+                    let (room, maybe_event) = self.event_generator.next_event(
+                        floor,
+                        self.player.deck(),
+                        self.player.gold(),
+                        self.player.hp(),
+                        self.player.relics(),
+                    );
+                    println!("? room: {:?}", room);
+                    if let Some(event) = maybe_event {
+                        println!("Event: {:?}", event);
+                    } else if room == Room::Monster {
+                        println!(
+                            "Monster room: {:?}",
+                            self.encounter_generator.next_monster_encounter()
+                        );
+                    }
+                }
                 Room::Monster => {
                     if !EncounterSimulator::new(
                         self.seed.with_offset(floor),
@@ -948,9 +971,57 @@ mod test {
             )
         );
         to_server.send(2).unwrap(); // Take Armaments
+        assert_eq!(
+            next_prompt(&from_server, &[StsMessage::CardObtained(Card::Armaments)]),
+            StsMessage::Choices(
+                Prompt::ClimbFloor,
+                vec![Choice::ClimbFloor(0), Choice::ClimbFloor(1)]
+            )
+        );
+        to_server.send(0).unwrap(); // Column 0
 
-        //assert_eq!(next_prompt(&from_server, &[]), StsMessage::GameOver(true));
+        /*
+        assert_eq!(
+            next_prompt(&from_server, &[]),
+            StsMessage::Choices(Prompt::ClimbFloor, vec![Choice::ClimbFloor(0)])
+        );
+        to_server.send(0).unwrap(); // Column 0
+        assert_eq!(
+            next_prompt(&from_server, &[]),
+            StsMessage::Choices(Prompt::ClimbFloor, vec![Choice::ClimbFloor(0)])
+        );
+        to_server.send(0).unwrap(); // Column 0
+        assert_eq!(
+            next_prompt(&from_server, &[]),
+            StsMessage::Choices(
+                Prompt::ClimbFloor,
+                vec![Choice::ClimbFloor(0), Choice::ClimbFloor(1)]
+            )
+        );
+        to_server.send(1).unwrap(); // Column 1
+        assert_eq!(
+            next_prompt(&from_server, &[]),
+            StsMessage::Choices(
+                Prompt::ClimbFloor,
+                vec![
+                    Choice::ClimbFloor(0),
+                    Choice::ClimbFloor(1),
+                    Choice::ClimbFloor(2)
+                ]
+            )
+        );
+        to_server.send(2).unwrap(); // Column 2
+        assert_eq!(
+            next_prompt(&from_server, &[]),
+            StsMessage::Choices(
+                Prompt::ClimbFloor,
+                vec![Choice::ClimbFloor(2), Choice::ClimbFloor(3)]
+            )
+        );
+        to_server.send(1).unwrap(); // Column 3
 
+        assert_eq!(next_prompt(&from_server, &[]), StsMessage::GameOver(true));
+        */
         drop(to_server);
         let _ = simulator_thread.join();
     }

@@ -2012,6 +2012,10 @@ Event GameContext::getShrine(Random &eventRngCopy) {  // todo fix, this is slow
     }
 
     const auto idx = eventRngCopy.random(tempLength-1);
+    std::cout << "shrine rng idx: " << idx << " of " << tempLength << ", counter " << eventRngCopy.counter << std::endl;
+    for (int i = 0; i < tempLength; ++i) {
+        std::cout << "shrine " << i << ": " << eventGameNames[(int)tempShrines[i]] << std::endl;
+    }
     const auto shrine = tempShrines[idx];
     bool didRemove = false;
     for (auto it = shrineList.begin(); it != shrineList.end(); ++it) {
@@ -2049,6 +2053,7 @@ Event GameContext::getEvent(Random &eventRngCopy) {
     }
 
     auto idx = eventRngCopy.random(tempLength-1);
+    std::cout << "event rng idx " << idx << ", counter " << eventRngCopy.counter << std::endl;
     Event event = tempEvents[idx];
 
     auto eventListPos = std::find(eventList.begin(), eventList.end(), event);
@@ -2057,7 +2062,9 @@ Event GameContext::getEvent(Random &eventRngCopy) {
 }
 
 Event GameContext::generateEvent(Random eventRngCopy) {
-    if (eventRngCopy.random(1.0f) < SHRINE_CHANCE) {
+    float e = eventRngCopy.random(1.0f);
+    std::cout << "event rng: " << e << ", counter " << eventRngCopy.counter << std::endl;
+    if (e < SHRINE_CHANCE) {
         if (shrineList.empty() && specialOneTimeEventList.empty()) {
             if (eventList.empty()) {
                 return sts::Event::INVALID;
@@ -2075,6 +2082,7 @@ Event GameContext::generateEvent(Random eventRngCopy) {
 
 Room GameContext::getEventRoomOutcomeHelper(bool lastRoomWasShop) {
     float roll = eventRng.random();
+    std::cout << "event rng helper " << roll << ", counter " << eventRng.counter << std::endl;
     Room choice = Room::NONE;
 
     if (hasRelic(RelicId::TINY_CHEST)) {

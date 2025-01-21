@@ -429,6 +429,10 @@ impl Card {
         CardDetails::for_card(*self).exhaust
     }
 
+    pub fn is_curse(&self) -> bool {
+        matches!(CardDetails::for_card(*self).type_, CardType::Curse)
+    }
+
     pub fn is_innate(&self) -> bool {
         CardDetails::for_card(*self).innate
     }

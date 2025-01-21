@@ -8,7 +8,9 @@ use crate::data::{
 use crate::enemy::EnemyStatus;
 use crate::message::{PotionAction, StsMessage};
 use crate::rng::StsRandom;
-use crate::types::{AttackDamage, Block, ColumnIndex, EnemyIndex, Gold, HandIndex, Hp, HpMax};
+use crate::types::{
+    AttackDamage, Block, ColumnIndex, EnemyIndex, Gold, HandIndex, Health, Hp, HpMax,
+};
 
 use super::comms::{Comms, MainScreenAction};
 use super::state::{CombatState, PlayerState};
@@ -56,6 +58,10 @@ impl PlayerController {
 
     pub fn deck(&self) -> &[Card] {
         self.state.deck()
+    }
+
+    pub fn health(&self) -> Health {
+        self.state.health()
     }
 
     pub fn hp(&self) -> Hp {

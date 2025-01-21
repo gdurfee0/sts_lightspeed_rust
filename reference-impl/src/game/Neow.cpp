@@ -13,13 +13,11 @@ using namespace sts;
 std::array<Neow::Option, 4> Neow::getOptions(Random &r) {
 
     std::array<Option, 4> rewards {};
-    std::cout << "inrgo neow rng counter " << r.counter << std::endl;
     rewards[0].r = static_cast<Bonus>(r.random(0, 5));
     rewards[0].d = Drawback::NONE;
     rewards[1].r = static_cast<Bonus>(6 + r.random(0, 4));
     rewards[1].d = Drawback::NONE;
 
-    std::cout << "inrgo neow rng counter " << r.counter << std::endl;
     rewards[2].d = static_cast<Drawback>(2 + r.random(0, 3));
     switch (rewards[2].d) {
         case Drawback::TEN_PERCENT_HP_LOSS: {
@@ -69,20 +67,17 @@ std::array<Neow::Option, 4> Neow::getOptions(Random &r) {
             break;
 
     }
-        std::cout << "inrgo neow rng counter " << r.counter << std::endl;
 
 
     rewards[3].r = Bonus::BOSS_RELIC;
     rewards[3].d = Drawback::LOSE_STARTER_RELIC;
     r.random(0, 0);
 
-    std::cout << "inrgo neow rng counter " << r.counter << std::endl;
     return rewards;
 }
 
 CardReward sts::Neow::getColorlessCardReward(Random &neowRng, Random& cardRng, bool rareOnly) {
     CardReward reward;
-    std::cout << "ingccr neow rng counter " << neowRng.counter << std::endl;
     for (int i = 0; i < 3; ++i) {
 
         CardRarity rarity = neowRng.randomBoolean(0.33F) ? CardRarity::UNCOMMON : CardRarity::COMMON;
@@ -109,7 +104,7 @@ CardReward sts::Neow::getColorlessCardReward(Random &neowRng, Random& cardRng, b
         }
         reward.push_back(card);
     }
-    std::cout << "ingccr neow rng counter " << neowRng.counter << std::endl;
+    //std::cout << "ingccr neow rng counter " << neowRng.counter << std::endl;
 
     return reward;
 }

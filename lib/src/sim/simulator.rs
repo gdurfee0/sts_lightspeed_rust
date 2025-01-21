@@ -95,7 +95,7 @@ impl StsSimulator {
                         floor,
                         self.player.deck(),
                         self.player.gold(),
-                        self.player.hp(),
+                        self.player.health(),
                         self.player.relics(),
                     );
                     println!("? room: {:?}", room);

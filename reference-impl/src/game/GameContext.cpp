@@ -69,9 +69,9 @@ GameContext::GameContext(CharacterClass cc, std::uint64_t seed, int ascension)
     std::fill(potions.begin(), potions.end(), Potion::EMPTY_POTION_SLOT);
 
     curEvent = Event::NEOW;
-    std::cout << "inr neow rng counter " << neowRng.counter << std::endl;
+    //std::cout << "inr neow rng counter " << neowRng.counter << std::endl;
     info.neowRewards = Neow::getOptions(neowRng);
-    std::cout << "inr neow rng counter " << neowRng.counter << std::endl;
+    //std::cout << "inr neow rng counter " << neowRng.counter << std::endl;
     screenState = ScreenState::EVENT_SCREEN;
     //std::cout << *this << std::endl;
 
@@ -2012,7 +2012,7 @@ Event GameContext::getShrine(Random &eventRngCopy) {  // todo fix, this is slow
     }
 
     const auto idx = eventRngCopy.random(tempLength-1);
-    std::cout << "shrine rng idx: " << idx << " of " << tempLength << ", counter " << eventRngCopy.counter << std::endl;
+        std::cout << "shrine rng idx: " << idx << " of " << tempLength << ", counter " << eventRngCopy.counter << std::endl;
     for (int i = 0; i < tempLength; ++i) {
         std::cout << "shrine " << i << ": " << eventGameNames[(int)tempShrines[i]] << std::endl;
     }
@@ -2053,7 +2053,10 @@ Event GameContext::getEvent(Random &eventRngCopy) {
     }
 
     auto idx = eventRngCopy.random(tempLength-1);
-    std::cout << "event rng idx " << idx << ", counter " << eventRngCopy.counter << std::endl;
+    std::cout << "event rng idx: " << idx << " of " << tempLength << ", counter " << eventRngCopy.counter << std::endl;
+    for (int i = 0; i < tempLength; ++i) {
+        std::cout << "event " << i << ": " << eventGameNames[(int)tempEvents[i]] << std::endl;
+    }
     Event event = tempEvents[idx];
 
     auto eventListPos = std::find(eventList.begin(), eventList.end(), event);
@@ -2063,26 +2066,32 @@ Event GameContext::getEvent(Random &eventRngCopy) {
 
 Event GameContext::generateEvent(Random eventRngCopy) {
     float e = eventRngCopy.random(1.0f);
-    std::cout << "event rng: " << e << ", counter " << eventRngCopy.counter << std::endl;
+    //std::cout << "generateEvent event rng: " << e << ", counter " << eventRngCopy.counter << std::endl;
     if (e < SHRINE_CHANCE) {
+        //std::cout << "a" << std::endl;
         if (shrineList.empty() && specialOneTimeEventList.empty()) {
+            //std::cout << "b" << std::endl;
             if (eventList.empty()) {
+                //std::cout << "c" << std::endl;
                 return sts::Event::INVALID;
             } else {
+                //std::cout << "d" << std::endl;
                 return getEvent(eventRngCopy);
             }
 
         } else {
+            //std::cout << "e" << std::endl;
             return getShrine(eventRngCopy);
         }
     } else {
+        //std::cout << "f" << std::endl;
         return getEvent(eventRngCopy);
     }
 }
 
 Room GameContext::getEventRoomOutcomeHelper(bool lastRoomWasShop) {
     float roll = eventRng.random();
-    std::cout << "event rng helper " << roll << ", counter " << eventRng.counter << std::endl;
+    //std::cout << "event rng helper " << roll << ", counter " << eventRng.counter << std::endl;
     Room choice = Room::NONE;
 
     if (hasRelic(RelicId::TINY_CHEST)) {
@@ -2101,6 +2110,7 @@ Room GameContext::getEventRoomOutcomeHelper(bool lastRoomWasShop) {
         int treasureSize = (int) (treasureChance * 100) + shopSize;
 
         int idx = (int) (roll * 100);
+        //std::cout << "roll: " << idx << ", monsterSize: " << monsterSize << ", shopSize: " << shopSize << ", treasureSize: " << treasureSize << std::endl;
 
         if (idx < monsterSize) {
             choice = Room::MONSTER;

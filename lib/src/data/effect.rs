@@ -4,7 +4,7 @@ use super::card::Card;
 use super::condition::{EnemyCondition, PlayerCondition};
 use super::intent::Intent;
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub enum EnemyEffect {
     AddToDiscardPile(&'static [Card]),
     Apply(PlayerCondition),
@@ -25,7 +25,7 @@ pub enum EnemyEffect {
     */
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub enum PlayerEffect {
     Apply(EnemyCondition),
     ApplyToAll(EnemyCondition),

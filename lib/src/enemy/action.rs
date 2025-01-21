@@ -4,9 +4,6 @@ use crate::data::{Card, Enemy, EnemyCondition, EnemyEffect, Intent, PlayerCondit
 use crate::rng::StsRandom;
 use crate::types::Hp;
 
-// rng, last_action, run_length
-pub type NextActionFn = fn(&mut StsRandom, Option<&'static Action>, u8) -> &'static Action;
-
 /// An enemy `Action` consists of a list of `Effect`s which are enacted in order.
 #[derive(Debug)]
 pub struct Action {

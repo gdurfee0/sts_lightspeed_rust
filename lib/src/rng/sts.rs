@@ -193,7 +193,7 @@ impl StsRandom {
         N: Copy + Into<f32>,
     {
         let mut choice = self.next_f32();
-        println!("choice: {}, counter: {}", choice, self.counter);
+        //println!("choice: {}, counter: {}", choice, self.counter);
         for (item, weight) in choices {
             choice -= (*weight).into();
             if choice <= 0.0f32 {

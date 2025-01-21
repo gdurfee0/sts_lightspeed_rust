@@ -460,13 +460,13 @@ pub struct CardDetails {
 
 #[allow(dead_code)] // Clippy doesn't seem to notice that all methods are used in the macro.
 impl CardDetails {
-    pub fn for_card(card: Card) -> &'static CardDetails {
+    pub fn for_card(card: Card) -> &'static Self {
         CARD_DETAILS
             .get(&card)
             .unwrap_or_else(|| panic!("No details for card {:?}", card))
     }
 
-    fn new(card: Card, type_: CardType, cost: Energy) -> CardDetails {
+    fn new(card: Card, type_: CardType, cost: Energy) -> Self {
         CardDetails {
             card,
             type_,
@@ -487,67 +487,67 @@ impl CardDetails {
         }
     }
 
-    fn custom_requirements(mut self) -> CardDetails {
+    fn custom_requirements(mut self) -> Self {
         self.custom_requirements = true;
         self
     }
 
-    fn dup_on_draw(mut self) -> CardDetails {
+    fn dup_on_draw(mut self) -> Self {
         self.dup_on_draw = true;
         self
     }
 
-    fn enact_on_draw(mut self) -> CardDetails {
+    fn enact_on_draw(mut self) -> Self {
         self.enact_on_draw = true;
         self
     }
 
-    fn enact_on_turn_end(mut self) -> CardDetails {
+    fn enact_on_turn_end(mut self) -> Self {
         self.enact_on_turn_end = true;
         self
     }
 
-    fn ethereal(mut self) -> CardDetails {
+    fn ethereal(mut self) -> Self {
         self.ethereal = true;
         self
     }
 
-    fn exhaust(mut self) -> CardDetails {
+    fn exhaust(mut self) -> Self {
         self.exhaust = true;
         self
     }
 
-    fn irremovable(mut self) -> CardDetails {
+    fn irremovable(mut self) -> Self {
         self.irremovable = true;
         self
     }
 
-    fn innate(mut self) -> CardDetails {
+    fn innate(mut self) -> Self {
         self.innate = true;
         self
     }
 
-    fn requires_target(mut self) -> CardDetails {
+    fn requires_target(mut self) -> Self {
         self.requires_target = true;
         self
     }
 
-    fn retain(mut self) -> CardDetails {
+    fn retain(mut self) -> Self {
         self.retain = true;
         self
     }
 
-    fn special_cost(mut self) -> CardDetails {
+    fn special_cost(mut self) -> Self {
         self.special_cost = true;
         self
     }
 
-    fn unplayable(mut self) -> CardDetails {
+    fn unplayable(mut self) -> Self {
         self.unplayable = true;
         self
     }
 
-    fn push(mut self, effect: PlayerEffect) -> CardDetails {
+    fn push(mut self, effect: PlayerEffect) -> Self {
         self.effect_chain.push(effect);
         self
     }

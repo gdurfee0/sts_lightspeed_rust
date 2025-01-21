@@ -103,8 +103,7 @@ impl<'a> EncounterSimulator<'a> {
     fn conduct_enemies_turn(&mut self) -> Result<(), Error> {
         for maybe_enemy in self.enemy_party.iter_mut() {
             if let Some(enemy) = maybe_enemy.as_mut() {
-                let effect_chain = &enemy.next_action(&mut self.ai_rng).effect_chain;
-                for effect in effect_chain {
+                for effect in enemy.next_action(&mut self.ai_rng).effect_chain().iter() {
                     // TODO: reactions
                     match effect {
                         EnemyEffect::AddToDiscardPile(cards) => {

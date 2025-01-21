@@ -3,8 +3,7 @@
 // - https://slay-the-spire.fandom.com/wiki/Category:Elite
 // - https://slay-the-spire.fandom.com/wiki/Category:Boss_Monster
 
-#[derive(Clone, Copy, Debug)]
-#[cfg_attr(test, derive(Eq, Hash, PartialEq))]
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 pub enum Enemy {
     AcidSlimeL,
     AcidSlimeM,

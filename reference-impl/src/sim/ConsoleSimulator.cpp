@@ -39,7 +39,7 @@ void ConsoleSimulator::setupGame(std::uint64_t seed, CharacterClass c, int ascen
 
 void ConsoleSimulator::setupGameFromSaveFile(const SaveFile &save) {
     delete gc;
-    gc = new GameContext();
+    gc = new GameContext(CharacterClass::IRONCLAD, 0, 0);
     gc->initFromSave(save);
     if (gc->screenState == ScreenState::BATTLE) {
         battleSim.initBattle(*gc);

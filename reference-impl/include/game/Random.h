@@ -7,6 +7,11 @@
 
 #include <iostream>
 
+#include <execinfo.h>
+#include <cstdlib>
+
+extern void printStackTrace(const char* rngName);
+
 namespace java {
 
     class Random {
@@ -72,6 +77,7 @@ namespace sts {
         static constexpr std::uint64_t ONE_IN_MOST_SIGNIFICANT = static_cast<std::uint64_t>(1) << 63;
 
         std::uint64_t initial_seed;
+        const char* rngName;
         std::int32_t counter;
         std::int32_t counter1;
         std::uint64_t seed0;
@@ -93,7 +99,8 @@ namespace sts {
             s1 ^= s1 << 23;
 
             seed1 = s1 ^ s0 ^ s1 >> 17 ^ s0 >> 26;
-            //std::cout << "rng iter " << counter1 << ": " << (seed1 + s0) << std::endl;
+            std::cout << rngName << " rng iter " << counter1 << ": " << (seed1 + s0) << std::endl;
+            printStackTrace(rngName);
             counter1++;
             return seed1 + s0;
         }
@@ -137,9 +144,9 @@ namespace sts {
 
     public:
 
-        Random() : Random(0) {}
+        Random(const char* name) : Random(0, name) {}
 
-        Random(std::uint64_t seed) {
+        Random(std::uint64_t seed, const char* name) : rngName(name) {
             initial_seed = seed;
             counter = 0;
             counter1 = 0;
@@ -147,7 +154,7 @@ namespace sts {
             seed1 = murmurHash3(seed0);
         }
 
-        Random(std::uint64_t seed, std::int32_t targetCounter) : Random(seed) {
+        Random(std::uint64_t seed, std::int32_t targetCounter, const char* name) : Random(seed, name) {
             for (int i = 0; i < targetCounter; i++) {
                 random(999);
             }

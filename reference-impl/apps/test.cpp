@@ -220,7 +220,7 @@ int mcts(int argc, const char *argv[]) {
     const auto simulationCount = std::stoll(argv[3]);
 
     SaveFile saveFile = SaveFile::loadFromPath(saveFilePath, sts::CharacterClass::IRONCLAD);
-    GameContext gc;
+    GameContext gc(CharacterClass::IRONCLAD, 0, 0);
     gc.initFromSave(saveFile);
 
     std::cout << SeedHelper::getString(gc.seed) << std::endl;

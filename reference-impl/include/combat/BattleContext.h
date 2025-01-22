@@ -58,12 +58,12 @@ namespace sts {
         int cardsDrawn = 0;
         // end for debugging purposes
 
-        Random aiRng;
-        Random cardRandomRng;
-        Random miscRng;
-        Random monsterHpRng;
-        Random potionRng;
-        Random shuffleRng;
+        Random aiRng; //
+        Random cardRandomRng; //
+        Random miscRng; //
+        Random monsterHpRng; //
+        Random potionRng; //
+        Random shuffleRng; //
 
         int ascension = 0;
         Outcome outcome = Outcome::UNDECIDED;
@@ -93,8 +93,8 @@ namespace sts {
 
         std::bitset<32> miscBits; // 0 stolen gold check,
 
-        BattleContext() = default;
-        BattleContext(const BattleContext &rhs) = default;
+        BattleContext();
+        BattleContext(const BattleContext &rhs);
 
 // ****************************************
 
@@ -128,7 +128,7 @@ namespace sts {
         void onUseAttackCard();
         void onUseSkillCard();
         void onUsePowerCard();
-
+ 
         void onUseStatusOrCurseCard();
         void onAfterUseCard();
 

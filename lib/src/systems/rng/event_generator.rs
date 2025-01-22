@@ -56,10 +56,15 @@ impl EventGenerator {
         // TODO: Relic::JuzuBracelet
 
         let room = *self.event_rng.weighted_choose(&[
-            // TODO: Round to nearest 0.01 for compatibility with game rolls
-            (Room::Monster, self.monster_room_probability),
-            (Room::Shop, self.shop_probability),
-            (Room::Treasure, self.treasure_room_probability),
+            (
+                Room::Monster,
+                floor_to_hundredths(self.monster_room_probability),
+            ),
+            (Room::Shop, floor_to_hundredths(self.shop_probability)),
+            (
+                Room::Treasure,
+                floor_to_hundredths(self.treasure_room_probability),
+            ),
             (Room::Event, 1.),
         ]);
         // Game bug or intended behavior? Kudos to gamerpuppy for spotting this
@@ -159,6 +164,10 @@ impl EventGenerator {
     }
 }
 
+fn floor_to_hundredths(x: f32) -> f32 {
+    (x * 100.).floor() / 100.
+}
+
 #[cfg(test)]
 mod test {
     use pretty_assertions::assert_eq;
@@ -245,8 +254,7 @@ mod test {
                 (Room::Monster, None),
                 (Room::Event, Some(Event::Falling)),
                 (Room::Event, Some(Event::WindingHalls)),
-                //(Room::Event, Some(Event::Purifier)),  // Rounding error, see TODO above
-                (Room::Treasure, None),
+                (Room::Event, Some(Event::Duplicator)),
                 (Room::Monster, None),
                 (Room::Shop, None),
             ]

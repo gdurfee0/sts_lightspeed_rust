@@ -158,19 +158,19 @@ namespace sts {
         std::uint64_t seed;
 
         Random aiRng;
-        Random cardRandomRng;
-        Random cardRng;
-        Random eventRng;
-        Random mathUtilRng;
-        Random merchantRng;
-        Random miscRng;
+        Random cardRandomRng; //
+        Random cardRng; //
+        Random eventRng; //
+        Random mathUtilRng; //
+        Random merchantRng; //
+        Random miscRng; //
         Random monsterHpRng;
-        Random monsterRng;
-        Random neowRng;
-        Random potionRng;
-        Random relicRng;
-        Random shuffleRng;
-        Random treasureRng;
+        Random monsterRng; //
+        Random neowRng; //
+        Random potionRng; //
+        Random relicRng; //
+        Random shuffleRng; //
+        Random treasureRng; //
 
         // todo change these to fixed lists
         std::vector<Event> eventList;
@@ -236,7 +236,7 @@ namespace sts {
 
         GameContextAction regainControlAction = nullptr;
 
-        GameContext() = default;
+        //GameContext();
         GameContext(CharacterClass cc, std::uint64_t seed, int ascensionLevel);
 
         void initFromSave(const SaveFile &s);

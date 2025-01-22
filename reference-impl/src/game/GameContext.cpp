@@ -28,6 +28,125 @@ bool isCampfireRelic(RelicId r) {
     return r == RelicId::PEACE_PIPE || r == RelicId::SHOVEL || r == RelicId::GIRYA;
 }
 
+#include <execinfo.h>
+#include <cxxabi.h>
+#include <dlfcn.h>
+#include <cstring>
+#include <iostream>
+#include <sstream>
+#include <unordered_map>
+#include <memory>
+
+void printStackTrace(const char* rngName) {
+    constexpr int maxFrames = 100;
+    void* addrlist[maxFrames];
+
+    // Get void*'s for all entries on the stack
+    int addrlen = backtrace(addrlist, maxFrames);
+
+    if (addrlen == 0) {
+        std::cout << "No stack trace available\n";
+        return;
+    }
+
+
+    Dl_info info;
+    for (int i = 0; i < addrlen; i++) {
+        /*
+        if (dladdr(addrlist[i], &info)) {
+            std::cout << "Address: " << addrlist[i] << ", Function: " << (info.dli_sname ? info.dli_sname : "unknown")
+                    << ", Library: " << (info.dli_fname ? info.dli_fname : "unknown") << std::endl;
+        } else {
+            std::cout << "Address: " << addrlist[i] << " <no symbol info>\n";
+        }
+        */
+
+        static std::unordered_map<std::string, std::string> addrToLineCache; // Cache for resolved addresses
+
+        if (dladdr(addrlist[i], &info)) {
+            // Calculate relative address
+            uintptr_t relative_addr = (uintptr_t)addrlist[i] - (uintptr_t)info.dli_fbase;
+
+            // Construct the cache key
+            std::ostringstream keyStream;
+            keyStream << info.dli_fname << ":" << std::hex << relative_addr;
+            std::string cacheKey = keyStream.str();
+
+            // Check if this address is already cached
+            if (addrToLineCache.find(cacheKey) == addrToLineCache.end()) {
+                // Not in cache, resolve using addr2line
+                std::ostringstream command;
+                command << "addr2line -e " << info.dli_fname << " " << std::hex << relative_addr;
+
+                std::unique_ptr<FILE, decltype(&pclose)> pipe(popen(command.str().c_str(), "r"), pclose);
+                if (pipe) {
+                    char buffer[256];
+                    if (fgets(buffer, sizeof(buffer), pipe.get()) != nullptr) {
+                        // Trim newline
+                        if (char* newline = strchr(buffer, '\n')) {
+                            *newline = '\0';
+                        }
+                        addrToLineCache[cacheKey] = buffer; // Cache the resolved line
+                    } else {
+                        addrToLineCache[cacheKey] = "<unknown>";
+                    }
+                } else {
+                    addrToLineCache[cacheKey] = "<unknown>";
+                }
+            }
+
+            // Output the cached result
+            std::cout << rngName << " [" << i << "] " << addrToLineCache[cacheKey] << std::endl;
+            /*
+            // Demangle the function name if possible
+            const char* demangledName = nullptr;
+            int status = -1;
+            if (info.dli_sname) {
+                demangledName = abi::__cxa_demangle(info.dli_sname, nullptr, nullptr, &status);
+            }
+
+            std::ostringstream frame;
+            frame << rngName << " [" << i << "] " << addrlist[i];
+            if (status == 0 && demangledName) {
+                frame << " " << demangledName;
+            } else if (info.dli_sname) {
+                frame << " " << info.dli_sname;
+            }
+            if (info.dli_fname) {
+                frame << " (" << info.dli_fname;
+                if (info.dli_fbase) {
+                    frame << " + " << ((char*)addrlist[i] - (char*)info.dli_fbase);
+                }
+                frame << ")";
+            }
+            std::ostringstream command;
+            uintptr_t relative_addr = (uintptr_t)addrlist[i] - (uintptr_t)info.dli_fbase;
+
+            command << "addr2line -e " << info.dli_fname << " " << std::hex << relative_addr;
+            std::unique_ptr<FILE, decltype(&pclose)> pipe(popen(command.str().c_str(), "r"), pclose);
+            if (pipe) {
+                char buffer[256];
+                if (fgets(buffer, sizeof(buffer), pipe.get()) != nullptr) {
+                    std::string trimmed(buffer);
+                    trimmed.erase(trimmed.find_last_not_of(" \n\r\t") + 1);
+                    frame << " (" << trimmed << ")";
+                }
+            }
+
+            std::cout << frame.str() << std::endl;
+
+
+            if (demangledName) {
+                free((void*)demangledName);
+            }
+            */
+        } else {
+            std::cout << rngName << " [" << i << "] " << addrlist[i] << " <no symbol info>" << std::endl;
+        }
+    }
+}
+
+
 SelectScreenCard::SelectScreenCard(const Card &card) : card(card) {}
 
 SelectScreenCard::SelectScreenCard(const Card &card, int deckIdx) : card(card), deckIdx(deckIdx) {}
@@ -36,18 +155,20 @@ SelectScreenCard::SelectScreenCard(const Card &card, int deckIdx) : card(card), 
 
 GameContext::GameContext(CharacterClass cc, std::uint64_t seed, int ascension)
     : seed(seed),
-    neowRng(seed),
-    treasureRng(seed),
-    eventRng(seed),
-    relicRng(seed),
-    potionRng(seed),
-    cardRng(seed),
-    cardRandomRng(seed),
-    merchantRng(seed),
-    monsterRng(seed),
-    shuffleRng(seed),
-    miscRng(seed),
-    mathUtilRng(seed-897897), // uses a time based seed -_-
+    neowRng(seed, "neowRng"),
+    treasureRng(seed, "treasureRng"),
+    eventRng(seed, "eventRng"),
+    relicRng(seed, "relicRng"),
+    potionRng(seed, "potionRng"),
+    cardRng(seed, "cardRng"),
+    cardRandomRng(seed, "cardRandomRng(GameContext)"),
+    merchantRng(seed, "merchantRng"),
+    monsterRng(seed, "monsterRng"),
+    shuffleRng(seed, "shuffleRng(Gamecontext)"),
+    miscRng(seed, "miscRng"),
+    mathUtilRng(seed-897897, "mathUtilRng"), // uses a time based seed -_-
+    aiRng(seed, "aiRng(GameContext)"),
+    monsterHpRng(seed, "monsterHpRng"),
     cc(cc),
     map(new Map(Map::fromSeed(seed, ascension, 1, true))),
     ascension(ascension) {
@@ -109,17 +230,17 @@ void GameContext::initFromSave(const SaveFile &s) {
     gold = s.gold;
     speedrunPace = s.play_time < (60*13 + 20); // speedrun pace is below 13m20s
 
-    treasureRng = Random(seed, s.treasure_seed_count);
-    eventRng = Random(seed, s.event_seed_count);
-    relicRng = Random(seed, s.relic_seed_count);
-    potionRng = Random(seed, s.potion_seed_count);
-    cardRng = Random(seed, s.card_seed_count);
-    cardRandomRng = Random(seed, s.card_random_seed_count);
-    merchantRng = Random(seed, s.merchant_seed_count);
-    mathUtilRng = Random(seed, 0);
-    merchantRng = Random(seed, s.merchant_seed_count); // arbitrary
-    miscRng = Random(seed+floorNum);
-    monsterRng = Random(seed, s.monster_seed_count);
+    treasureRng = Random(seed, s.treasure_seed_count, "treasureRng");
+    eventRng = Random(seed, s.event_seed_count, "eventRng");
+    relicRng = Random(seed, s.relic_seed_count, "relicRng");
+    potionRng = Random(seed, s.potion_seed_count, "potionRng");
+    cardRng = Random(seed, s.card_seed_count, "cardRng");
+    cardRandomRng = Random(seed, s.card_random_seed_count, "cardRandomRng");
+    merchantRng = Random(seed, s.merchant_seed_count, "merchantRng");
+    mathUtilRng = Random(seed, 0, "mathUtilRng");
+    merchantRng = Random(seed, s.merchant_seed_count, "merchantRng2"); // arbitrary
+    miscRng = Random(seed+floorNum, "miscRng");
+    monsterRng = Random(seed, s.monster_seed_count, "monsterRng");
 
     cardRarityFactor = s.card_random_seed_randomizer;
     potionChance = s.potion_chance;
@@ -781,10 +902,9 @@ void GameContext::transitionToMapNode(int mapNodeX) {
     ++floorNum;
     ++curMapNodeY;
 
-    const auto r = Random(seed + floorNum);
-    miscRng = r;
-    shuffleRng = r;
-    cardRandomRng = r;
+    miscRng = Random(seed + floorNum, "miscRng-transitionToMapNode");
+    shuffleRng = Random(seed + floorNum, "shuffleRng-transitionToMapNode");;
+    cardRandomRng = Random(seed + floorNum, "cardRandomRng-transitionToMapNode");;
 
     regainControlAction = [](auto &gs) {
         gs.screenState = ScreenState::MAP_SCREEN;
@@ -1107,10 +1227,9 @@ void GameContext::setupTreasureRoom() {
 
 void GameContext::enterBossTreasureRoom() {
     ++floorNum;
-    Random r(seed+floorNum);
-    miscRng = r;
-    shuffleRng = r;
-    cardRandomRng = r;
+    miscRng = Random(seed+floorNum, "miscRng-boss");
+    shuffleRng = Random(seed+floorNum, "shuffleRng-boss");
+    cardRandomRng = Random(seed+floorNum, "cardRandomRng-boss");
 
     relicsOnEnterRoom(Room::BOSS_TREASURE);
 
@@ -1178,10 +1297,9 @@ void GameContext::afterBattle() {
                 if (ascension >= 20 && info.encounter == boss) {
                     // go to second boss
                     ++floorNum;
-                    const auto r = Random(seed + floorNum);
-                    miscRng = r;
-                    shuffleRng = r;
-                    cardRandomRng = r;
+                    miscRng = Random(seed + floorNum, "miscRng-act3");
+                    shuffleRng = Random(seed + floorNum, "shuffleRng-act3");
+                    cardRandomRng = Random(seed + floorNum, "cardRandomRng-act3");
                     relicsOnEnterRoom(curRoom);
 
                     regainControlAction = [](GameContext &gc) {

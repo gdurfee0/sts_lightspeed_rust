@@ -110,7 +110,7 @@ void Map::writeExitData(std::ostream &os) const {
 Map Map::fromSeed(std::uint64_t seed, int ascension, int act, bool setBurning) {
     Map map;
     auto offset = act == 1 ? 1 : act*(100*(act-1));
-    Random mapRng(seed+offset);
+    Random mapRng(seed+offset, "mapRng");
     initNodes(map);
     createPaths(map, mapRng);
     filterRedundantEdgesFromFirstRow(map);

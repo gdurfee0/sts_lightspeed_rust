@@ -13,6 +13,18 @@ namespace sts {
 }
 
 
+BattleContext::BattleContext() 
+    : aiRng(0, "aiRng-default"), monsterHpRng(0, "monsterHpRng-default"), shuffleRng(0, "shuffleRng-default"), cardRandomRng(0, "cardRandomRng(BattleContext)-default"), miscRng(0, "miscRng-default"), potionRng(0, "potionRng-default")
+{   
+}
+
+BattleContext::BattleContext(const BattleContext &rhs) 
+    : aiRng(rhs.aiRng), monsterHpRng(rhs.monsterHpRng), shuffleRng(rhs.shuffleRng), cardRandomRng(rhs.cardRandomRng), miscRng(rhs.miscRng), potionRng(rhs.potionRng)
+{
+    *this = rhs;
+}
+
+
 // assume all bc fields have just been initialized by in class member initializers
 void BattleContext::init(const GameContext &gc) {
     init(gc, gc.info.encounter);
@@ -25,11 +37,10 @@ void BattleContext::init(const GameContext &gc, MonsterEncounter encounterToInit
     floorNum = gc.floorNum;
     encounter = encounterToInit;
 
-    auto startRandom = Random(gc.seed+gc.floorNum);
-    aiRng = startRandom;
-    monsterHpRng = startRandom;
-    shuffleRng = startRandom;
-    cardRandomRng = startRandom;
+    aiRng = Random(gc.seed+gc.floorNum, "aiRng");
+    monsterHpRng = Random(gc.seed+gc.floorNum, "monsterHpRng");
+    shuffleRng = Random(gc.seed+gc.floorNum, "shuffleRng");
+    cardRandomRng = Random(gc.seed+gc.floorNum, "cardRandomRng(BattleContext)");
     miscRng = gc.miscRng;
     potionRng = gc.potionRng;
 

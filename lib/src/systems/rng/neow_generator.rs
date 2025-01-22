@@ -86,6 +86,7 @@ impl<'a> NeowGenerator<'a> {
     }
 
     pub fn three_random_potions(&mut self) -> Vec<Potion> {
+        let _ = self.card_generator.combat_rewards(); // For fidelity to the game's rng
         let mut result: Vec<Potion> = Vec::with_capacity(3);
         for _ in 0..3 {
             let potion = self.potion_rng.choose(self.character.potion_pool);

@@ -64,6 +64,12 @@ impl CardGenerator {
 
     fn pool_for_class(&mut self) -> (bool, &'static [Card]) {
         let roll = self.card_rng.gen_range(0..100) + self.rarity_bias;
+        println!(
+            "Pool roll {} with counter {} and initial seed {}",
+            roll,
+            self.card_rng.get_counter(),
+            self.card_rng.get_initial_seed()
+        );
         if roll < 3 {
             self.rarity_bias = 5;
             (true, self.character.rare_card_pool)
@@ -73,5 +79,27 @@ impl CardGenerator {
             self.rarity_bias = (self.rarity_bias - 1).max(-40);
             (false, self.character.common_card_pool)
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::data::IRONCLAD;
+
+    use super::*;
+
+    #[test]
+    fn test_combat_rewards() {
+        let mut card_generator = CardGenerator::new(2.into(), IRONCLAD, Act::get(1));
+        let _ = card_generator.combat_rewards();
+        assert_eq!(
+            card_generator.combat_rewards(),
+            vec![Card::Anger, Card::Intimidate, Card::BloodForBlood]
+        );
+        let mut card_generator = CardGenerator::new(3.into(), IRONCLAD, Act::get(1));
+        assert_eq!(
+            card_generator.combat_rewards(),
+            vec![Card::Thunderclap, Card::HeavyBlade, Card::Armaments]
+        );
     }
 }

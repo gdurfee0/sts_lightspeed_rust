@@ -3,9 +3,8 @@ use std::sync::mpsc::{Receiver, Sender};
 
 use anyhow::{anyhow, Error};
 
+use crate::components::{Choice, EnemyStatus, Notification, Prompt, StsMessage};
 use crate::data::{CardDetails, PlayerCondition, PlayerEffect};
-use crate::enemy::EnemyStatus;
-use crate::message::{Choice, Prompt, StsMessage};
 use crate::types::{AttackDamage, Block, EnemyIndex};
 
 pub struct CombatClient<'a> {
@@ -31,7 +30,7 @@ impl<'a> CombatClient<'a> {
     pub fn run(mut self) -> Result<(), anyhow::Error> {
         loop {
             match self.from_server.recv()? {
-                StsMessage::Conditions(conditions) => {
+                StsMessage::Notification(Notification::Conditions(conditions)) => {
                     self.my_conditions = conditions;
                     println!("Buffs: {:?}", self.my_conditions);
                 }
@@ -39,11 +38,11 @@ impl<'a> CombatClient<'a> {
                     let choice = self.collect_user_choice(prompt, choices)?;
                     self.to_server.send(choice)?;
                 }
-                StsMessage::EndingCombat => {
+                StsMessage::Notification(Notification::EndingCombat) => {
                     println!("Combat ended");
                     break;
                 }
-                StsMessage::EnemyParty(party) => {
+                StsMessage::Notification(Notification::EnemyParty(party)) => {
                     for enemy_status in party.iter().flatten() {
                         println!("Enemy: {}", enemy_status);
                     }

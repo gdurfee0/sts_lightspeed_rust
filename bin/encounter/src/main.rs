@@ -6,23 +6,17 @@ mod encounter;
 use anyhow::anyhow;
 use encounter::str_to_encounter;
 use sts_lib::data::{Character, Encounter};
-use sts_lib::player::PlayerController;
-use sts_lib::rng::{Seed, StsRandom};
-use sts_lib::sim::EncounterSimulator;
+use sts_lib::types::Floor;
 use sts_lib::ui::combat::CombatClient;
+use sts_lib::{Seed, StsSimulator};
 
 fn main() -> Result<(), anyhow::Error> {
     let (seed, character, floor, encounter) = parse_command_line();
     let (to_server, from_client) = channel();
     let (to_client, from_server) = channel();
-    let seed_for_floor = seed.with_offset(floor);
-
-    //let simulator = StsSimulator::new(seed, character, from_client, to_client);
+    let mut simulator = StsSimulator::new(seed, character, from_client, to_client);
     let simulator_handle = thread::spawn(move || {
-        let mut player = PlayerController::new(character, from_client, to_client);
-        let mut misc_rng = StsRandom::from(seed_for_floor);
-        let _ =
-            EncounterSimulator::new(seed_for_floor, encounter, &mut misc_rng, &mut player).run();
+        let _ = simulator.run_combat(floor, encounter);
     });
     let game_controller = CombatClient::new(&from_server, &to_server);
     game_controller.run()?;
@@ -33,7 +27,7 @@ fn main() -> Result<(), anyhow::Error> {
     Ok(())
 }
 
-fn parse_command_line() -> (Seed, &'static Character, u64, Encounter) {
+fn parse_command_line() -> (Seed, &'static Character, Floor, Encounter) {
     let mut args = env::args();
     args.next(); // Skip the program name
     let seed = args

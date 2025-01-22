@@ -434,7 +434,7 @@ pub enum Relic {
     /// Draw 2 additional cards each turn. Start each combat Confused.
     SneckoEye,
 
-    /// Whenever you apply Icon Poison Poison, apply an additional 1 Poison.
+    /// Whenever you apply Poison, apply an additional 1 Poison.
     SneckoSkull,
 
     /// Gain 1 Energy at the start of each turn. You can no longer obtain potions.

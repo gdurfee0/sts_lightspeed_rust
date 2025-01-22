@@ -4,10 +4,8 @@ use std::{env, thread};
 
 use anyhow::anyhow;
 use sts_lib::data::Character;
-use sts_lib::message::{Choice, Prompt, StsMessage};
-use sts_lib::rng::Seed;
-use sts_lib::sim::StsSimulator;
 use sts_lib::ui::combat::CombatClient;
+use sts_lib::{Choice, Notification, Prompt, Seed, StsMessage, StsSimulator};
 
 fn main() -> Result<(), anyhow::Error> {
     let (seed, character) = parse_command_line();
@@ -34,12 +32,12 @@ fn main_input_loop(
             StsMessage::Choices(prompt, choices) => {
                 to_server.send(collect_user_choice(prompt, choices)?)?;
             }
-            StsMessage::EnemyParty(party) => {
+            StsMessage::Notification(Notification::EnemyParty(party)) => {
                 for enemy_status in party.iter().flatten() {
                     println!("Enemy: {}", enemy_status);
                 }
             }
-            StsMessage::Map(map) => println!("{}\n", map),
+            StsMessage::Notification(Notification::Map(map)) => println!("{}\n", map),
             StsMessage::GameOver(result) => {
                 println!(
                     "[Main] Game Over; the player was {}victorious",
@@ -47,7 +45,7 @@ fn main_input_loop(
                 );
                 break;
             }
-            StsMessage::StartingCombat => {
+            StsMessage::Notification(Notification::StartingCombat) => {
                 let combat_client = CombatClient::new(&from_server, &to_server);
                 combat_client.run()?;
             }

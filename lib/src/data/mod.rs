@@ -22,7 +22,7 @@ pub use condition::{EnemyCondition, PlayerCondition};
 pub use effect::{EnemyEffect, PlayerEffect};
 pub use encounter::Encounter;
 pub use enemy::Enemy;
-pub use event::Event;
+pub use event::{Event, ONE_TIME_EVENTS};
 pub use intent::Intent;
 pub use neow::{
     NeowBlessing, NeowBonus, NeowPenalty, FIRST_NEOW_POOL, SECOND_NEOW_POOL, THIRD_NEOW_POOL,

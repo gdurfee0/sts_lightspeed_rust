@@ -1,9 +1,7 @@
 use std::fmt;
 
-use crate::{
-    data::CardDetails,
-    message::{Choice, PotionAction, Prompt},
-};
+use crate::components::{Choice, PotionAction, Prompt};
+use crate::data::CardDetails;
 
 impl fmt::Display for Prompt {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {

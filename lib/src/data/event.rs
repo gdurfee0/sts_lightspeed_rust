@@ -56,3 +56,20 @@ pub enum Event {
     WingStatue,
     WorldOfGoop,
 }
+
+pub const ONE_TIME_EVENTS: &[Event] = &[
+    Event::OminousForge,
+    Event::BonfireSpirits,
+    Event::DesignerInSpire,
+    Event::Duplicator,
+    Event::FaceTrader,
+    Event::TheDivineFountain,
+    Event::KnowingSkull,
+    Event::Lab,
+    Event::Nloth,
+    Event::NoteForYourself,
+    Event::SecretPortal,
+    Event::TheJoust,
+    Event::WeMeetAgain,
+    Event::TheWomanInBlue,
+];

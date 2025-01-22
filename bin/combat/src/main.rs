@@ -1,10 +1,10 @@
 use std::sync::mpsc::channel;
 use std::{env, thread};
 
-mod encounter;
+mod combat;
 
 use anyhow::anyhow;
-use encounter::str_to_encounter;
+use combat::str_to_encounter;
 use sts_lib::data::{Character, Encounter};
 use sts_lib::types::Floor;
 use sts_lib::ui::combat::CombatClient;

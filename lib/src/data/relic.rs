@@ -1,7 +1,6 @@
 // Source: Slay the Spire Wiki (https://slay-the-spire.fandom.com/wiki/Category:Relic)
 
-#[derive(Clone, Copy, Debug, PartialEq)]
-#[cfg_attr(test, derive(Eq, Hash))]
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 pub enum Relic {
     /// Start each combat with 8 Vigor.
     Akabeko,
@@ -177,7 +176,7 @@ pub enum Relic {
     /// You can no longer become Weakened.
     Ginger,
 
-    /// You can now gain Icon Strength Strength at Rest Sites. (3 times max)
+    /// You can now gain Strength at Rest Sites. (3 times max)
     Girya,
 
     /// Your rightmost Orb triggers its passive an additional time.
@@ -283,7 +282,7 @@ pub enum Relic {
     /// Whenever you play a Power, a random card in your hand costs 0 for the turn.
     MummifiedHand,
 
-    /// Start each combat with 3 Icon Strength Strength that is lost at the end of your turn.
+    /// Start each combat with 3 Strength that is lost at the end of your turn.
     MutagenicStrength,
 
     /// Triples the chance of receiving rare cards as monster rewards.
@@ -386,57 +385,166 @@ pub enum Relic {
 
     /// While your HP is at or below 50%, you have 3 additional Strength.
     RedSkull,
+
+    /// Heal an additional 15 HP when you Rest.
     RegalPillow,
+
+    /// Replaces Ring of the Snake. At the start of your turn, draw 1 additional card.
     RingOfTheSerpent,
+
+    /// At the start of each combat, draw 2 additional cards.
     RingOfTheSnake,
+
+    /// Start each combat with 3 additional Orb slots.
     RunicCapacitor,
+
+    /// Whenever you lose HP, draw 1 card.
     RunicCube,
+
+    /// Gain 1 Energy at the start of each turn. You can no longer see enemy Intents.
     RunicDome,
+
+    /// At the end of your turn, you no longer discard your hand.
     RunicPyramid,
+
+    /// Double the effectiveness of potions.
     SacredBark,
+
+    /// Whenever you lose HP in combat, gain 3 Block next turn.
     SelfFormingClay,
+
+    /// You can now Dig for loot at Rest Sites.
     Shovel,
+
+    /// Every time you play 3 Attacks in a single turn, gain 1 Strength.
     Shuriken,
+
+    /// When adding cards to your deck, you may gain +2 Max HP instead.
     SingingBowl,
+
+    /// During Boss and Elite combats, gain Energy at the start of your turn.
     SlaversCollar,
+
+    /// Start each Elite combat with 2 Strength.
     SlingOfCourage,
+
+    /// The merchant's card removal service now always costs 50 Gold.
     SmilingMask,
+
+    /// Draw 2 additional cards each turn. Start each combat Confused.
     SneckoEye,
+
+    /// Whenever you apply Icon Poison Poison, apply an additional 1 Poison.
     SneckoSkull,
+
+    /// Gain 1 Energy at the start of each turn. You can no longer obtain potions.
     Sozu,
+
+    /// It's unpleasant.
     SpiritPoop,
+
+    /// Whenever you enter a ? room, gain 50 Gold.
     SsserpentHead,
+
+    /// At the end of turn 7, deal 52 damage to ALL enemies.
     StoneCalendar,
+
+    /// Cards which Exhaust when played will instead discard 50% of the time.
     StrangeSpoon,
+
+    /// Upon pickup, raise your Max HP by 7.
     Strawberry,
+
+    /// Cards containing "Strike" deal 3 additional damage.
     StrikeDummy,
+
+    /// Every 3 times you shuffle your draw pile, gain 2 Energy.
     Sundial,
+
+    /// At the Start of each combat, Channel 1 Dark.
     SymbioticVirus,
+
+    /// Start each combat in Calm.
     TeardropLocket,
+
+    /// Gain 6 Block whenever you shuffle your draw pile.
     TheAbacus,
+
+    /// Whenever you would deal 4 or less unblocked Attack damage, increase it to 5.
     TheBoot,
+
+    /// The merchant no longer runs out of cards, relics, or potions and his prices are reduced
+    /// by 20%.
     TheCourier,
+
+    /// Whenever an enemy dies, transfer any Poison it has to a random enemy.
     TheSpecimen,
+
+    /// At the start of each combat, gain 4 Plated Armor.
     ThreadAndNeedle,
+
+    /// Whenever you discard a card during your turn, deal 3 damage to a random enemy for each
+    /// card discarded.
     Tingsha,
+
+    /// Every 4th ? room is a Treasure room.
     TinyChest,
+
+    /// Obtain 1 potion. Gain 50 Gold. Raise your Max HP by 5. Obtain 1 card. Upgrade 1 Random card.
     TinyHouse,
+
+    /// At the start of each combat, choose 1 of 3 random Colorless cards and add the chosen card
+    /// into your hand.
     Toolbox,
+
+    /// Whenever you would receive 5 or less unblocked Attack damage, reduce it to 1.
     Torii,
+
+    /// Whenever you discard a card during your turn, gain 3 Block.
     ToughBandages,
+
+    /// Whenever you add a Skill card to your deck, it is Upgraded.
     ToxicEgg,
+
+    /// Whenever you use a potion, heal 5 HP.
     ToyOrnithopter,
+
+    /// Whenever you would lose HP, lose 1 less.
     TungstenRod,
+
+    /// You can no longer become Frail.
     Turnip,
+
+    /// At the start of each combat, apply 4 Poison to ALL enemies.
     TwistedFunnel,
+
+    /// Whenever you have no cards in hand during your turn, draw a card.
     UnceasingTop,
+
+    /// At the start of each combat, gain 1 Strength.
     Vajra,
+
+    /// Gain 1 Energy at the start of each turn. You cannot play more than 6 cards per turn.
     VelvetChoker,
+
+    /// Whenever you exit Calm, gain an additional Energy.
     VioletLotus,
+
+    /// Upon pick up, Upgrade 2 random Skills.
     WarPaint,
+
+    /// At the start of your turn, Upgrade a random card in your hand for the rest of combat.
     WarpedTongs,
+
+    /// Upon pick up, Upgrade 2 random Attacks.
     Whetstone,
+
+    /// Potions always drop after combat.
     WhiteBeastStatue,
+
+    /// You may ignore paths when choosing the next room to travel to 3 times.
     WingBoots,
+
+    /// Attacks that cost 0 deal 4 additional damage.
     WristBlade,
 }

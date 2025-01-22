@@ -21,8 +21,8 @@ pub struct PlayerInCombat<'a> {
 #[derive(Clone, Debug)]
 pub enum CombatAction {
     EndTurn,
-    PlayCard(Card, &'static CardDetails),
-    PlayCardAgainstEnemy(Card, &'static CardDetails, EnemyIndex),
+    PlayCard(&'static CardDetails),
+    PlayCardAgainstEnemy(&'static CardDetails, EnemyIndex),
     Potion(PotionAction),
 }
 
@@ -276,12 +276,11 @@ impl<'a> PlayerInCombat<'a> {
                 if card_details.requires_target {
                     let enemy_index = self.player.comms.choose_enemy_to_target(enemies)?;
                     Ok(CombatAction::PlayCardAgainstEnemy(
-                        card,
                         card_details,
                         enemy_index,
                     ))
                 } else {
-                    Ok(CombatAction::PlayCard(card, card_details))
+                    Ok(CombatAction::PlayCard(card_details))
                 }
             }
             None => Ok(CombatAction::EndTurn),

@@ -189,6 +189,7 @@ impl Player {
         let mut gold_option: Option<Gold> = Some(gold);
         let mut card_vec = cards.to_vec();
         let mut cards_left_to_choose = 1;
+        // TODO: Potion rewards
         while gold_option.is_some() || (!card_vec.is_empty() && cards_left_to_choose > 0) {
             if cards_left_to_choose == 0 {
                 card_vec.clear();

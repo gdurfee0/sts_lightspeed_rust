@@ -103,7 +103,7 @@ impl MapSimulator {
 
     fn highlighted_map_string(&self, highlights: &[(RowIndex, ColumnIndex)]) -> String {
         let mut suffix = String::new();
-        for (i, c) in ('a'..'g').enumerate() {
+        for (i, c) in ('a'..='g').enumerate() {
             if highlights
                 .iter()
                 .any(|(_, column_index)| i == *column_index)

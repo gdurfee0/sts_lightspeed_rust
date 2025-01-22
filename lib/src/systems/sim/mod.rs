@@ -7,5 +7,4 @@ mod player;
 mod player_in_combat;
 mod sts_simulator;
 
-pub use combat_simulator::CombatSimulator;
 pub use sts_simulator::StsSimulator;

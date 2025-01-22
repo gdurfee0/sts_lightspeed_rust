@@ -6,10 +6,7 @@ use crate::systems::rng::{CardGenerator, NeowGenerator, RelicGenerator, Seed, St
 use super::player::Player;
 
 pub struct NeowSimulator<'a> {
-    character: &'static Character,
     neow_generator: NeowGenerator<'a>,
-    potion_rng: &'a mut StsRandom,
-    relic_generator: &'a mut RelicGenerator,
     player: &'a mut Player,
 }
 
@@ -22,12 +19,10 @@ impl<'a> NeowSimulator<'a> {
         relic_generator: &'a mut RelicGenerator,
         player: &'a mut Player,
     ) -> Self {
-        let neow_generator = NeowGenerator::new(seed, character, card_generator);
+        let neow_generator =
+            NeowGenerator::new(seed, character, potion_rng, card_generator, relic_generator);
         Self {
-            character,
             neow_generator,
-            potion_rng,
-            relic_generator,
             player,
         }
     }
@@ -51,18 +46,15 @@ impl<'a> NeowSimulator<'a> {
                 self.player.increase_hp_max(self.player.state.hp_max / 10)
             }
             NeowBlessing::NeowsLament => self.player.obtain_relic(Relic::NeowsLament),
-            NeowBlessing::ObtainRandomCommonRelic => self
-                .player
-                .obtain_relic(self.relic_generator.common_relic()),
+            NeowBlessing::ObtainRandomCommonRelic => {
+                self.player.obtain_relic(self.neow_generator.common_relic())
+            }
             NeowBlessing::ObtainRandomRareCard => self
                 .player
                 .obtain_card(self.neow_generator.one_random_rare_card()),
-            NeowBlessing::ObtainThreeRandomPotions => self.player.choose_potions_to_obtain(
-                &self
-                    .potion_rng
-                    .sample_without_replacement(self.character.potion_pool, 3),
-                3,
-            ),
+            NeowBlessing::ObtainThreeRandomPotions => self
+                .player
+                .choose_potions_to_obtain(&self.neow_generator.three_random_potions(), 3),
             NeowBlessing::RemoveCard => self.player.choose_card_to_remove(),
             NeowBlessing::ReplaceStarterRelic => todo!(),
             NeowBlessing::TransformCard => todo!(),

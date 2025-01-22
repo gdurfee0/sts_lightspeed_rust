@@ -79,14 +79,14 @@ impl<'a> CombatSimulator<'a> {
                 .map(|maybe_enemy| maybe_enemy.as_ref().map(EnemyStatus::from))
                 .collect::<Vec<_>>();
             match self.player_in_combat.choose_next_action(&enemy_statuses)? {
-                CombatAction::PlayCard(_, card_details) => {
+                CombatAction::PlayCard(card_details) => {
                     self.play_card(card_details)?;
                     if self.combat_should_end() {
                         return Ok(());
                     }
                     self.player_in_combat.dispose_card_just_played()?;
                 }
-                CombatAction::PlayCardAgainstEnemy(_, card_details, enemy_index) => {
+                CombatAction::PlayCardAgainstEnemy(card_details, enemy_index) => {
                     self.play_card_against_enemy(card_details, enemy_index)?;
                     if self.combat_should_end() {
                         return Ok(());

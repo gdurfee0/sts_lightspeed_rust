@@ -238,9 +238,8 @@ impl PlayerInteraction {
             self.to_client
                 .send(StsMessage::Choices(prompt.clone(), choices.to_vec()))?;
             let choice_index = self.from_client.recv()?;
-            match choices.get(choice_index) {
-                Some(choice) => return Ok(choice),
-                _ => {}
+            if let Some(choice) = choices.get(choice_index) {
+                return Ok(choice);
             }
         }
     }

@@ -102,13 +102,8 @@ impl StsSimulator {
                 Room::RestSite => todo!(),
                 Room::Elite => todo!(),
                 Room::Event => {
-                    let (room, maybe_event) = self.event_generator.next_event(
-                        floor,
-                        &self.player.state.deck,
-                        self.player.state.gold,
-                        self.player.state.health(),
-                        &self.player.state.relics,
-                    );
+                    let (room, maybe_event) =
+                        self.event_generator.next_event(floor, &self.player.state);
                     println!("? room: {:?}", room);
                     if let Some(event) = maybe_event {
                         println!("Event: {:?}", event);

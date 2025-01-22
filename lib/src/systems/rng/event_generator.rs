@@ -1,6 +1,6 @@
-use crate::components::Room;
-use crate::data::{Act, Card, Event, Relic, ONE_TIME_EVENTS};
-use crate::types::{Floor, Gold, Health};
+use crate::components::{PlayerState, Room};
+use crate::data::{Act, Event, ONE_TIME_EVENTS};
+use crate::types::Floor;
 
 use super::seed::Seed;
 use super::sts_random::StsRandom;
@@ -43,14 +43,7 @@ impl EventGenerator {
         self.treasure_room_probability = 0.02;
     }
 
-    pub fn next_event(
-        &mut self,
-        floor: Floor,
-        deck: &[Card],
-        gold: Gold,
-        health: Health,
-        relics: &[Relic],
-    ) -> (Room, Option<Event>) {
+    pub fn next_event(&mut self, floor: Floor, state: &PlayerState) -> (Room, Option<Event>) {
         // TODO: Last room was a shop
         // TODO: Relic::TinyChest
         // TODO: Relic::JuzuBracelet
@@ -96,14 +89,14 @@ impl EventGenerator {
                     .event_pool
                     .iter()
                     .copied()
-                    .filter(|&event| self.filter_event(event, floor, deck, gold, health, relics))
+                    .filter(|&event| self.filter_event(event, floor, state))
                     .collect::<Vec<_>>();
                 let shrine_and_special_pool = self
                     .shrine_pool
                     .iter()
                     .copied()
                     .chain(self.one_time_event_pool.iter().copied())
-                    .filter(|&event| self.filter_event(event, floor, deck, gold, health, relics))
+                    .filter(|&event| self.filter_event(event, floor, state))
                     .collect::<Vec<_>>();
                 let pool = *event_rng_clone.weighted_choose(&[
                     (shrine_and_special_pool.as_slice(), SHRINE_PROBABILITY),
@@ -134,31 +127,23 @@ impl EventGenerator {
         }
     }
 
-    fn filter_event(
-        &self,
-        event: Event,
-        floor: Floor,
-        deck: &[Card],
-        gold: Gold,
-        health: Health,
-        relics: &[Relic],
-    ) -> bool {
+    fn filter_event(&self, event: Event, floor: Floor, state: &PlayerState) -> bool {
         match event {
             Event::DeadAdventurer => floor >= 7,
-            Event::DesignerInSpire => self.act.number > 1 && health.0 > 3,
-            Event::Duplicator => self.act.number > 1 && deck.len() >= 5,
+            Event::DesignerInSpire => self.act.number > 1 && state.hp > 3,
+            Event::Duplicator => self.act.number > 1 && state.deck.len() >= 5,
             Event::FaceTrader => self.act.number < 3,
             Event::HypnotizingColoredMushrooms => floor >= 7,
-            Event::KnowingSkull => self.act.number == 2 && health.0 >= 13,
-            Event::Nloth => self.act.number == 2 && relics.len() >= 2,
-            Event::OldBeggar => gold >= 75,
+            Event::KnowingSkull => self.act.number == 2 && state.hp >= 13,
+            Event::Nloth => self.act.number == 2 && state.relics.len() >= 2,
+            Event::OldBeggar => state.gold >= 75,
             Event::SecretPortal => false, // 13m 20s
-            Event::TheCleric => gold >= 35,
+            Event::TheCleric => state.gold >= 35,
             Event::TheColosseum => floor - ((self.act.number as u64 - 1) * 17) >= 7,
-            Event::TheDivineFountain => deck.iter().any(|card| card.is_curse()),
-            Event::TheJoust => self.act.number == 2 && gold >= 50,
-            Event::TheMoaiHead => health.0 <= health.1 / 2,
-            Event::TheWomanInBlue => gold >= 20,
+            Event::TheDivineFountain => state.deck.iter().any(|card| card.is_curse()),
+            Event::TheJoust => self.act.number == 2 && state.gold >= 50,
+            Event::TheMoaiHead => state.hp <= state.hp_max / 2,
+            Event::TheWomanInBlue => state.gold >= 20,
             _ => true,
         }
     }
@@ -179,17 +164,16 @@ mod test {
     #[test]
     fn test_event_generator() {
         let seed = Seed::from(3);
-        let deck = IRONCLAD.starting_deck;
-        let relics = [Relic::BurningBlood];
         let mut event_generator = EventGenerator::new(seed);
-        let (room, event) = event_generator.next_event(3, deck, 99, (80, 80), &relics);
+        let state = PlayerState::new(IRONCLAD);
+        let (room, event) = event_generator.next_event(3, &state);
         assert_eq!(room, Room::Event);
         assert_eq!(event, Some(Event::UpgradeShrine));
-        let (room, _) = event_generator.next_event(4, deck, 99, (80, 80), &relics);
+        let (room, _) = event_generator.next_event(4, &state);
         assert_eq!(room, Room::Shop);
-        let (room, _) = event_generator.next_event(7, deck, 99, (80, 80), &relics);
+        let (room, _) = event_generator.next_event(7, &state);
         assert_eq!(room, Room::Monster);
-        let (room, event) = event_generator.next_event(8, deck, 99, (80, 80), &relics);
+        let (room, event) = event_generator.next_event(8, &state);
         assert_eq!(room, Room::Event);
         assert_eq!(event, Some(Event::DeadAdventurer));
     }
@@ -198,21 +182,20 @@ mod test {
     fn test_event_generator_test_vector() {
         let seed = Seed::from(3);
         let mut event_generator = EventGenerator::new(seed);
-        let deck = IRONCLAD.starting_deck;
-        let relics = [Relic::BurningBlood];
+        let state = PlayerState::new(IRONCLAD);
         let mut test_vector = vec![];
         for i in 3..15 {
-            let (room, event) = event_generator.next_event(i, deck, 99, (80, 80), &relics);
+            let (room, event) = event_generator.next_event(i, &state);
             test_vector.push((room, event));
         }
         event_generator.advance_act();
         for i in 18..30 {
-            let (room, event) = event_generator.next_event(i, deck, 99, (80, 80), &relics);
+            let (room, event) = event_generator.next_event(i, &state);
             test_vector.push((room, event));
         }
         event_generator.advance_act();
         for i in 33..45 {
-            let (room, event) = event_generator.next_event(i, deck, 99, (80, 80), &relics);
+            let (room, event) = event_generator.next_event(i, &state);
             test_vector.push((room, event));
         }
         assert_eq!(

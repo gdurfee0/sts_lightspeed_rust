@@ -198,6 +198,7 @@ impl PlayerInteraction {
         potions: &[Potion],
         one_only: bool,
     ) -> Result<Option<Potion>, Error> {
+        // TODO: Allow discarding and drinking potions here too.
         let choices = potions
             .iter()
             .copied()

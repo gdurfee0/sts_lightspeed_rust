@@ -159,6 +159,7 @@ impl Player {
         mut choice_count: usize,
     ) -> Result<(), Error> {
         let mut potion_vec = potions.to_vec();
+        // TODO: Allow discarding potions & drinking the main-screen drinkable ones here
         while self.state.has_potion_slot_available() && !potion_vec.is_empty() && choice_count > 0 {
             if let Some(potion) = self
                 .comms
@@ -194,7 +195,7 @@ impl Player {
         let mut gold_option: Option<Gold> = Some(gold);
         let mut card_vec = cards.to_vec();
         let mut cards_left_to_choose = 1;
-        // TODO: Potion rewards
+        // TODO: Allow discarding potions & drinking the main-screen drinkable ones here
         while gold_option.is_some()
             || (maybe_potion.is_some() && self.state.has_potion_slot_available())
             || (!card_vec.is_empty() && cards_left_to_choose > 0)

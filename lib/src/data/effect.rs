@@ -27,6 +27,7 @@ pub enum EnemyEffect {
 
 #[derive(Clone, Debug)]
 pub enum PlayerEffect {
+    AddToDiscardPile(&'static [Card]),
     Apply(EnemyCondition),
     ApplyToAll(EnemyCondition),
     ApplyToSelf(PlayerCondition),
@@ -35,7 +36,6 @@ pub enum PlayerEffect {
     GainBlock(Block),
     UpgradeOneCardInCombat(),
     /*
-    AddToDiscardPile(&'static [Card]),
     AddToHand(&'static [Card]),
     Buff(Buff, StackCount),
     BuffCustom(),

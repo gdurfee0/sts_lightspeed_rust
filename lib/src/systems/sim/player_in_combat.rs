@@ -1,7 +1,7 @@
 use anyhow::Error;
 
-use crate::components::{EnemyStatus, Notification, PlayerCombatState, PotionAction};
-use crate::data::{Card, CardDetails, Enemy, PlayerCondition, Relic};
+use crate::components::{CardInCombat, EnemyStatus, Notification, PlayerCombatState, PotionAction};
+use crate::data::{Card, Enemy, PlayerCondition, Relic};
 use crate::systems::rng::StsRandom;
 use crate::types::{AttackDamage, Block, EnemyIndex, HandIndex};
 
@@ -21,8 +21,8 @@ pub struct PlayerInCombat<'a> {
 #[derive(Clone, Debug)]
 pub enum CombatAction {
     EndTurn,
-    PlayCard(&'static CardDetails),
-    PlayCardAgainstEnemy(&'static CardDetails, EnemyIndex),
+    PlayCard(Card),
+    PlayCardAgainstEnemy(Card, EnemyIndex),
     Potion(PotionAction),
 }
 
@@ -31,7 +31,9 @@ impl<'a> PlayerInCombat<'a> {
         let mut combat_state = PlayerCombatState::new(&player.state.deck);
         shuffle_rng.java_compat_shuffle(&mut combat_state.draw_pile);
         // Move innate cards to the top of the draw pile
-        combat_state.draw_pile.sort_by_key(|card| card.is_innate());
+        combat_state
+            .draw_pile
+            .sort_by_key(|card| card.card.is_innate());
         // TODO: Draw more than 5 cards if there are more than 5 innate cards
         Self {
             shuffle_rng,
@@ -150,7 +152,7 @@ impl<'a> PlayerInCombat<'a> {
             .send_notification(Notification::EndingCombat)
     }
 
-    pub fn take_damage(&mut self, amount: AttackDamage) -> Result<(), Error> {
+    pub fn take_blockable_damage(&mut self, amount: AttackDamage) -> Result<(), Error> {
         if amount <= self.state.block {
             self.state.block -= amount;
             self.player
@@ -173,20 +175,27 @@ impl<'a> PlayerInCombat<'a> {
             self.state.block = 0;
             self.player
                 .comms
-                .send_notification(Notification::Block(self.state.block))?;
-            self.player
-                .comms
-                .send_notification(Notification::DamageTaken(remaining_damage))?;
-            self.player
-                .comms
-                .send_notification(Notification::DamageTaken(remaining_damage))?;
-            self.player.decrease_hp(remaining_damage)
+                .send_notification(Notification::Block(0))?;
+            self.take_unblockable_damage(remaining_damage)
         } else {
-            self.player
-                .comms
-                .send_notification(Notification::DamageTaken(amount))?;
-            self.player.decrease_hp(amount)
+            self.take_unblockable_damage(amount)
         }
+    }
+
+    pub fn take_unblockable_damage(&mut self, amount: AttackDamage) -> Result<(), Error> {
+        self.player
+            .comms
+            .send_notification(Notification::DamageTaken(amount))?;
+        if amount > 0 {
+            self.state.hp_loss_count += 1;
+            // TODO: Lookup instead of linear pass?
+            for card in self.state.cards_iter_mut() {
+                if let Card::BloodForBlood = card.card {
+                    card.cost_this_combat = card.cost_this_combat.saturating_sub(1);
+                }
+            }
+        }
+        self.player.decrease_hp(amount)
     }
 
     pub fn draw_cards(&mut self) -> Result<(), Error> {
@@ -194,10 +203,10 @@ impl<'a> PlayerInCombat<'a> {
         let draw_count = 5;
         for i in 0..draw_count {
             if let Some(card) = self.state.draw_pile.pop() {
-                self.state.hand.push(card);
                 self.player
                     .comms
-                    .send_notification(Notification::CardDrawn(i, card))?;
+                    .send_notification(Notification::CardDrawn(i, card.card))?;
+                self.state.hand.push(card);
             } else {
                 // Shuffle discard pile into draw pile
                 self.player
@@ -207,10 +216,10 @@ impl<'a> PlayerInCombat<'a> {
                     .java_compat_shuffle(&mut self.state.discard_pile);
                 self.state.draw_pile.append(&mut self.state.discard_pile);
                 if let Some(card) = self.state.draw_pile.pop() {
-                    self.state.hand.push(card);
                     self.player
                         .comms
-                        .send_notification(Notification::CardDrawn(i, card))?;
+                        .send_notification(Notification::CardDrawn(i, card.card))?;
+                    self.state.hand.push(card);
                 }
             }
         }
@@ -218,7 +227,12 @@ impl<'a> PlayerInCombat<'a> {
     }
 
     pub fn add_to_discard_pile(&mut self, cards: &[Card]) -> Result<(), Error> {
-        self.state.discard_pile.extend_from_slice(cards);
+        cards
+            .iter()
+            .map(|&card| CardInCombat::new(None, card))
+            .for_each(|card| {
+                self.state.discard_pile.push(card);
+            });
         self.player
             .comms
             .send_notification(Notification::AddToDiscardPile(cards.to_vec()))
@@ -260,7 +274,7 @@ impl<'a> PlayerInCombat<'a> {
             .copied()
             .enumerate()
             .filter_map(|(hand_index, card)| {
-                if card.cost() > self.state.energy {
+                if card.cost_this_combat > self.state.energy {
                     None
                 } else {
                     Some((hand_index, card))
@@ -271,16 +285,12 @@ impl<'a> PlayerInCombat<'a> {
         match self.player.comms.choose_card_to_play(&playable_cards)? {
             Some(hand_index) => {
                 self.card_just_played = Some(hand_index);
-                let card = self.state.hand[hand_index];
-                let card_details = CardDetails::for_card(card);
-                if card_details.requires_target {
+                let card = self.state.hand[hand_index].card;
+                if card.requires_target() {
                     let enemy_index = self.player.comms.choose_enemy_to_target(enemies)?;
-                    Ok(CombatAction::PlayCardAgainstEnemy(
-                        card_details,
-                        enemy_index,
-                    ))
+                    Ok(CombatAction::PlayCardAgainstEnemy(card, enemy_index))
                 } else {
-                    Ok(CombatAction::PlayCard(card_details))
+                    Ok(CombatAction::PlayCard(card))
                 }
             }
             None => Ok(CombatAction::EndTurn),
@@ -289,18 +299,21 @@ impl<'a> PlayerInCombat<'a> {
 
     pub fn dispose_card_just_played(&mut self) -> Result<(), Error> {
         if let Some(hand_index) = self.card_just_played {
-            let card = self.state.hand.remove(hand_index);
-            self.state.energy = self.state.energy.saturating_sub(card.cost());
-            if card.exhausts() {
-                self.state.exhaust_pile.push(card);
+            let card_in_combat = self.state.hand.remove(hand_index);
+            self.state.energy = self
+                .state
+                .energy
+                .saturating_sub(card_in_combat.cost_this_combat);
+            if card_in_combat.card.exhausts() {
+                self.state.exhaust_pile.push(card_in_combat);
                 self.player
                     .comms
-                    .send_notification(Notification::CardExhausted(hand_index, card))
+                    .send_notification(Notification::CardExhausted(hand_index, card_in_combat.card))
             } else {
-                self.state.discard_pile.push(card);
+                self.state.discard_pile.push(card_in_combat);
                 self.player
                     .comms
-                    .send_notification(Notification::CardDiscarded(hand_index, card))
+                    .send_notification(Notification::CardDiscarded(hand_index, card_in_combat.card))
             }
         } else {
             Ok(())
@@ -325,5 +338,65 @@ impl<'a> PlayerInCombat<'a> {
 
     pub fn is_dead(&self) -> bool {
         self.player.state.hp == 0
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::sync::mpsc::channel;
+
+    use crate::data::IRONCLAD;
+    use crate::Seed;
+
+    use super::*;
+
+    #[test]
+    fn test_blood_for_blood() {
+        let (to_server, from_client) = channel();
+        let (to_client, from_server) = channel();
+
+        let mut player = Player::new(IRONCLAD, from_client, to_client);
+        player.state.deck = vec![Card::BloodForBlood];
+        let mut player_in_combat = PlayerInCombat::new(Seed::from(3).into(), &mut player);
+
+        assert_eq!(
+            4,
+            player_in_combat
+                .state
+                .draw_pile
+                .iter()
+                .find(|card| card.card == Card::BloodForBlood)
+                .unwrap()
+                .cost_this_combat
+        );
+        player_in_combat.take_blockable_damage(5).unwrap();
+        assert_eq!(
+            3,
+            player_in_combat
+                .state
+                .draw_pile
+                .iter()
+                .find(|card| card.card == Card::BloodForBlood)
+                .unwrap()
+                .cost_this_combat
+        );
+        player_in_combat.take_blockable_damage(5).unwrap();
+        player_in_combat.take_blockable_damage(5).unwrap();
+        player_in_combat.take_blockable_damage(5).unwrap();
+        player_in_combat.take_blockable_damage(5).unwrap();
+        player_in_combat.take_blockable_damage(5).unwrap();
+        assert_eq!(
+            0,
+            player_in_combat
+                .state
+                .draw_pile
+                .iter()
+                .find(|card| card.card == Card::BloodForBlood)
+                .unwrap()
+                .cost_this_combat
+        );
+
+        drop(to_server);
+        drop(from_server);
     }
 }

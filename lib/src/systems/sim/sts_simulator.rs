@@ -61,14 +61,23 @@ impl StsSimulator {
         }
     }
 
-    pub fn run_combat(&mut self, floor: Floor, encounter: Encounter) -> Result<bool, Error> {
-        CombatSimulator::new(
+    pub fn run_encounter(&mut self, floor: Floor, encounter: Encounter) -> Result<bool, Error> {
+        if !CombatSimulator::new(
             self.seed.with_offset(floor),
             encounter,
             &mut self.misc_rng,
             &mut self.player,
         )
-        .run()
+        .run()?
+        {
+            Ok(false)
+        } else {
+            let gold_reward = self.treasure_rng.gen_range(10..=20);
+            let card_rewards = self.card_generator.combat_rewards();
+            self.player
+                .choose_combat_rewards(gold_reward, &card_rewards)?;
+            Ok(true)
+        }
     }
 
     pub fn run(mut self) -> Result<(), Error> {
@@ -89,7 +98,7 @@ impl StsSimulator {
             &mut self.player,
         );
         neow_simulator.run()?;
-        let mut floor: Floor = 1;
+        let mut floor = 1;
         loop {
             //self.card_generator = CardGenerator::new(self.seed.with_offset(floor), self.character);
             self.misc_rng = self.seed.with_offset(floor).into();
@@ -104,6 +113,19 @@ impl StsSimulator {
                 Room::Event => {
                     let (room, maybe_event) =
                         self.event_generator.next_event(floor, &self.player.state);
+                    match room {
+                        Room::Event => todo!(),
+                        Room::Monster => {
+                            let encounter = self.encounter_generator.next_monster_encounter();
+                            if !self.run_encounter(floor, encounter)? {
+                                break;
+                            }
+                        }
+                        Room::Shop => todo!(),
+                        Room::Treasure => todo!(),
+                        invalid => unreachable!("{:?}", invalid),
+                    }
+
                     println!("? room: {:?}", room);
                     if let Some(event) = maybe_event {
                         println!("Event: {:?}", event);
@@ -116,13 +138,9 @@ impl StsSimulator {
                 }
                 Room::Monster => {
                     let encounter = self.encounter_generator.next_monster_encounter();
-                    if !self.run_combat(floor, encounter)? {
+                    if !self.run_encounter(floor, encounter)? {
                         break;
                     }
-                    let gold_reward = self.treasure_rng.gen_range(10..=20);
-                    let card_rewards = self.card_generator.combat_rewards();
-                    self.player
-                        .choose_combat_rewards(gold_reward, &card_rewards)?;
                 }
                 Room::Shop => todo!(),
                 Room::Treasure => todo!(),

@@ -9,6 +9,7 @@ use crate::types::{ColumnIndex, DeckIndex, EnemyIndex, Gold, HandIndex};
 use super::enemy_status::EnemyStatus;
 use super::message::{Choice, PotionAction, Prompt, StsMessage};
 use super::notification::Notification;
+use super::CardInCombat;
 
 #[derive(Clone, Debug)]
 pub enum MainScreenAction {
@@ -126,16 +127,16 @@ impl PlayerInteraction {
     /// cards).
     pub fn choose_card_to_play(
         &self,
-        playable_cards: &[(HandIndex, Card)],
+        playable_cards: &[(HandIndex, CardInCombat)],
     ) -> Result<Option<HandIndex>, Error> {
         let choices = playable_cards
             .iter()
             .copied()
-            .map(|(index, card)| Choice::PlayCardFromHand(index, card))
+            .map(|(index, card)| Choice::PlayCardFromHand(index, card.card))
             .chain(once(Choice::EndTurn))
             .collect::<Vec<_>>();
         match self.prompt_for_choice(Prompt::CombatAction, &choices)? {
-            Choice::PlayCardFromHand(index, _) => Ok(Some(*index)),
+            Choice::PlayCardFromHand(hand_index, _) => Ok(Some(*hand_index)),
             Choice::EndTurn => Ok(None),
             invalid => unreachable!("{:?}", invalid),
         }

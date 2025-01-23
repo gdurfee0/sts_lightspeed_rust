@@ -1,3 +1,4 @@
+mod card_in_combat;
 mod enemy_state;
 mod enemy_status;
 pub mod map;
@@ -7,6 +8,7 @@ mod player_combat_state;
 mod player_interaction;
 mod player_state;
 
+pub use card_in_combat::CardInCombat;
 pub use enemy_state::EnemyState;
 pub use enemy_status::EnemyStatus;
 pub use map::Room;

@@ -16,7 +16,7 @@ fn main() -> Result<(), anyhow::Error> {
     let (to_client, from_server) = channel();
     let mut simulator = StsSimulator::new(seed, character, from_client, to_client);
     let simulator_handle = thread::spawn(move || {
-        let _ = simulator.run_combat(floor, encounter);
+        let _ = simulator.run_encounter(floor, encounter);
     });
     let game_controller = CombatClient::new(&from_server, &to_server);
     game_controller.run()?;

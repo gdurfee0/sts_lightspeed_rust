@@ -1,7 +1,7 @@
 use anyhow::Error;
 
 use crate::components::EnemyStatus;
-use crate::data::{CardDetails, Encounter, EnemyCondition, EnemyEffect, PlayerEffect};
+use crate::data::{Card, CardDetails, Encounter, EnemyCondition, EnemyEffect, PlayerEffect};
 use crate::systems::rng::{Seed, StsRandom};
 use crate::types::{AttackDamage, Block, EnemyIndex};
 
@@ -117,11 +117,12 @@ impl<'a> CombatSimulator<'a> {
                             enemy.apply_condition(enemy_condition);
                         }
                         EnemyEffect::DealDamage(amount) => {
-                            self.player_in_combat.take_damage(Self::incoming_damage(
-                                &self.player_in_combat,
-                                enemy,
-                                *amount,
-                            ))?;
+                            self.player_in_combat
+                                .take_blockable_damage(Self::incoming_damage(
+                                    &self.player_in_combat,
+                                    enemy,
+                                    *amount,
+                                ))?;
                         }
                     }
                     if enemy.state.is_dead() {
@@ -146,9 +147,13 @@ impl<'a> CombatSimulator<'a> {
     }
 
     // TODO: reactions
-    fn play_card(&mut self, card_details: &'static CardDetails) -> Result<(), Error> {
+    fn play_card(&mut self, card: Card) -> Result<(), Error> {
+        let card_details = CardDetails::for_card(card);
         for effect in card_details.effect_chain.iter() {
             match effect {
+                PlayerEffect::AddToDiscardPile(cards) => {
+                    self.player_in_combat.add_to_discard_pile(cards)?;
+                }
                 PlayerEffect::Apply(_) => unreachable!(
                     "Debuff should be handled by play_card_against_enemy, {:?}",
                     card_details
@@ -181,9 +186,10 @@ impl<'a> CombatSimulator<'a> {
 
     fn play_card_against_enemy(
         &mut self,
-        card_details: &'static CardDetails,
+        card: Card,
         enemy_index: EnemyIndex,
     ) -> Result<(), Error> {
+        let card_details = CardDetails::for_card(card);
         for effect in card_details.effect_chain.iter() {
             match effect {
                 PlayerEffect::Apply(condition) => {

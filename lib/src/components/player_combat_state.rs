@@ -1,6 +1,8 @@
 use crate::data::{Card, PlayerCondition};
 use crate::types::{Block, Energy};
 
+use super::card_in_combat::CardInCombat;
+
 /// Captures the state of a combat encounter, including the player's hand, draw pile, etc.
 /// Lives only as long as the combat encounter itself.  TODO: lock down field visibility
 #[derive(Debug)]
@@ -8,10 +10,11 @@ pub struct PlayerCombatState {
     pub energy: Energy,
     pub block: Block,
     pub conditions: Vec<PlayerCondition>,
-    pub hand: Vec<Card>,
-    pub draw_pile: Vec<Card>,
-    pub discard_pile: Vec<Card>,
-    pub exhaust_pile: Vec<Card>,
+    pub hand: Vec<CardInCombat>,
+    pub draw_pile: Vec<CardInCombat>,
+    pub discard_pile: Vec<CardInCombat>,
+    pub exhaust_pile: Vec<CardInCombat>,
+    pub hp_loss_count: usize,
 }
 
 impl PlayerCombatState {
@@ -21,9 +24,15 @@ impl PlayerCombatState {
             block: 0,
             conditions: Vec::new(),
             hand: Vec::new(),
-            draw_pile: deck.to_vec(),
+            draw_pile: deck
+                .iter()
+                .copied()
+                .enumerate()
+                .map(|(i, card)| CardInCombat::new(Some(i), card))
+                .collect(),
             discard_pile: Vec::new(),
             exhaust_pile: Vec::new(),
+            hp_loss_count: 0,
         }
     }
 
@@ -43,5 +52,13 @@ impl PlayerCombatState {
         self.conditions
             .iter()
             .any(|c| matches!(c, PlayerCondition::Weak(_)))
+    }
+
+    pub fn cards_iter_mut(&mut self) -> impl Iterator<Item = &mut CardInCombat> {
+        self.hand
+            .iter_mut()
+            .chain(self.draw_pile.iter_mut())
+            .chain(self.discard_pile.iter_mut())
+            .chain(self.exhaust_pile.iter_mut())
     }
 }

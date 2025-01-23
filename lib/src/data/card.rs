@@ -436,6 +436,10 @@ impl Card {
     pub fn is_innate(&self) -> bool {
         CardDetails::for_card(*self).innate
     }
+
+    pub fn requires_target(&self) -> bool {
+        CardDetails::for_card(*self).requires_target
+    }
 }
 
 #[derive(Debug)]
@@ -600,11 +604,13 @@ static ALL_CARDS: Lazy<Vec<CardDetails>> = Lazy::new(|| {
             exhaust
         ),
         define_card!((Amplify, Skill, 1), [Buff(Buff::Amplify, 1)]),
+        */
         define_card!(
             (Anger, Attack, 0),
             [DealDamage(6), AddToDiscardPile(&[Card::Anger])],
             requires_target
         ),
+        /*
         define_card!((Apotheosis, Skill, 2), [UpgradeAllCardsInCombat()], exhaust),
         define_card!(
             (Apparition, Skill, 1),
@@ -688,11 +694,13 @@ static ALL_CARDS: Lazy<Vec<CardDetails>> = Lazy::new(|| {
             requires_target
         ),
         define_card!((Blizzard, Skill, 1), [DealDamageToAllCustom()]),
+        */
         define_card!(
             (BloodForBlood, Attack, 4),
             [DealDamage(18)],
             [requires_target, special_cost]
         ),
+        /*
         define_card!(
             (Bloodletting, Skill, 0),
             [LoseHp(3), GainEnergy(2)],
@@ -1005,6 +1013,11 @@ static ALL_CARDS: Lazy<Vec<CardDetails>> = Lazy::new(|| {
             requires_target
         ),
         */
+        define_card!(
+            (Intimidate, Skill, 0),
+            [ApplyToAll(EnemyCondition::Weak(1))],
+            exhaust
+        ),
         define_card!((Slimed, Status, 1), [], exhaust),
         define_card!((Strike, Attack, 1), [DealDamage(6)], requires_target),
         define_card!(

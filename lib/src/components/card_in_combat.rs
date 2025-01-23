@@ -9,11 +9,11 @@ pub struct CardInCombat {
 }
 
 impl CardInCombat {
-    pub fn new(deck_index: Option<DeckIndex>, card: Card) -> Self {
+    pub fn new(deck_index: Option<DeckIndex>, card: Card, cost_this_combat: Energy) -> Self {
         Self {
             deck_index,
             card,
-            cost_this_combat: card.cost(),
+            cost_this_combat,
         }
     }
 }

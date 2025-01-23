@@ -90,6 +90,22 @@ impl Player {
             .send_notification(Notification::RelicObtained(relic))
     }
 
+    pub fn replace_relic(
+        &mut self,
+        relic_to_replace: Relic,
+        incoming_relic: Relic,
+    ) -> Result<(), Error> {
+        let relic_index = self
+            .state
+            .relics
+            .iter()
+            .position(|relic| *relic == relic_to_replace)
+            .expect("Relic to replace not found");
+        self.state.relics[relic_index] = incoming_relic;
+        self.comms
+            .send_notification(Notification::Relics(self.state.relics.clone()))
+    }
+
     pub fn extend_with_potion_choices(&self, choices: &mut Vec<Choice>, in_combat: bool) -> bool {
         let mut has_potion = false;
         for (index, maybe_potion) in self.state.potions.iter().enumerate() {

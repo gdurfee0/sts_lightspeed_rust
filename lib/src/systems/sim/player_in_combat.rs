@@ -1,10 +1,10 @@
 use anyhow::Error;
 
 use crate::components::{CardInCombat, EnemyStatus, Notification, PlayerCombatState, PotionAction};
-use crate::data::{Card, Enemy, PlayerCondition, Potion, Relic};
+use crate::data::{Card, PlayerCondition, Potion, Relic};
 use crate::systems::rng::StsRandom;
 use crate::types::{AttackDamage, Block, Dexterity, EnemyIndex, HandIndex};
-use crate::{Choice, Prompt};
+use crate::{Choice, Prompt, Seed};
 
 use super::player::Player;
 
@@ -12,9 +12,12 @@ use super::player::Player;
 /// Lives only as long as the combat encounter itself.  TODO: lock down field visibility
 #[derive(Debug)]
 pub struct PlayerInCombat<'a> {
-    shuffle_rng: StsRandom,
-    player: &'a mut Player,
+    pub player: &'a mut Player,
     pub state: PlayerCombatState,
+
+    shuffle_rng: StsRandom,
+    card_randomizer_rng: StsRandom,
+    cards_drawn_each_turn: usize,
     card_just_played: Option<HandIndex>,
 }
 
@@ -27,87 +30,51 @@ pub enum CombatAction {
 }
 
 impl<'a> PlayerInCombat<'a> {
-    pub fn new(mut shuffle_rng: StsRandom, player: &'a mut Player) -> Self {
-        let mut combat_state = PlayerCombatState::new(&player.state.deck);
-        shuffle_rng.java_compat_shuffle(&mut combat_state.draw_pile);
+    pub fn new(player: &'a mut Player, seed_for_floor: Seed) -> Self {
+        let mut state = PlayerCombatState::new(&player.state.deck);
+        let mut shuffle_rng = StsRandom::from(seed_for_floor);
+        let card_randomizer_rng = StsRandom::from(seed_for_floor);
+        shuffle_rng.java_compat_shuffle(&mut state.draw_pile);
         // Move innate cards to the top of the draw pile
-        combat_state
-            .draw_pile
-            .sort_by_key(|card| card.card.is_innate());
+        state.draw_pile.sort_by_key(|card| card.card.is_innate());
         // TODO: Draw more than 5 cards if there are more than 5 innate cards
+        let cards_drawn_each_turn = if player.state.has_relic(Relic::SneckoEye) {
+            7
+        } else {
+            5
+        };
         Self {
             shuffle_rng,
+            card_randomizer_rng,
             player,
-            state: combat_state,
+            cards_drawn_each_turn,
+            state,
             card_just_played: None,
         }
     }
 
-    pub fn apply_condition(&mut self, condition: &PlayerCondition) -> Result<(), Error> {
-        for preexisting_condition in self.state.conditions.iter_mut() {
-            if Self::maybe_merge_conditions(preexisting_condition, condition) {
-                return self
-                    .player
-                    .comms
-                    .send_notification(Notification::Conditions(self.state.conditions.clone()));
-            }
+    pub fn start_combat(&mut self, enemies: &[Option<EnemyStatus>]) -> Result<(), Error> {
+        if self.player.state.has_relic(Relic::SneckoEye) {
+            self.state.conditions.push(PlayerCondition::Confused());
         }
-        // If we make it here, we didn't have this condition already.
-        self.state.conditions.push(condition.clone());
         self.player
             .comms
-            .send_notification(Notification::Conditions(self.state.conditions.clone()))
-    }
-
-    fn maybe_merge_conditions(
-        existing_condition: &mut PlayerCondition,
-        incoming_condition: &PlayerCondition,
-    ) -> bool {
-        match existing_condition {
-            PlayerCondition::Frail(turns) => {
-                if let PlayerCondition::Frail(additional_turns) = incoming_condition {
-                    *turns = turns.saturating_add(*additional_turns);
-                    return true;
-                }
-            }
-            PlayerCondition::Vulnerable(turns) => {
-                if let PlayerCondition::Vulnerable(additional_turns) = incoming_condition {
-                    *turns = turns.saturating_add(*additional_turns);
-                    return true;
-                }
-            }
-            PlayerCondition::Weak(turns) => {
-                if let PlayerCondition::Weak(additional_turns) = incoming_condition {
-                    *turns = turns.saturating_add(*additional_turns);
-                    return true;
-                }
-            }
-        }
-        false
-    }
-
-    pub fn tick_down_conditions(&mut self) {
-        for condition in self.state.conditions.iter_mut() {
-            match condition {
-                PlayerCondition::Frail(turns) => *turns = turns.saturating_sub(1),
-                PlayerCondition::Vulnerable(turns) => *turns = turns.saturating_sub(1),
-                PlayerCondition::Weak(turns) => *turns = turns.saturating_sub(1),
-            }
-        }
-        self.state.conditions.retain(|c| {
-            !matches!(
-                c,
-                PlayerCondition::Frail(0)
-                    | PlayerCondition::Vulnerable(0)
-                    | PlayerCondition::Weak(0)
-            )
-        });
-    }
-
-    pub fn start_combat(&self) -> Result<(), Error> {
+            .send_notification(Notification::StartingCombat)?;
         self.player
             .comms
-            .send_notification(Notification::StartingCombat)
+            .send_notification(Notification::Energy(self.state.energy))?;
+        self.player
+            .comms
+            .send_notification(Notification::Health(self.player.state.health()))?;
+        self.player
+            .comms
+            .send_notification(Notification::Strength(self.state.strength))?;
+        self.player
+            .comms
+            .send_notification(Notification::Dexterity(self.state.dexterity))?;
+        self.player
+            .comms
+            .send_notification(Notification::EnemyParty(enemies.to_vec()))
     }
 
     pub fn start_turn(&mut self) -> Result<(), Error> {
@@ -132,12 +99,7 @@ impl<'a> PlayerInCombat<'a> {
 
     pub fn end_turn(&mut self) -> Result<(), Error> {
         self.discard_hand()?;
-
-        // Tick down debuffs
-        self.tick_down_conditions();
-        self.player
-            .comms
-            .send_notification(Notification::Conditions(self.state.conditions.clone()))?;
+        self.tick_down_conditions()?;
 
         // TODO: Apply other end-of-turn effects
         Ok(())
@@ -150,6 +112,169 @@ impl<'a> PlayerInCombat<'a> {
         self.player
             .comms
             .send_notification(Notification::EndingCombat)
+    }
+
+    pub fn draw_cards(&mut self) -> Result<(), Error> {
+        // Draw new cards
+        for _ in 0..self.cards_drawn_each_turn {
+            if let Some(card) = self.state.draw_pile.pop() {
+                self.draw_card(card)?;
+            } else {
+                // Shuffle discard pile into draw pile
+                self.player
+                    .comms
+                    .send_notification(Notification::ShufflingDiscardToDraw)?;
+                println!("Discard pile before shuffle: {:?}", self.state.discard_pile);
+                self.shuffle_rng
+                    .java_compat_shuffle(&mut self.state.discard_pile);
+                println!("Discard pile after shuffle: {:?}", self.state.discard_pile);
+                self.state.draw_pile.append(&mut self.state.discard_pile);
+                if let Some(card) = self.state.draw_pile.pop() {
+                    self.draw_card(card)?;
+                }
+            }
+        }
+        Ok(())
+    }
+
+    fn draw_card(&mut self, mut card: CardInCombat) -> Result<(), Error> {
+        if self.state.is_confused() {
+            card.cost_this_combat = self.card_randomizer_rng.gen_range(0..=3);
+        }
+        self.state.hand.push(card);
+        self.player.comms.send_notification(Notification::CardDrawn(
+            self.state.hand.len() - 1,
+            card.card,
+            card.cost_this_combat,
+        ))
+    }
+
+    pub fn dispose_of_card_just_played(&mut self) -> Result<(), Error> {
+        if let Some(hand_index) = self.card_just_played {
+            let card_in_combat = self.state.hand.remove(hand_index);
+            self.state.energy = self
+                .state
+                .energy
+                .saturating_sub(card_in_combat.cost_this_combat);
+            if card_in_combat.card.exhausts() {
+                self.state.exhaust_pile.push(card_in_combat);
+                self.player
+                    .comms
+                    .send_notification(Notification::CardExhausted(hand_index, card_in_combat.card))
+            } else {
+                self.state.discard_pile.push(card_in_combat);
+                self.player
+                    .comms
+                    .send_notification(Notification::CardDiscarded(hand_index, card_in_combat.card))
+            }
+        } else {
+            Ok(())
+        }
+    }
+
+    fn discard_hand(&mut self) -> Result<(), Error> {
+        // Emulating the game's behavior
+        while let Some(card) = self.state.hand.pop() {
+            self.state.discard_pile.push(card);
+        }
+        self.player
+            .comms
+            .send_notification(Notification::HandDiscarded)
+    }
+
+    fn adjust_dexterity(&mut self, amount: Dexterity) -> Result<(), Error> {
+        self.state.dexterity = self.state.dexterity.saturating_add(amount);
+        self.player
+            .comms
+            .send_notification(Notification::Dexterity(self.state.dexterity))
+    }
+
+    pub fn apply_condition(&mut self, condition: &PlayerCondition) -> Result<(), Error> {
+        for preexisting_condition in self.state.conditions.iter_mut() {
+            if Self::maybe_merge_conditions(preexisting_condition, condition) {
+                return self
+                    .player
+                    .comms
+                    .send_notification(Notification::Conditions(self.state.conditions.clone()));
+            }
+        }
+        // If we make it here, we didn't have this condition already.
+        self.state.conditions.push(condition.clone());
+        self.player
+            .comms
+            .send_notification(Notification::Conditions(self.state.conditions.clone()))
+    }
+
+    fn maybe_merge_conditions(
+        existing_condition: &mut PlayerCondition,
+        incoming_condition: &PlayerCondition,
+    ) -> bool {
+        match existing_condition {
+            PlayerCondition::Confused() => {
+                if let PlayerCondition::Confused() = incoming_condition {
+                    return true;
+                }
+            }
+            PlayerCondition::Frail(turns) => {
+                if let PlayerCondition::Frail(additional_turns) = incoming_condition {
+                    *turns = turns.saturating_add(*additional_turns);
+                    return true;
+                }
+            }
+            PlayerCondition::Vulnerable(turns) => {
+                if let PlayerCondition::Vulnerable(additional_turns) = incoming_condition {
+                    *turns = turns.saturating_add(*additional_turns);
+                    return true;
+                }
+            }
+            PlayerCondition::Weak(turns) => {
+                if let PlayerCondition::Weak(additional_turns) = incoming_condition {
+                    *turns = turns.saturating_add(*additional_turns);
+                    return true;
+                }
+            }
+        }
+        false
+    }
+
+    pub fn tick_down_conditions(&mut self) -> Result<(), Error> {
+        for condition in self.state.conditions.iter_mut() {
+            match condition {
+                PlayerCondition::Confused() => (),
+                PlayerCondition::Frail(turns) => *turns = turns.saturating_sub(1),
+                PlayerCondition::Vulnerable(turns) => *turns = turns.saturating_sub(1),
+                PlayerCondition::Weak(turns) => *turns = turns.saturating_sub(1),
+            }
+        }
+        self.state.conditions.retain(|c| {
+            !matches!(
+                c,
+                PlayerCondition::Frail(0)
+                    | PlayerCondition::Vulnerable(0)
+                    | PlayerCondition::Weak(0)
+            )
+        });
+        self.player
+            .comms
+            .send_notification(Notification::Strength(self.state.strength))?;
+        self.player
+            .comms
+            .send_notification(Notification::Dexterity(self.state.dexterity))?;
+        self.player
+            .comms
+            .send_notification(Notification::Conditions(self.state.conditions.clone()))
+    }
+
+    pub fn add_to_discard_pile(&mut self, cards: &[Card]) -> Result<(), Error> {
+        cards
+            .iter()
+            .map(|&card| CardInCombat::new(None, card, card.cost()))
+            .for_each(|card| {
+                self.state.discard_pile.push(card);
+            });
+        self.player
+            .comms
+            .send_notification(Notification::AddToDiscardPile(cards.to_vec()))
     }
 
     pub fn take_blockable_damage(&mut self, amount: AttackDamage) -> Result<(), Error> {
@@ -196,6 +321,16 @@ impl<'a> PlayerInCombat<'a> {
             }
         }
         self.player.decrease_hp(amount)
+    }
+
+    pub fn gain_block(&mut self, amount: Block) -> Result<(), Error> {
+        self.player
+            .comms
+            .send_notification(Notification::BlockGained(amount))?;
+        self.state.block = self.state.block.saturating_add(amount);
+        self.player
+            .comms
+            .send_notification(Notification::Block(self.state.block))
     }
 
     fn expend_potion(&mut self, potion_action: &PotionAction) -> Result<(), Error> {
@@ -254,62 +389,6 @@ impl<'a> PlayerInCombat<'a> {
         }
     }
 
-    pub fn draw_cards(&mut self) -> Result<(), Error> {
-        // Draw new cards
-        let draw_count = 5;
-        for i in 0..draw_count {
-            if let Some(card) = self.state.draw_pile.pop() {
-                self.player
-                    .comms
-                    .send_notification(Notification::CardDrawn(i, card.card))?;
-                self.state.hand.push(card);
-            } else {
-                // Shuffle discard pile into draw pile
-                self.player
-                    .comms
-                    .send_notification(Notification::ShufflingDiscardToDraw)?;
-                self.shuffle_rng
-                    .java_compat_shuffle(&mut self.state.discard_pile);
-                self.state.draw_pile.append(&mut self.state.discard_pile);
-                if let Some(card) = self.state.draw_pile.pop() {
-                    self.player
-                        .comms
-                        .send_notification(Notification::CardDrawn(i, card.card))?;
-                    self.state.hand.push(card);
-                }
-            }
-        }
-        Ok(())
-    }
-
-    pub fn add_to_discard_pile(&mut self, cards: &[Card]) -> Result<(), Error> {
-        cards
-            .iter()
-            .map(|&card| CardInCombat::new(None, card))
-            .for_each(|card| {
-                self.state.discard_pile.push(card);
-            });
-        self.player
-            .comms
-            .send_notification(Notification::AddToDiscardPile(cards.to_vec()))
-    }
-
-    fn discard_hand(&mut self) -> Result<(), Error> {
-        // Emulating the game's behavior
-        while let Some(card) = self.state.hand.pop() {
-            self.state.discard_pile.push(card);
-        }
-        self.player
-            .comms
-            .send_notification(Notification::HandDiscarded)
-    }
-
-    pub fn send_enemy_died(&self, index: EnemyIndex, enemy: Enemy) -> Result<(), Error> {
-        self.player
-            .comms
-            .send_notification(Notification::EnemyDied(index, enemy))
-    }
-
     pub fn choose_next_action(
         &mut self,
         enemies: &[Option<EnemyStatus>],
@@ -362,10 +441,7 @@ impl<'a> PlayerInCombat<'a> {
         }
     }
 
-    pub fn choose_enemy_to_target(
-        &self,
-        enemies: &[Option<EnemyStatus>],
-    ) -> Result<EnemyIndex, Error> {
+    fn choose_enemy_to_target(&self, enemies: &[Option<EnemyStatus>]) -> Result<EnemyIndex, Error> {
         let choices = enemies
             .iter()
             .enumerate()
@@ -383,56 +459,6 @@ impl<'a> PlayerInCombat<'a> {
             Choice::TargetEnemy(enemy_index, _) => Ok(*enemy_index),
             invalid => unreachable!("{:?}", invalid),
         }
-    }
-
-    pub fn dispose_of_card_just_played(&mut self) -> Result<(), Error> {
-        if let Some(hand_index) = self.card_just_played {
-            let card_in_combat = self.state.hand.remove(hand_index);
-            self.state.energy = self
-                .state
-                .energy
-                .saturating_sub(card_in_combat.cost_this_combat);
-            if card_in_combat.card.exhausts() {
-                self.state.exhaust_pile.push(card_in_combat);
-                self.player
-                    .comms
-                    .send_notification(Notification::CardExhausted(hand_index, card_in_combat.card))
-            } else {
-                self.state.discard_pile.push(card_in_combat);
-                self.player
-                    .comms
-                    .send_notification(Notification::CardDiscarded(hand_index, card_in_combat.card))
-            }
-        } else {
-            Ok(())
-        }
-    }
-
-    pub fn gain_block(&mut self, amount: Block) -> Result<(), Error> {
-        self.player
-            .comms
-            .send_notification(Notification::BlockGained(amount))?;
-        self.state.block = self.state.block.saturating_add(amount);
-        self.player
-            .comms
-            .send_notification(Notification::Block(self.state.block))
-    }
-
-    pub fn update_enemy_status(&self, index: EnemyIndex, status: EnemyStatus) -> Result<(), Error> {
-        self.player
-            .comms
-            .send_notification(Notification::EnemyStatus(index, status))
-    }
-
-    pub fn is_dead(&self) -> bool {
-        self.player.state.hp == 0
-    }
-
-    fn adjust_dexterity(&mut self, amount: Dexterity) -> Result<(), Error> {
-        self.state.dexterity = self.state.dexterity.saturating_add(amount);
-        self.player
-            .comms
-            .send_notification(Notification::Dexterity(self.state.dexterity))
     }
 }
 
@@ -452,7 +478,7 @@ mod tests {
 
         let mut player = Player::new(IRONCLAD, from_client, to_client);
         player.state.deck = vec![Card::BloodForBlood];
-        let mut player_in_combat = PlayerInCombat::new(Seed::from(3).into(), &mut player);
+        let mut player_in_combat = PlayerInCombat::new(&mut player, Seed::from(3));
 
         assert_eq!(
             4,

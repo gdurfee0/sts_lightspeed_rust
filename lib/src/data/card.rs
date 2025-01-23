@@ -708,7 +708,9 @@ static ALL_CARDS: Lazy<Vec<CardDetails>> = Lazy::new(|| {
         ),
         define_card!((Bludgeon, Attack, 3), [DealDamage(32)], requires_target),
         define_card!((Blur, Skill, 1), [GainBlock(5), Buff(Buff::Blur, 1)]),
+        */
         define_card!((BodySlam, Attack, 1), [DealDamageCustom()], requires_target),
+        /*
         define_card!((BootSequence, Skill, 0), [GainBlock(10)], innate),
         define_card!((BouncingFlask, Skill, 2), [DealDamageToAllCustom()]),
         define_card!(

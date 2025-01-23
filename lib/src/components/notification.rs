@@ -32,7 +32,7 @@ pub enum Notification {
     BlockGained(Block),
     BlockLost(Block),
     CardDiscarded(HandIndex, Card),
-    CardDrawn(HandIndex, Card),
+    CardDrawn(HandIndex, Card, Energy),
     CardExhausted(HandIndex, Card),
     Conditions(Vec<PlayerCondition>),
     DamageBlocked(Hp),

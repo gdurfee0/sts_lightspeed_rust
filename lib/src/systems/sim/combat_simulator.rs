@@ -4,6 +4,7 @@ use crate::components::EnemyStatus;
 use crate::data::{Card, CardDetails, Encounter, EnemyCondition, EnemyEffect, PlayerEffect};
 use crate::systems::rng::{Seed, StsRandom};
 use crate::types::{AttackDamage, Block, EnemyIndex};
+use crate::Notification;
 
 use super::enemy_in_combat::EnemyInCombat;
 use super::party_generator::EnemyPartyGenerator;
@@ -27,7 +28,7 @@ impl<'a> CombatSimulator<'a> {
         player: &'a mut Player,
     ) -> Self {
         let ai_rng = StsRandom::from(seed_for_floor);
-        let player_in_combat = PlayerInCombat::new(StsRandom::from(seed_for_floor), player);
+        let player_in_combat = PlayerInCombat::new(player, seed_for_floor);
         Self {
             encounter,
             seed_for_floor,
@@ -43,7 +44,6 @@ impl<'a> CombatSimulator<'a> {
             "[EncounterSimulator] Running encounter: {:?}",
             self.encounter
         );
-        self.player_in_combat.start_combat()?;
         EnemyPartyGenerator::new(
             self.seed_for_floor,
             self.encounter,
@@ -51,6 +51,13 @@ impl<'a> CombatSimulator<'a> {
             self.misc_rng,
         )
         .generate(&mut self.enemy_party);
+        self.player_in_combat.start_combat(
+            &self
+                .enemy_party
+                .iter()
+                .map(|maybe_enemy| maybe_enemy.as_ref().map(EnemyStatus::from))
+                .collect::<Vec<_>>(),
+        )?;
         loop {
             self.conduct_player_turn()?;
             if self.combat_should_end() {
@@ -61,13 +68,14 @@ impl<'a> CombatSimulator<'a> {
                 break;
             }
         }
-        let victorious = !self.player_in_combat.is_dead();
+        let victorious = self.player_in_combat.player.state.hp > 0;
         self.player_in_combat.end_combat()?;
         Ok(victorious)
     }
 
     fn combat_should_end(&self) -> bool {
-        self.player_in_combat.is_dead() || self.enemy_party.iter().all(|enemy| enemy.is_none())
+        self.player_in_combat.player.state.hp == 0
+            || self.enemy_party.iter().all(|enemy| enemy.is_none())
     }
 
     fn conduct_player_turn(&mut self) -> Result<(), Error> {
@@ -128,7 +136,7 @@ impl<'a> CombatSimulator<'a> {
                         *maybe_enemy = None;
                         break;
                     }
-                    if self.player_in_combat.is_dead() {
+                    if self.player_in_combat.player.state.hp == 0 {
                         break;
                     }
                 }
@@ -163,7 +171,7 @@ impl<'a> CombatSimulator<'a> {
                 PlayerEffect::ApplyToSelf(player_condition) => {
                     self.player_in_combat.apply_condition(player_condition)?;
                 }
-                PlayerEffect::DealDamage(_) => unreachable!(
+                PlayerEffect::DealDamage(_) | PlayerEffect::DealDamageCustom() => unreachable!(
                     "DealDamage should be handled by play_card_against_enemy, {:?}",
                     card_details
                 ),
@@ -197,7 +205,18 @@ impl<'a> CombatSimulator<'a> {
                 PlayerEffect::DealDamage(amount) => {
                     self.attack_enemy(enemy_index, *amount)?;
                 }
-                _ => unreachable!(
+                PlayerEffect::DealDamageCustom() => match card_details.card {
+                    Card::BodySlam => {
+                        self.attack_enemy(enemy_index, self.player_in_combat.state.block)?;
+                    }
+                    _ => unreachable!("{:?}", card_details),
+                },
+                PlayerEffect::AddToDiscardPile(_)
+                | PlayerEffect::ApplyToAll(_)
+                | PlayerEffect::ApplyToSelf(_)
+                | PlayerEffect::DealDamageToAll(_)
+                | PlayerEffect::GainBlock(_)
+                | PlayerEffect::UpgradeOneCardInCombat() => unreachable!(
                     "Inappropriate card handled by play_card_against_enemy, {:?}",
                     card_details
                 ),
@@ -216,9 +235,14 @@ impl<'a> CombatSimulator<'a> {
             let enemy_status = EnemyStatus::from(&*enemy);
             let enemy_type = enemy_status.enemy_type;
             self.player_in_combat
-                .update_enemy_status(index, enemy_status)?;
+                .player
+                .comms
+                .send_notification(Notification::EnemyStatus(index, enemy_status))?;
             if enemy.state.is_dead() {
-                self.player_in_combat.send_enemy_died(index, enemy_type)?;
+                self.player_in_combat
+                    .player
+                    .comms
+                    .send_notification(Notification::EnemyDied(index, enemy_type))?;
                 self.enemy_party[index] = None;
             }
         }
@@ -239,8 +263,11 @@ impl<'a> CombatSimulator<'a> {
     ) -> Result<(), Error> {
         if let Some(enemy) = self.enemy_party[index].as_mut() {
             enemy.apply_condition(condition);
+            let enemy_status = EnemyStatus::from(&*enemy);
             self.player_in_combat
-                .update_enemy_status(index, EnemyStatus::from(&*enemy))?;
+                .player
+                .comms
+                .send_notification(Notification::EnemyStatus(index, enemy_status))?;
         }
         Ok(())
     }

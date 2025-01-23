@@ -1092,23 +1092,25 @@ mod test {
         let mut choice_seq = vec![];
         loop {
             match from_server.recv_timeout(Duration::from_secs(5)) {
-                Ok(StsMessage::Notification(notification)) => {
-                    println!("{:?}", notification);
+                Ok(message) => {
+                    println!("{:?}", message);
+                    if let StsMessage::Choices(_, choices) = &message {
+                        let num_choices = choices.len();
+                        let choice = my_rng.gen_range(0..num_choices);
+                        choice_seq.push(choices[choice].clone());
+                        to_server.send(choice).unwrap()
+                    }
                 }
-                Ok(StsMessage::Choices(_, choices)) => {
-                    let num_choices = choices.len();
-                    let choice = my_rng.gen_range(0..num_choices);
-                    choice_seq.push(choice);
-                    to_server.send(choice).unwrap();
-                }
-                Ok(StsMessage::GameOver(_)) => {
-                    break;
-                }
-                Err(_) => panic!("Timed out waiting for message, or channel closed"),
+                Err(_) => panic!(
+                    "Timed out waiting for message, or channel closed. Choice history: {:?}",
+                    choice_seq
+                ),
             }
         }
+        /*
         drop(to_server);
         let result = simulator_thread.join();
         assert!(result.is_ok(), "Thread panicked: {:?}", result.unwrap_err());
+        */
     }
 }

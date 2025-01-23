@@ -16,6 +16,9 @@ pub enum EnemyCondition {
 #[derive(Clone, Debug)]
 #[cfg_attr(test, derive(Eq, Hash, PartialEq))]
 pub enum PlayerCondition {
+    /// The costs of your cards are randomized on draw, from 0 to 3.
+    Confused(),
+
     /// Block gained from cards is reduced by 25%.
     Frail(StackCount),
 
@@ -157,8 +160,7 @@ pub enum Debuff {
     Choked,
     /// At the end of your turn, take X damage.
     Constricted,
-    /// The costs of your cards are randomized on draw, from 0 to 3.
-    Confused,
+
     /// On death, the enemy deals X times its max HP in damage to all enemies.
     CorpseExplosion,
     /// At the end of your turn, lose X Dexterity.

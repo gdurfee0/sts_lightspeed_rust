@@ -1,5 +1,5 @@
 use crate::data::{Card, PlayerCondition};
-use crate::types::{Block, Dexterity, Energy};
+use crate::types::{Block, Dexterity, Energy, Strength};
 
 use super::card_in_combat::CardInCombat;
 
@@ -15,6 +15,7 @@ pub struct PlayerCombatState {
     pub discard_pile: Vec<CardInCombat>,
     pub exhaust_pile: Vec<CardInCombat>,
     pub hp_loss_count: usize,
+    pub strength: Strength,
     pub dexterity: Dexterity,
 }
 
@@ -29,11 +30,12 @@ impl PlayerCombatState {
                 .iter()
                 .copied()
                 .enumerate()
-                .map(|(i, card)| CardInCombat::new(Some(i), card))
+                .map(|(i, card)| CardInCombat::new(Some(i), card, card.cost()))
                 .collect(),
             discard_pile: Vec::new(),
             exhaust_pile: Vec::new(),
             hp_loss_count: 0,
+            strength: 0,
             dexterity: 0,
         }
     }
@@ -54,6 +56,12 @@ impl PlayerCombatState {
         self.conditions
             .iter()
             .any(|c| matches!(c, PlayerCondition::Weak(_)))
+    }
+
+    pub fn is_confused(&self) -> bool {
+        self.conditions
+            .iter()
+            .any(|c| matches!(c, PlayerCondition::Confused()))
     }
 
     pub fn cards_iter_mut(&mut self) -> impl Iterator<Item = &mut CardInCombat> {

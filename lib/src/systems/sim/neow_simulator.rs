@@ -10,6 +10,7 @@ use super::player::Player;
 
 pub struct NeowSimulator<'a> {
     neow_generator: NeowGenerator<'a>,
+    starting_relic: Relic,
     player: &'a mut Player,
 }
 
@@ -24,7 +25,9 @@ impl<'a> NeowSimulator<'a> {
     ) -> Self {
         let neow_generator =
             NeowGenerator::new(seed, character, potion_rng, card_generator, relic_generator);
+        let starting_relic = character.starting_relic;
         Self {
+            starting_relic,
             neow_generator,
             player,
         }
@@ -73,7 +76,11 @@ impl<'a> NeowSimulator<'a> {
                 .player
                 .choose_potions_to_obtain(&self.neow_generator.three_random_potions(), 3),
             NeowBlessing::RemoveCard => self.choose_card_to_remove(),
-            NeowBlessing::ReplaceStarterRelic => todo!(),
+            NeowBlessing::ReplaceStarterRelic => {
+                let replacement_relic = self.neow_generator.boss_relic();
+                self.player
+                    .replace_relic(self.starting_relic, replacement_relic)
+            }
             NeowBlessing::TransformCard => todo!(),
             NeowBlessing::UpgradeCard => todo!(),
             NeowBlessing::Composite(bonus, penalty) => {

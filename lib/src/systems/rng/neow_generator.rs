@@ -85,6 +85,10 @@ impl<'a> NeowGenerator<'a> {
         self.relic_generator.common_relic()
     }
 
+    pub fn boss_relic(&mut self) -> Relic {
+        self.relic_generator.boss_relic()
+    }
+
     pub fn three_random_potions(&mut self) -> Vec<Potion> {
         let _ = self.card_generator.combat_rewards(); // For fidelity to the game's rng
         let mut result: Vec<Potion> = Vec::with_capacity(3);
@@ -242,5 +246,24 @@ mod test {
                 Potion::DexterityPotion
             ]
         );
+    }
+
+    #[test]
+    fn test_seed_1_ironclad() {
+        let mut nge = NeowGeneratorEnvironment::new(1.into());
+        let mut neow_generator = nge.generator(IRONCLAD);
+        assert_eq!(
+            neow_generator.blessing_choices().to_vec(),
+            vec![
+                NeowBlessing::ChooseColorlessCard,
+                NeowBlessing::ObtainThreeRandomPotions,
+                NeowBlessing::Composite(
+                    NeowBonus::ChooseRareColorlessCard,
+                    NeowPenalty::DecreaseMaxHpByTenPercent
+                ),
+                NeowBlessing::ReplaceStarterRelic
+            ]
+        );
+        assert_eq!(neow_generator.boss_relic(), Relic::SneckoEye);
     }
 }

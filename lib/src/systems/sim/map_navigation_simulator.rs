@@ -6,6 +6,7 @@ use crate::data::Act;
 use crate::systems::map::MapBuilder;
 use crate::systems::rng::Seed;
 use crate::types::{ColumnIndex, RowIndex};
+use crate::Notification;
 
 use super::player::Player;
 
@@ -27,7 +28,9 @@ impl MapSimulator {
     }
 
     pub fn send_map_to_player(&self, player: &mut Player) -> Result<(), Error> {
-        player.send_map_string(self.map_string())?;
+        player
+            .comms
+            .send_notification(Notification::Map(self.map_string()))?;
         Ok(())
     }
 
@@ -45,7 +48,9 @@ impl MapSimulator {
             Some((row_index, _)) if row_index == ROW_COUNT - 1 => {
                 self.player_location = None;
                 // TODO: something about advancing to the next Act
-                player.send_map_string(self.map_string())?;
+                player
+                    .comms
+                    .send_notification(Notification::Map(self.map_string()))?;
                 return Ok(Room::Boss);
             }
             // Player is already on the board, and needs to move to a new room via an exit.
@@ -69,18 +74,20 @@ impl MapSimulator {
                 (row_index + 1, columns.into_iter().collect::<Vec<_>>())
             }
         };
-        player.send_map_string(
+        player.comms.send_notification(Notification::Map(
             self.highlighted_map_string(
                 &movement_options
                     .iter()
                     .map(|column_index| (next_row_index, *column_index))
                     .collect::<Vec<_>>(),
             ),
-        )?;
+        ))?;
         let next_column_index = player.climb_floor(&movement_options)?;
         self.player_location = Some((next_row_index, next_column_index));
         if let Some(node) = self.map.get(next_row_index, next_column_index) {
-            player.send_map_string(self.map_string())?;
+            player
+                .comms
+                .send_notification(Notification::Map(self.map_string()))?;
             Ok(node.room)
         } else {
             Err(anyhow!(

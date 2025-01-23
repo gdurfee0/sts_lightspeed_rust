@@ -1,7 +1,10 @@
+use std::iter::once;
+
 use anyhow::Error;
 
-use crate::data::{Character, NeowBlessing, NeowBonus, NeowPenalty, Relic};
+use crate::data::{Card, Character, NeowBlessing, NeowBonus, NeowPenalty, Relic};
 use crate::systems::rng::{CardGenerator, NeowGenerator, RelicGenerator, Seed, StsRandom};
+use crate::{Choice, Prompt};
 
 use super::player::Player;
 
@@ -28,19 +31,33 @@ impl<'a> NeowSimulator<'a> {
     }
 
     pub fn run(mut self) -> Result<(), Error> {
-        let blessing_choices = self.neow_generator.blessing_choices();
-        let blessing_choice = self.player.choose_neow_blessing(blessing_choices)?;
-        self.handle_neow_blessing(blessing_choice)
+        let choices = self
+            .neow_generator
+            .blessing_choices()
+            .iter()
+            .copied()
+            .map(Choice::NeowBlessing)
+            .collect::<Vec<_>>();
+        match self
+            .player
+            .comms
+            .prompt_for_choice(Prompt::ChooseNeow, &choices)?
+        {
+            Choice::NeowBlessing(blessing) => self.handle_neow_blessing(*blessing),
+            invalid => unreachable!("{:?}", invalid),
+        }
     }
 
     fn handle_neow_blessing(&mut self, blessing: NeowBlessing) -> Result<(), Error> {
         match blessing {
-            NeowBlessing::ChooseCard => self
-                .player
-                .choose_card_to_obtain(&self.neow_generator.three_card_choices()),
-            NeowBlessing::ChooseColorlessCard => self
-                .player
-                .choose_card_to_obtain(&self.neow_generator.three_colorless_card_choices()),
+            NeowBlessing::ChooseCard => {
+                let cards = self.neow_generator.three_card_choices();
+                self.choose_card_to_obtain(cards)
+            }
+            NeowBlessing::ChooseColorlessCard => {
+                let cards = self.neow_generator.three_colorless_card_choices();
+                self.choose_card_to_obtain(cards)
+            }
             NeowBlessing::GainOneHundredGold => self.player.increase_gold(100),
             NeowBlessing::IncreaseMaxHpByTenPercent => {
                 self.player.increase_hp_max(self.player.state.hp_max / 10)
@@ -55,7 +72,7 @@ impl<'a> NeowSimulator<'a> {
             NeowBlessing::ObtainThreeRandomPotions => self
                 .player
                 .choose_potions_to_obtain(&self.neow_generator.three_random_potions(), 3),
-            NeowBlessing::RemoveCard => self.player.choose_card_to_remove(),
+            NeowBlessing::RemoveCard => self.choose_card_to_remove(),
             NeowBlessing::ReplaceStarterRelic => todo!(),
             NeowBlessing::TransformCard => todo!(),
             NeowBlessing::UpgradeCard => todo!(),
@@ -86,6 +103,42 @@ impl<'a> NeowSimulator<'a> {
                     NeowBonus::TransformTwoCards => todo!(),
                 }
             }
+        }
+    }
+
+    fn choose_card_to_obtain(&mut self, cards: Vec<Card>) -> Result<(), Error> {
+        let choices = cards
+            .iter()
+            .copied()
+            .map(Choice::ObtainCard)
+            .chain(once(Choice::Skip))
+            .collect::<Vec<_>>();
+        match self
+            .player
+            .comms
+            .prompt_for_choice(Prompt::ChooseOne, &choices)?
+        {
+            Choice::ObtainCard(card) => self.player.obtain_card(*card),
+            Choice::Skip => Ok(()),
+            invalid => unreachable!("{:?}", invalid),
+        }
+    }
+
+    fn choose_card_to_remove(&mut self) -> Result<(), Error> {
+        let deck = self.player.state.deck.clone();
+        let choices = deck
+            .iter()
+            .copied()
+            .enumerate()
+            .map(|(deck_index, card)| Choice::RemoveCard(deck_index, card))
+            .collect::<Vec<_>>();
+        match self
+            .player
+            .comms
+            .prompt_for_choice(Prompt::RemoveCard, &choices)?
+        {
+            Choice::RemoveCard(deck_index, _) => self.player.remove_card(*deck_index),
+            invalid => unreachable!("{:?}", invalid),
         }
     }
 }

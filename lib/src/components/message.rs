@@ -20,6 +20,7 @@ pub enum StsMessage {
 #[derive(Clone, Debug)]
 #[cfg_attr(test, derive(Eq, Hash, PartialEq))]
 pub enum Prompt {
+    ChooseCombatReward,
     ChooseForEvent,
     ChooseNeow,
     ChooseNext, // Expectation is that the player may accept more than one of the Choices offered.
@@ -36,7 +37,7 @@ pub enum Prompt {
 pub enum Choice {
     EndTurn,
     EventChoice(usize, String), // Free-form text for events
-    PotionAction(PotionAction),
+    ExpendPotion(PotionAction),
     ClimbFloor(ColumnIndex),
     NeowBlessing(NeowBlessing),
     ObtainCard(Card),

@@ -1,5 +1,5 @@
 use crate::data::{Card, PlayerCondition};
-use crate::types::{Block, Energy};
+use crate::types::{Block, Dexterity, Energy};
 
 use super::card_in_combat::CardInCombat;
 
@@ -15,6 +15,7 @@ pub struct PlayerCombatState {
     pub discard_pile: Vec<CardInCombat>,
     pub exhaust_pile: Vec<CardInCombat>,
     pub hp_loss_count: usize,
+    pub dexterity: Dexterity,
 }
 
 impl PlayerCombatState {
@@ -33,6 +34,7 @@ impl PlayerCombatState {
             discard_pile: Vec::new(),
             exhaust_pile: Vec::new(),
             hp_loss_count: 0,
+            dexterity: 0,
         }
     }
 

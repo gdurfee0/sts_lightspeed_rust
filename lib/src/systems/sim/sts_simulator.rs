@@ -152,7 +152,7 @@ impl StsSimulator {
             }
             floor += 1;
         }
-        self.player.send_game_over()
+        self.player.comms.send_game_over(self.player.state.hp > 0)
     }
 }
 
@@ -601,7 +601,8 @@ mod test {
                     Choice::ObtainGold(11),
                     Choice::ObtainCard(Card::Thunderclap),
                     Choice::ObtainCard(Card::HeavyBlade),
-                    Choice::ObtainCard(Card::Armaments)
+                    Choice::ObtainCard(Card::Armaments),
+                    Choice::Skip,
                 ]
             )
         );
@@ -609,11 +610,12 @@ mod test {
         assert_eq!(
             next_prompt(&from_server, &[Notification::Gold(99 + 100 + 11)]),
             StsMessage::Choices(
-                Prompt::ChooseOne,
+                Prompt::ChooseNext,
                 vec![
                     Choice::ObtainCard(Card::Thunderclap),
                     Choice::ObtainCard(Card::HeavyBlade),
-                    Choice::ObtainCard(Card::Armaments)
+                    Choice::ObtainCard(Card::Armaments),
+                    Choice::Skip,
                 ]
             )
         );
@@ -976,7 +978,8 @@ mod test {
                     Choice::ObtainGold(10),
                     Choice::ObtainCard(Card::Anger),
                     Choice::ObtainCard(Card::HeavyBlade),
-                    Choice::ObtainCard(Card::Armaments)
+                    Choice::ObtainCard(Card::Armaments),
+                    Choice::Skip,
                 ]
             )
         );
@@ -984,11 +987,12 @@ mod test {
         assert_eq!(
             next_prompt(&from_server, &[Notification::Gold(99 + 100 + 11 + 10)]),
             StsMessage::Choices(
-                Prompt::ChooseOne,
+                Prompt::ChooseNext,
                 vec![
                     Choice::ObtainCard(Card::Anger),
                     Choice::ObtainCard(Card::HeavyBlade),
-                    Choice::ObtainCard(Card::Armaments)
+                    Choice::ObtainCard(Card::Armaments),
+                    Choice::Skip,
                 ]
             )
         );
@@ -1046,5 +1050,33 @@ mod test {
         */
         drop(to_server);
         let _ = simulator_thread.join();
+    }
+
+    #[test]
+    fn test_prerecorded_game() {
+        let seed = Seed::from(2);
+        let character = &IRONCLAD;
+        let (to_server, from_client) = channel();
+        let (to_client, from_server) = channel();
+        let simulator = StsSimulator::new(seed, character, from_client, to_client);
+        let simulator_thread = thread::spawn(move || simulator.run());
+
+        let choices = [1, 0, 0, 3, 3, 1, 0, 1, 0, 7, 0, 0, 0, 0, 0, 0, 4];
+        for choice in choices.iter() {
+            loop {
+                let message = from_server.recv_timeout(Duration::from_secs(5)).unwrap();
+                println!("{:?}", message);
+                match message {
+                    StsMessage::Choices(_, _) | StsMessage::GameOver(_) => {
+                        break;
+                    }
+                    StsMessage::Notification(_) => {}
+                }
+            }
+            to_server.send(*choice).unwrap();
+        }
+        drop(to_server);
+        let result = simulator_thread.join();
+        assert!(result.is_ok(), "Thread panicked: {:?}", result.unwrap_err());
     }
 }

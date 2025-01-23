@@ -1,9 +1,12 @@
+use std::iter::once;
+
 use anyhow::Error;
 
 use crate::components::{CardInCombat, EnemyStatus, Notification, PlayerCombatState, PotionAction};
-use crate::data::{Card, Enemy, PlayerCondition, Relic};
+use crate::data::{Card, Enemy, PlayerCondition, Potion, Relic};
 use crate::systems::rng::StsRandom;
-use crate::types::{AttackDamage, Block, EnemyIndex, HandIndex};
+use crate::types::{AttackDamage, Block, EnemyIndex, HandIndex, PotionIndex};
+use crate::{Choice, Prompt};
 
 use super::player::Player;
 
@@ -23,7 +26,6 @@ pub enum CombatAction {
     EndTurn,
     PlayCard(Card),
     PlayCardAgainstEnemy(Card, EnemyIndex),
-    Potion(PotionAction),
 }
 
 impl<'a> PlayerInCombat<'a> {
@@ -198,6 +200,59 @@ impl<'a> PlayerInCombat<'a> {
         self.player.decrease_hp(amount)
     }
 
+    fn expend_potion(&mut self, potion_action: &PotionAction) -> Result<(), Error> {
+        match potion_action {
+            PotionAction::Discard(_, _) => self.player.expend_potion(potion_action),
+            PotionAction::Drink(potion_index, potion) => {
+                self.player.state.potions[*potion_index] = None;
+                match *potion {
+                    Potion::Ambrosia => todo!(),
+                    Potion::AncientPotion => todo!(),
+                    Potion::AttackPotion => todo!(),
+                    Potion::BlessingOfTheForge => todo!(),
+                    Potion::BlockPotion => todo!(),
+                    Potion::BloodPotion => self.player.expend_potion(potion_action),
+                    Potion::BottledMiracle => todo!(),
+                    Potion::ColorlessPotion => todo!(),
+                    Potion::CultistPotion => todo!(),
+                    Potion::CunningPotion => todo!(),
+                    Potion::DexterityPotion => todo!(),
+                    Potion::DistilledChaos => todo!(),
+                    Potion::DuplicationPotion => todo!(),
+                    Potion::Elixir => todo!(),
+                    Potion::EnergyPotion => todo!(),
+                    Potion::EntropicBrew => self.player.expend_potion(potion_action),
+                    Potion::EssenceOfDarkness => todo!(),
+                    Potion::EssenceOfSteel => todo!(),
+                    Potion::ExplosivePotion => todo!(),
+                    Potion::FairyInABottle => todo!(),
+                    Potion::FearPotion => todo!(),
+                    Potion::FirePotion => todo!(),
+                    Potion::FlexPotion => todo!(),
+                    Potion::FocusPotion => todo!(),
+                    Potion::FruitJuice => self.player.expend_potion(potion_action),
+                    Potion::GamblersBrew => todo!(),
+                    Potion::GhostInAJar => todo!(),
+                    Potion::HeartOfIron => todo!(),
+                    Potion::LiquidBronze => todo!(),
+                    Potion::LiquidMemories => todo!(),
+                    Potion::PoisonPotion => todo!(),
+                    Potion::PotionOfCapacity => todo!(),
+                    Potion::PowerPotion => todo!(),
+                    Potion::RegenPotion => todo!(),
+                    Potion::SkillPotion => todo!(),
+                    Potion::SmokeBomb => todo!(),
+                    Potion::SneckoOil => todo!(),
+                    Potion::SpeedPotion => todo!(),
+                    Potion::StancePotion => todo!(),
+                    Potion::StrengthPotion => todo!(),
+                    Potion::SwiftPotion => todo!(),
+                    Potion::WeakPotion => todo!(),
+                }
+            }
+        }
+    }
+
     pub fn draw_cards(&mut self) -> Result<(), Error> {
         // Draw new cards
         let draw_count = 5;
@@ -258,46 +313,78 @@ impl<'a> PlayerInCombat<'a> {
         &mut self,
         enemies: &[Option<EnemyStatus>],
     ) -> Result<CombatAction, Error> {
-        // TODO: drink a potion, discard a potion
         // TODO: check for unwinnable situations
-        // TODO: Intent
         self.player
             .comms
             .send_notification(Notification::EnemyParty(enemies.to_vec()))?;
         self.player
             .comms
+            .send_notification(Notification::Health(self.player.state.health()))?;
+        self.player
+            .comms
             .send_notification(Notification::Energy(self.state.energy))?;
-        let playable_cards = self
-            .state
-            .hand
-            .iter()
-            .copied()
-            .enumerate()
-            .filter_map(|(hand_index, card)| {
-                if card.cost_this_combat > self.state.energy {
-                    None
-                } else {
-                    Some((hand_index, card))
+        loop {
+            let mut choices = self
+                .state
+                .hand
+                .iter()
+                .copied()
+                .enumerate()
+                .filter_map(|(hand_index, card)| {
+                    if card.cost_this_combat > self.state.energy {
+                        None
+                    } else {
+                        Some(Choice::PlayCardFromHand(hand_index, card.card))
+                    }
+                })
+                .collect::<Vec<_>>();
+            self.player.extend_with_potion_choices(&mut choices, true);
+            choices.push(Choice::EndTurn);
+            match self
+                .player
+                .comms
+                .prompt_for_choice(Prompt::CombatAction, &choices)?
+            {
+                Choice::PlayCardFromHand(hand_index, card) => {
+                    self.card_just_played = Some(*hand_index);
+                    if card.requires_target() {
+                        let enemy_index = self.choose_enemy_to_target(enemies)?;
+                        return Ok(CombatAction::PlayCardAgainstEnemy(*card, enemy_index));
+                    } else {
+                        return Ok(CombatAction::PlayCard(*card));
+                    }
                 }
-            })
-            .collect::<Vec<_>>();
-
-        match self.player.comms.choose_card_to_play(&playable_cards)? {
-            Some(hand_index) => {
-                self.card_just_played = Some(hand_index);
-                let card = self.state.hand[hand_index].card;
-                if card.requires_target() {
-                    let enemy_index = self.player.comms.choose_enemy_to_target(enemies)?;
-                    Ok(CombatAction::PlayCardAgainstEnemy(card, enemy_index))
-                } else {
-                    Ok(CombatAction::PlayCard(card))
-                }
+                Choice::ExpendPotion(potion_action) => self.expend_potion(potion_action)?,
+                Choice::EndTurn => return Ok(CombatAction::EndTurn),
+                invalid => unreachable!("{:?}", invalid),
             }
-            None => Ok(CombatAction::EndTurn),
         }
     }
 
-    pub fn dispose_card_just_played(&mut self) -> Result<(), Error> {
+    pub fn choose_enemy_to_target(
+        &self,
+        enemies: &[Option<EnemyStatus>],
+    ) -> Result<EnemyIndex, Error> {
+        let choices = enemies
+            .iter()
+            .enumerate()
+            .filter_map(|(index, maybe_enemy)| {
+                maybe_enemy
+                    .as_ref()
+                    .map(|enemy| Choice::TargetEnemy(index, enemy.enemy_type))
+            })
+            .collect::<Vec<_>>();
+        match self
+            .player
+            .comms
+            .prompt_for_choice(Prompt::TargetEnemy, &choices)?
+        {
+            Choice::TargetEnemy(enemy_index, _) => Ok(*enemy_index),
+            invalid => unreachable!("{:?}", invalid),
+        }
+    }
+
+    pub fn dispose_of_card_just_played(&mut self) -> Result<(), Error> {
         if let Some(hand_index) = self.card_just_played {
             let card_in_combat = self.state.hand.remove(hand_index);
             self.state.energy = self

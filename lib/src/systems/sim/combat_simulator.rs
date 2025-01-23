@@ -84,16 +84,15 @@ impl<'a> CombatSimulator<'a> {
                     if self.combat_should_end() {
                         return Ok(());
                     }
-                    self.player_in_combat.dispose_card_just_played()?;
+                    self.player_in_combat.dispose_of_card_just_played()?;
                 }
                 CombatAction::PlayCardAgainstEnemy(card_details, enemy_index) => {
                     self.play_card_against_enemy(card_details, enemy_index)?;
                     if self.combat_should_end() {
                         return Ok(());
                     }
-                    self.player_in_combat.dispose_card_just_played()?;
+                    self.player_in_combat.dispose_of_card_just_played()?;
                 }
-                CombatAction::Potion(_) => todo!(),
                 CombatAction::EndTurn => break,
             }
         }

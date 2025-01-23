@@ -146,11 +146,13 @@ impl PlayerInteraction {
     pub fn choose_combat_reward(
         &self,
         maybe_gold: Option<Gold>,
+        maybe_potion: Option<Potion>,
         cards: &[Card],
     ) -> Result<CombatRewardsAction, Error> {
         let choices = maybe_gold
             .into_iter()
             .map(Choice::ObtainGold)
+            .chain(maybe_potion.into_iter().map(Choice::ObtainPotion))
             .chain(cards.iter().copied().map(Choice::ObtainCard))
             .collect::<Vec<_>>();
         match self.prompt_for_choice(
@@ -162,8 +164,8 @@ impl PlayerInteraction {
             &choices,
         )? {
             Choice::ObtainGold(gold) => Ok(CombatRewardsAction::ObtainGold(*gold)),
+            Choice::ObtainPotion(potion) => Ok(CombatRewardsAction::ObtainPotion(*potion)),
             Choice::ObtainCard(card) => Ok(CombatRewardsAction::ObtainCard(*card)),
-            // TODO: Potion rewards
             invalid => unreachable!("{:?}", invalid),
         }
     }
@@ -230,7 +232,7 @@ impl PlayerInteraction {
 
     /// Internal helper function to prompt the user to choose one of the supplied choices.
     /// Annoyingly repeats the prompt until the user makes a valid choice.
-    fn prompt_for_choice<'a>(
+    pub fn prompt_for_choice<'a>(
         &self,
         prompt: Prompt,
         choices: &'a [Choice],

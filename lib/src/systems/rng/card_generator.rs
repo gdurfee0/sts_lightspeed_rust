@@ -63,17 +63,17 @@ impl CardGenerator {
     }
 
     fn pool_for_class(&mut self) -> (bool, &'static [Card]) {
-        let roll = self.card_rng.gen_range(0..100) + self.rarity_bias;
+        let d100 = self.card_rng.gen_range(0..100) + self.rarity_bias;
         println!(
             "Pool roll {} with counter {} and initial seed {}",
-            roll,
+            d100,
             self.card_rng.get_counter(),
             self.card_rng.get_initial_seed()
         );
-        if roll < 3 {
+        if d100 < 3 {
             self.rarity_bias = 5;
             (true, self.character.rare_card_pool)
-        } else if roll < 40 {
+        } else if d100 < 40 {
             (false, self.character.uncommon_card_pool)
         } else {
             self.rarity_bias = (self.rarity_bias - 1).max(-40);

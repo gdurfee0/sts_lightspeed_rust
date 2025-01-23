@@ -25,6 +25,7 @@ pub struct StsSimulator {
     card_generator: CardGenerator,
     misc_rng: StsRandom,
     potion_rng: StsRandom,
+    potion_reward_d100_threshold: i32,
     treasure_rng: StsRandom,
     relic_generator: RelicGenerator,
     event_generator: EventGenerator,
@@ -55,6 +56,7 @@ impl StsSimulator {
             card_generator,
             misc_rng,
             potion_rng,
+            potion_reward_d100_threshold: 40,
             treasure_rng,
             relic_generator,
             event_generator,
@@ -74,9 +76,19 @@ impl StsSimulator {
             Ok(false)
         } else {
             let gold_reward = self.treasure_rng.gen_range(10..=20);
+            // TODO: Relic::WhiteBeastStatue
+            let potion_d100 = self.potion_rng.gen_range(0..100);
+
+            let maybe_potion = if potion_d100 < self.potion_reward_d100_threshold {
+                self.potion_reward_d100_threshold -= 10;
+                Some(*self.potion_rng.choose(self.character.potion_pool))
+            } else {
+                self.potion_reward_d100_threshold += 10;
+                None
+            };
             let card_rewards = self.card_generator.combat_rewards();
             self.player
-                .choose_combat_rewards(gold_reward, &card_rewards)?;
+                .choose_combat_rewards(gold_reward, maybe_potion, &card_rewards)?;
             Ok(true)
         }
     }
@@ -112,9 +124,13 @@ impl StsSimulator {
                 Room::RestSite => todo!(),
                 Room::Elite => todo!(),
                 Room::Event => match self.event_generator.next_event(floor, &self.player.state) {
-                    (Room::Event, Some(event)) => {
-                        EventSimulator::new(event, &mut self.player).run()?
-                    }
+                    (Room::Event, Some(event)) => EventSimulator::new(
+                        self.character,
+                        event,
+                        &mut self.potion_rng,
+                        &mut self.player,
+                    )
+                    .run()?,
                     (Room::Monster, None) => {
                         let encounter = self.encounter_generator.next_monster_encounter();
                         if !self.run_encounter(floor, encounter)? {

@@ -6,6 +6,7 @@ use crate::data::CardDetails;
 impl fmt::Display for Prompt {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
+            Prompt::ChooseForEvent => write!(f, "Choose an option for the event"),
             Prompt::ChooseNeow => write!(f, "Choose Neow's Blessing"),
             Prompt::ChooseNext => write!(f, "Choose the next item to obtain"),
             Prompt::ChooseOne => write!(f, "Choose an item to obtain"),
@@ -31,6 +32,7 @@ impl fmt::Display for Choice {
                     (b'a' + *column_index as u8) as char
                 )
             }
+            Choice::EventChoice(_, text) => write!(f, "{}", text),
             Choice::PotionAction(PotionAction::Discard(_, potion)) => {
                 write!(f, "Discard potion \"{:?}\"", potion)
             }

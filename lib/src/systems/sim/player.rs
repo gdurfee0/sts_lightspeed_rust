@@ -185,19 +185,44 @@ impl Player {
         Ok(())
     }
 
-    pub fn choose_combat_rewards(&mut self, gold: Gold, cards: &[Card]) -> Result<(), Error> {
+    pub fn choose_combat_rewards(
+        &mut self,
+        gold: Gold,
+        mut maybe_potion: Option<Potion>,
+        cards: &[Card],
+    ) -> Result<(), Error> {
         let mut gold_option: Option<Gold> = Some(gold);
         let mut card_vec = cards.to_vec();
         let mut cards_left_to_choose = 1;
         // TODO: Potion rewards
-        while gold_option.is_some() || (!card_vec.is_empty() && cards_left_to_choose > 0) {
+        while gold_option.is_some()
+            || (maybe_potion.is_some() && self.state.has_potion_slot_available())
+            || (!card_vec.is_empty() && cards_left_to_choose > 0)
+        {
             if cards_left_to_choose == 0 {
                 card_vec.clear();
             }
-            match self.comms.choose_combat_reward(gold_option, &card_vec)? {
+            if !self.state.has_potion_slot_available() {
+                maybe_potion = None;
+            }
+            match self
+                .comms
+                .choose_combat_reward(gold_option, maybe_potion, &card_vec)?
+            {
                 CombatRewardsAction::ObtainGold(g) => {
                     self.increase_gold(g)?;
                     gold_option = None;
+                }
+                CombatRewardsAction::ObtainPotion(potion) => {
+                    *self
+                        .state
+                        .potions
+                        .iter_mut()
+                        .find(|p| p.is_none())
+                        .expect("Just checked that potion slots are available") = Some(potion);
+                    self.comms
+                        .send_notification(Notification::Potions(self.state.potions.to_vec()))?;
+                    maybe_potion = None;
                 }
                 CombatRewardsAction::ObtainCard(card) => {
                     self.obtain_card(card)?;

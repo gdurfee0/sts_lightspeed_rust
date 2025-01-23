@@ -1,17 +1,31 @@
 use anyhow::Error;
 
-use crate::data::Event;
+use crate::data::{Character, Event, Potion};
+use crate::systems::rng::StsRandom;
+use crate::{Choice, Prompt};
 
 use super::player::Player;
 
 pub struct EventSimulator<'a> {
+    character: &'static Character,
     event: Event,
+    potion_rng: &'a mut StsRandom,
     player: &'a mut Player,
 }
 
 impl<'a> EventSimulator<'a> {
-    pub fn new(event: Event, player: &'a mut Player) -> Self {
-        Self { event, player }
+    pub fn new(
+        character: &'static Character,
+        event: Event,
+        potion_rng: &'a mut StsRandom,
+        player: &'a mut Player,
+    ) -> Self {
+        Self {
+            character,
+            event,
+            potion_rng,
+            player,
+        }
     }
 
     pub fn run(self) -> Result<(), Error> {
@@ -73,6 +87,49 @@ impl<'a> EventSimulator<'a> {
     }
 
     fn the_woman_in_blue(self) -> Result<(), Error> {
-        todo!("The Woman in Blue");
+        let mut choices = vec![Choice::EventChoice(20, "Buy 1 Potion for 20 Gold".into())];
+        if self.player.state.gold >= 30 {
+            choices.push(Choice::EventChoice(30, "Buy 2 Potions for 30 Gold".into()));
+        }
+        if self.player.state.gold >= 40 {
+            choices.push(Choice::EventChoice(40, "Buy 3 Potions for 40 Gold".into()));
+        }
+        let choice = self
+            .player
+            .comms
+            .prompt_for_choice(Prompt::ChooseForEvent, &choices)?;
+        println!("{:?}", choice);
+        match choice {
+            Choice::EventChoice(20, _) => {
+                self.player.decrease_gold(20)?;
+                self.player.choose_potions_to_obtain(
+                    &[*self.potion_rng.choose(self.character.potion_pool)],
+                    1,
+                )
+            }
+            Choice::EventChoice(30, _) => {
+                self.player.decrease_gold(30)?;
+                self.player.choose_potions_to_obtain(
+                    &[
+                        *self.potion_rng.choose(self.character.potion_pool),
+                        *self.potion_rng.choose(self.character.potion_pool),
+                    ],
+                    2,
+                )
+            }
+            Choice::EventChoice(40, _) => {
+                self.player.decrease_gold(40)?;
+                self.player.choose_potions_to_obtain(
+                    &[
+                        *self.potion_rng.choose(self.character.potion_pool),
+                        *self.potion_rng.choose(self.character.potion_pool),
+                        *self.potion_rng.choose(self.character.potion_pool),
+                    ],
+                    3,
+                )
+            }
+            Choice::Skip => Ok(()),
+            _ => unreachable!(),
+        }
     }
 }

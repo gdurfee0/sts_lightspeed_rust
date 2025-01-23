@@ -10,6 +10,7 @@ use crate::systems::rng::{
 use crate::types::Floor;
 
 use super::combat_simulator::CombatSimulator;
+use super::event_simulator::EventSimulator;
 use super::map_navigation_simulator::MapSimulator;
 use super::neow_simulator::NeowSimulator;
 use super::player::Player;
@@ -110,32 +111,20 @@ impl StsSimulator {
                 Room::BurningElite4 => todo!(),
                 Room::RestSite => todo!(),
                 Room::Elite => todo!(),
-                Room::Event => {
-                    let (room, maybe_event) =
-                        self.event_generator.next_event(floor, &self.player.state);
-                    match room {
-                        Room::Event => todo!(),
-                        Room::Monster => {
-                            let encounter = self.encounter_generator.next_monster_encounter();
-                            if !self.run_encounter(floor, encounter)? {
-                                break;
-                            }
+                Room::Event => match self.event_generator.next_event(floor, &self.player.state) {
+                    (Room::Event, Some(event)) => {
+                        EventSimulator::new(event, &mut self.player).run()?
+                    }
+                    (Room::Monster, None) => {
+                        let encounter = self.encounter_generator.next_monster_encounter();
+                        if !self.run_encounter(floor, encounter)? {
+                            break;
                         }
-                        Room::Shop => todo!(),
-                        Room::Treasure => todo!(),
-                        invalid => unreachable!("{:?}", invalid),
                     }
-
-                    println!("? room: {:?}", room);
-                    if let Some(event) = maybe_event {
-                        println!("Event: {:?}", event);
-                    } else if room == Room::Monster {
-                        println!(
-                            "Monster room: {:?}",
-                            self.encounter_generator.next_monster_encounter()
-                        );
-                    }
-                }
+                    (Room::Shop, None) => todo!(),
+                    (Room::Treasure, None) => todo!(),
+                    invalid => unreachable!("{:?}", invalid),
+                },
                 Room::Monster => {
                     let encounter = self.encounter_generator.next_monster_encounter();
                     if !self.run_encounter(floor, encounter)? {

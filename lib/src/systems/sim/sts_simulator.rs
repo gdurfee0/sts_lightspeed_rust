@@ -1061,7 +1061,7 @@ mod test {
         let simulator = StsSimulator::new(seed, character, from_client, to_client);
         let simulator_thread = thread::spawn(move || simulator.run());
 
-        let choices = [1, 0, 0, 3, 3, 1, 0, 1, 0, 7, 0, 0, 0, 0, 0, 0, 4];
+        let choices = [1, 0, 0, 3, 3, 1, 0, 1, 0, 7, 0, 0, 0, 0, 0, 0, 4, 6];
         for choice in choices.iter() {
             loop {
                 let message = from_server.recv_timeout(Duration::from_secs(5)).unwrap();

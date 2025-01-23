@@ -1,6 +1,6 @@
 use anyhow::Error;
 
-use crate::data::{Character, Event, Potion};
+use crate::data::{Character, Event};
 use crate::systems::rng::StsRandom;
 use crate::{Choice, Prompt};
 

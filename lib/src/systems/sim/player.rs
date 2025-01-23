@@ -131,12 +131,12 @@ impl Player {
             }
             PotionAction::Drink(potion_index, Potion::BloodPotion) => {
                 self.state.potions[*potion_index] = None;
-                self.increase_hp(self.state.hp_max / 5);
+                self.increase_hp(self.state.hp_max / 5)?;
             }
             PotionAction::Drink(_, Potion::EntropicBrew) => todo!(),
             PotionAction::Drink(potion_index, Potion::FruitJuice) => {
                 self.state.potions[*potion_index] = None;
-                self.increase_hp_max(5);
+                self.increase_hp_max(5)?;
             }
             invalid => unreachable!("{:?} is not a consumable potion outside of combat", invalid),
         }

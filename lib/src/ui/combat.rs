@@ -5,10 +5,11 @@ use anyhow::{anyhow, Error};
 
 use crate::components::{Choice, EnemyStatus, Notification, Prompt, StsMessage};
 use crate::data::{CardDetails, PlayerCondition, PlayerEffect};
-use crate::types::{AttackDamage, Block, EnemyIndex};
+use crate::types::{AttackDamage, Block, Dexterity, EnemyIndex};
 
 pub struct CombatClient<'a> {
     my_conditions: Vec<PlayerCondition>,
+    my_dexterity: Dexterity,
     enemy_party: Vec<Option<EnemyStatus>>,
     card_chosen: Option<&'static CardDetails>,
 
@@ -20,6 +21,7 @@ impl<'a> CombatClient<'a> {
     pub fn new(from_server: &'a Receiver<StsMessage>, to_server: &'a Sender<usize>) -> Self {
         Self {
             my_conditions: vec![],
+            my_dexterity: 0,
             enemy_party: vec![],
             card_chosen: None,
             from_server,
@@ -33,6 +35,10 @@ impl<'a> CombatClient<'a> {
                 StsMessage::Notification(Notification::Conditions(conditions)) => {
                     self.my_conditions = conditions;
                     println!("Buffs: {:?}", self.my_conditions);
+                }
+                StsMessage::Notification(Notification::Dexterity(dexterity)) => {
+                    self.my_dexterity = dexterity;
+                    println!("Dexterity: {}", self.my_dexterity);
                 }
                 StsMessage::Choices(prompt, choices) => {
                     let choice = self.collect_user_choice(prompt, choices)?;
@@ -151,6 +157,7 @@ impl<'a> CombatClient<'a> {
     }
 
     fn incoming_block(&self, amount: Block) -> Block {
+        let amount = amount.saturating_add_signed(self.my_dexterity);
         if self.is_frail() {
             (amount as f32 * 0.75).floor() as u32
         } else {

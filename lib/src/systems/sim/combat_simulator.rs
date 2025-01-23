@@ -253,6 +253,7 @@ impl<'a> CombatSimulator<'a> {
     }
 
     fn incoming_block(player: &PlayerInCombat, amount: Block) -> Block {
+        let amount = amount.saturating_add_signed(player.state.dexterity);
         if player.state.is_frail() {
             (amount as f32 * 0.75).floor() as u32
         } else {

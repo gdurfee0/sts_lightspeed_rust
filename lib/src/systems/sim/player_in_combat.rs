@@ -1,11 +1,9 @@
-use std::iter::once;
-
 use anyhow::Error;
 
 use crate::components::{CardInCombat, EnemyStatus, Notification, PlayerCombatState, PotionAction};
 use crate::data::{Card, Enemy, PlayerCondition, Potion, Relic};
 use crate::systems::rng::StsRandom;
-use crate::types::{AttackDamage, Block, EnemyIndex, HandIndex, PotionIndex};
+use crate::types::{AttackDamage, Block, Dexterity, EnemyIndex, HandIndex};
 use crate::{Choice, Prompt};
 
 use super::player::Player;
@@ -205,6 +203,9 @@ impl<'a> PlayerInCombat<'a> {
             PotionAction::Discard(_, _) => self.player.expend_potion(potion_action),
             PotionAction::Drink(potion_index, potion) => {
                 self.player.state.potions[*potion_index] = None;
+                self.player
+                    .comms
+                    .send_notification(Notification::Potions(self.player.state.potions.to_vec()))?;
                 match *potion {
                     Potion::Ambrosia => todo!(),
                     Potion::AncientPotion => todo!(),
@@ -216,7 +217,7 @@ impl<'a> PlayerInCombat<'a> {
                     Potion::ColorlessPotion => todo!(),
                     Potion::CultistPotion => todo!(),
                     Potion::CunningPotion => todo!(),
-                    Potion::DexterityPotion => todo!(),
+                    Potion::DexterityPotion => self.adjust_dexterity(2),
                     Potion::DistilledChaos => todo!(),
                     Potion::DuplicationPotion => todo!(),
                     Potion::Elixir => todo!(),
@@ -425,6 +426,13 @@ impl<'a> PlayerInCombat<'a> {
 
     pub fn is_dead(&self) -> bool {
         self.player.state.hp == 0
+    }
+
+    fn adjust_dexterity(&mut self, amount: Dexterity) -> Result<(), Error> {
+        self.state.dexterity = self.state.dexterity.saturating_add(amount);
+        self.player
+            .comms
+            .send_notification(Notification::Dexterity(self.state.dexterity))
     }
 }
 

@@ -51,13 +51,13 @@ impl RelicGenerator {
         self.rare_relic_pool.pop_front().unwrap_or(Relic::Circlet)
     }
 
-    pub fn _shop_relic(&mut self) -> Relic {
+    pub fn shop_relic(&mut self) -> Relic {
         self.shop_relic_pool
             .pop_front()
             .unwrap_or_else(|| self.uncommon_relic())
     }
 
-    pub fn _boss_relic(&mut self) -> Relic {
+    pub fn boss_relic(&mut self) -> Relic {
         self.boss_relic_pool.pop_front().unwrap_or(Relic::Circlet)
     }
 }
@@ -75,8 +75,8 @@ mod test {
         let mut generator = RelicGenerator::new(12.into(), IRONCLAD);
         assert_eq!(generator.common_relic(), Relic::RedSkull);
         let mut generator = RelicGenerator::new(1.into(), IRONCLAD);
-        assert_eq!(generator._boss_relic(), Relic::SneckoEye);
+        assert_eq!(generator.boss_relic(), Relic::SneckoEye);
         let mut generator = RelicGenerator::new(2.into(), IRONCLAD);
-        assert_eq!(generator._boss_relic(), Relic::RunicDome);
+        assert_eq!(generator.boss_relic(), Relic::RunicDome);
     }
 }

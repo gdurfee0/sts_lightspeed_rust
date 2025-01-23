@@ -1,5 +1,7 @@
 use crate::data::{Card, Enemy, PlayerCondition, Potion, Relic};
-use crate::types::{Block, EnemyIndex, Energy, Gold, HandIndex, Health, Hp, PotionIndex};
+use crate::types::{
+    Block, Dexterity, EnemyIndex, Energy, Gold, HandIndex, Health, Hp, PotionIndex, Strength,
+};
 
 use super::enemy_status::EnemyStatus;
 
@@ -35,6 +37,7 @@ pub enum Notification {
     Conditions(Vec<PlayerCondition>),
     DamageBlocked(Hp),
     DamageTaken(Hp),
+    Dexterity(Dexterity),
     DiscardPile(Vec<Card>),
     EnemyStatus(EnemyIndex, EnemyStatus),
     EnemyDied(EnemyIndex, Enemy),
@@ -43,4 +46,5 @@ pub enum Notification {
     HandDiscarded,
     Health(Health),
     ShufflingDiscardToDraw,
+    Strength(Strength),
 }

@@ -5,7 +5,7 @@ use super::enemy_in_combat::EnemyInCombat;
 
 pub struct EnemyPartyGenerator<'a> {
     encounter: Encounter,
-    hp_rng: StsRandom,
+    hp_rng: StsRandom, // TODO: Should this persist past the 1-shot party generation?
     ai_rng: &'a mut StsRandom,
     misc_rng: &'a mut StsRandom,
 }
@@ -51,14 +51,42 @@ impl<'a> EnemyPartyGenerator<'a> {
             Encounter::CultistAndChosen => todo!("{:?}", self.encounter),
             Encounter::DonuAndDeca => todo!("{:?}", self.encounter),
             Encounter::ExordiumThugs => todo!("{:?}", self.encounter),
-            Encounter::ExordiumWildlife => todo!("{:?}", self.encounter),
+            Encounter::ExordiumWildlife => {
+                // This must have been one of their earlier ideas for the game, as it's implemented
+                // in a more wasteful way than the other encounters.
+                let fungi_beast =
+                    EnemyInCombat::new(Enemy::FungiBeast, &mut self.hp_rng, self.ai_rng);
+                let jaw_worm = EnemyInCombat::new(Enemy::JawWorm, &mut self.hp_rng, self.ai_rng);
+                let choice = self.misc_rng.gen_range(0..=1);
+                enemy_party[0] = Some(if choice == 0 { fungi_beast } else { jaw_worm });
+                let louse = EnemyInCombat::new(
+                    if self.misc_rng.next_bool() {
+                        Enemy::RedLouse
+                    } else {
+                        Enemy::GreenLouse
+                    },
+                    &mut self.hp_rng,
+                    self.ai_rng,
+                );
+                let spike_slime_m =
+                    EnemyInCombat::new(Enemy::SpikeSlimeM, &mut self.hp_rng, self.ai_rng);
+                let acid_slime_m =
+                    EnemyInCombat::new(Enemy::AcidSlimeM, &mut self.hp_rng, self.ai_rng);
+                let choice = self.misc_rng.gen_range(0..=2);
+                enemy_party[1] = Some(match choice {
+                    0 => louse,
+                    1 => spike_slime_m,
+                    2 => acid_slime_m,
+                    _ => unreachable!(),
+                });
+            }
             Encounter::FourShapes => todo!("{:?}", self.encounter),
             Encounter::GiantHead => todo!("{:?}", self.encounter),
             Encounter::GremlinGang => todo!("{:?}", self.encounter),
             Encounter::GremlinLeader => todo!("{:?}", self.encounter),
             Encounter::GremlinNob => todo!("{:?}", self.encounter),
             Encounter::Hexaghost => todo!("{:?}", self.encounter),
-            Encounter::JawWorm => todo!("{:?}", self.encounter),
+            Encounter::JawWorm => enemy_party!(JawWorm),
             Encounter::JawWormHorde => todo!("{:?}", self.encounter),
             Encounter::Lagavulin => todo!("{:?}", self.encounter),
             Encounter::LargeSlime => todo!("{:?}", self.encounter),

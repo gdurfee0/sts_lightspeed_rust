@@ -4,8 +4,10 @@ use anyhow::Error;
 
 use crate::components::{Room, StsMessage};
 use crate::data::{Act, Character, Encounter};
+use crate::systems::player::Player;
 use crate::systems::rng::{
-    CardGenerator, EncounterGenerator, EventGenerator, RelicGenerator, Seed, StsRandom,
+    CardGenerator, EncounterGenerator, EventGenerator, PotionGenerator, RelicGenerator, Seed,
+    StsRandom,
 };
 use crate::types::Floor;
 
@@ -13,7 +15,6 @@ use super::combat_simulator::CombatSimulator;
 use super::event_simulator::EventSimulator;
 use super::map_navigation_simulator::MapSimulator;
 use super::neow_simulator::NeowSimulator;
-use super::player::Player;
 
 pub struct StsSimulator {
     // Information typically set on the command line
@@ -21,14 +22,14 @@ pub struct StsSimulator {
     character: &'static Character,
 
     // Random number generators for various game elements
-    encounter_generator: EncounterGenerator,
     card_generator: CardGenerator,
-    misc_rng: StsRandom,
-    potion_rng: StsRandom,
-    potion_reward_d100_threshold: i32,
-    treasure_rng: StsRandom,
-    relic_generator: RelicGenerator,
+    encounter_generator: EncounterGenerator,
     event_generator: EventGenerator,
+    potion_generator: PotionGenerator,
+    relic_generator: RelicGenerator,
+
+    misc_rng: StsRandom,
+    treasure_rng: StsRandom,
 
     // Connection to the player state and player I/O
     player: Player,
@@ -41,25 +42,26 @@ impl StsSimulator {
         from_client: Receiver<usize>,
         to_client: Sender<StsMessage>,
     ) -> Self {
-        let encounter_generator = EncounterGenerator::new(seed);
         let card_generator = CardGenerator::new(seed, character, Act::get(1));
-        let misc_rng = StsRandom::from(seed);
-        let potion_rng = StsRandom::from(seed);
-        let treasure_rng = StsRandom::from(seed);
-        let relic_generator = RelicGenerator::new(seed, character);
+        let encounter_generator = EncounterGenerator::new(seed);
         let event_generator = EventGenerator::new(seed);
+        let relic_generator = RelicGenerator::new(seed, character);
+        let potion_generator = PotionGenerator::new(seed, character);
+
+        let misc_rng = StsRandom::from(seed);
+        let treasure_rng = StsRandom::from(seed);
+
         let player = Player::new(character, from_client, to_client);
         Self {
             seed,
             character,
-            encounter_generator,
             card_generator,
-            misc_rng,
-            potion_rng,
-            potion_reward_d100_threshold: 40,
-            treasure_rng,
-            relic_generator,
+            encounter_generator,
             event_generator,
+            potion_generator,
+            relic_generator,
+            misc_rng,
+            treasure_rng,
             player,
         }
     }
@@ -77,15 +79,7 @@ impl StsSimulator {
         } else {
             let gold_reward = self.treasure_rng.gen_range(10..=20);
             // TODO: Relic::WhiteBeastStatue
-            let potion_d100 = self.potion_rng.gen_range(0..100);
-
-            let maybe_potion = if potion_d100 < self.potion_reward_d100_threshold {
-                self.potion_reward_d100_threshold -= 10;
-                Some(*self.potion_rng.choose(self.character.potion_pool))
-            } else {
-                self.potion_reward_d100_threshold += 10;
-                None
-            };
+            let maybe_potion = self.potion_generator.combat_reward();
             let card_rewards = self.card_generator.combat_rewards();
             self.player
                 .choose_combat_rewards(gold_reward, maybe_potion, &card_rewards)?;
@@ -106,7 +100,7 @@ impl StsSimulator {
             self.seed,
             self.character,
             &mut self.card_generator,
-            &mut self.potion_rng,
+            &mut self.potion_generator,
             &mut self.relic_generator,
             &mut self.player,
         );
@@ -124,13 +118,10 @@ impl StsSimulator {
                 Room::RestSite => todo!(),
                 Room::Elite => todo!(),
                 Room::Event => match self.event_generator.next_event(floor, &self.player.state) {
-                    (Room::Event, Some(event)) => EventSimulator::new(
-                        self.character,
-                        event,
-                        &mut self.potion_rng,
-                        &mut self.player,
-                    )
-                    .run()?,
+                    (Room::Event, Some(event)) => {
+                        EventSimulator::new(event, &mut self.potion_generator, &mut self.player)
+                            .run()?
+                    }
                     (Room::Monster, None) => {
                         let encounter = self.encounter_generator.next_monster_encounter();
                         if !self.run_encounter(floor, encounter)? {
@@ -1094,11 +1085,15 @@ mod test {
             match from_server.recv_timeout(Duration::from_secs(5)) {
                 Ok(message) => {
                     println!("{:?}", message);
-                    if let StsMessage::Choices(_, choices) = &message {
-                        let num_choices = choices.len();
-                        let choice = my_rng.gen_range(0..num_choices);
-                        choice_seq.push(choices[choice].clone());
-                        to_server.send(choice).unwrap()
+                    match message {
+                        StsMessage::Choices(_, choices) => {
+                            let num_choices = choices.len();
+                            let choice = my_rng.gen_range(0..num_choices);
+                            choice_seq.push(choices[choice].clone());
+                            to_server.send(choice).unwrap()
+                        }
+                        StsMessage::Notification(_) => {}
+                        StsMessage::GameOver(_) => break,
                     }
                 }
                 Err(_) => panic!(
@@ -1107,10 +1102,8 @@ mod test {
                 ),
             }
         }
-        /*
         drop(to_server);
         let result = simulator_thread.join();
         assert!(result.is_ok(), "Thread panicked: {:?}", result.unwrap_err());
-        */
     }
 }

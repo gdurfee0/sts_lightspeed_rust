@@ -100,6 +100,9 @@ impl<'a> PlayerInCombat<'a> {
     pub fn end_turn(&mut self) -> Result<(), Error> {
         self.discard_hand()?;
         self.tick_down_conditions()?;
+        for card in self.state.cards_iter_mut() {
+            card.cost_this_turn = card.cost_this_combat;
+        }
 
         // TODO: Apply other end-of-turn effects
         Ok(())
@@ -237,7 +240,7 @@ impl<'a> PlayerInCombat<'a> {
         false
     }
 
-    pub fn tick_down_conditions(&mut self) -> Result<(), Error> {
+    fn tick_down_conditions(&mut self) -> Result<(), Error> {
         for condition in self.state.conditions.iter_mut() {
             match condition {
                 PlayerCondition::Confused() => (),
@@ -268,7 +271,12 @@ impl<'a> PlayerInCombat<'a> {
     pub fn add_to_discard_pile(&mut self, cards: &[Card]) -> Result<(), Error> {
         cards
             .iter()
-            .map(|&card| CardInCombat::new(None, card, card.cost()))
+            .map(|&card| CardInCombat {
+                deck_index: None,
+                card,
+                cost_this_combat: card.cost(),
+                cost_this_turn: card.cost(),
+            })
             .for_each(|card| {
                 self.state.discard_pile.push(card);
             });

@@ -14,24 +14,22 @@ use super::intent::Intent;
 
 #[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
 pub enum EnemyAction {
-    // AcidSlimeM
     AcidSlimeMCorrosiveSpit,
     AcidSlimeMLick,
     AcidSlimeMTackle,
-
-    // AcidSlimeS
     AcidSlimeSLick,
     AcidSlimeSTackle,
-
-    // Cultist
     CultistDarkStrike,
     CultistIncantation,
-
-    // SpikeSlimeM
+    FungiBeastBite,
+    FungiBeastGrow,
+    GreenLouseBite,
+    GreenLouseSpitWeb,
+    JawWormBellow,
+    JawWormChomp,
+    JawWormThrash,
     SpikeSlimeMFlameTackle,
     SpikeSlimeMLick,
-
-    // SpikeSlimeS
     SpikeSlimeSTackle,
 }
 
@@ -110,6 +108,11 @@ static ALL_ENEMY_ACTIONS: Lazy<HashMap<EnemyAction, EnemyActionDetails>> = defin
     AcidSlimeSTackle => [DealDamage(3)],
     CultistDarkStrike => [DealDamage(6)],
     CultistIncantation => [ApplyToSelf(EnemyCondition::Ritual(3, true))],
+    FungiBeastBite => [DealDamage(6)],
+    FungiBeastGrow => [GainStrength(3)],
+    JawWormBellow => [GainStrength(3), GainBlock(6)],
+    JawWormChomp => [DealDamage(11)],
+    JawWormThrash => [DealDamage(7), GainBlock(5)],
     SpikeSlimeMFlameTackle => [DealDamage(8), AddToDiscardPile(&[Card::Slimed])],
     SpikeSlimeMLick => [Apply(PlayerCondition::Frail(1))],
     SpikeSlimeSTackle => [DealDamage(5)],

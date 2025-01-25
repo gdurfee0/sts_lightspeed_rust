@@ -1,29 +1,25 @@
 use anyhow::Error;
 
-use crate::data::{Character, Event};
-use crate::systems::rng::StsRandom;
+use crate::data::Event;
+use crate::systems::player::Player;
+use crate::systems::rng::PotionGenerator;
 use crate::{Choice, Prompt};
 
-use super::player::Player;
-
 pub struct EventSimulator<'a> {
-    character: &'static Character,
     event: Event,
-    potion_rng: &'a mut StsRandom,
+    potion_generator: &'a mut PotionGenerator,
     player: &'a mut Player,
 }
 
 impl<'a> EventSimulator<'a> {
     pub fn new(
-        character: &'static Character,
         event: Event,
-        potion_rng: &'a mut StsRandom,
+        potion_generator: &'a mut PotionGenerator,
         player: &'a mut Player,
     ) -> Self {
         Self {
-            character,
             event,
-            potion_rng,
+            potion_generator,
             player,
         }
     }
@@ -64,7 +60,7 @@ impl<'a> EventSimulator<'a> {
             Event::SecretPortal => todo!("{:?}", self.event),
             Event::SensoryStone => todo!("{:?}", self.event),
             Event::ShiningLight => todo!("{:?}", self.event),
-            Event::TheCleric => todo!("{:?}", self.event),
+            Event::TheCleric => self.the_cleric(),
             Event::TheColosseum => todo!("{:?}", self.event),
             Event::TheDivineFountain => todo!("{:?}", self.event),
             Event::TheJoust => todo!("{:?}", self.event),
@@ -86,6 +82,34 @@ impl<'a> EventSimulator<'a> {
         }
     }
 
+    fn the_cleric(self) -> Result<(), Error> {
+        let mut choices = vec![Choice::EventChoice(35, "35 Gold: Heal 20 HP".into())];
+        if self.player.state.gold >= 50 {
+            choices.push(Choice::EventChoice(
+                50,
+                "50 Gold: Remove a card from your deck.".into(),
+            ));
+        }
+        choices.push(Choice::Skip);
+        let choice = self
+            .player
+            .comms
+            .prompt_for_choice(Prompt::ChooseForEvent, &choices)?;
+        println!("{:?}", choice);
+        match choice {
+            Choice::EventChoice(35, _) => {
+                self.player.decrease_gold(35)?;
+                self.player.increase_hp(20)
+            }
+            Choice::EventChoice(50, _) => {
+                self.player.decrease_gold(50)?;
+                self.player.choose_card_to_remove()
+            }
+            Choice::Skip => Ok(()),
+            _ => unreachable!(),
+        }
+    }
+
     fn the_woman_in_blue(self) -> Result<(), Error> {
         let mut choices = vec![Choice::EventChoice(20, "Buy 1 Potion for 20 Gold".into())];
         if self.player.state.gold >= 30 {
@@ -94,42 +118,21 @@ impl<'a> EventSimulator<'a> {
         if self.player.state.gold >= 40 {
             choices.push(Choice::EventChoice(40, "Buy 3 Potions for 40 Gold".into()));
         }
+        choices.push(Choice::Skip);
         let choice = self
             .player
             .comms
             .prompt_for_choice(Prompt::ChooseForEvent, &choices)?;
         println!("{:?}", choice);
-        match choice {
-            Choice::EventChoice(20, _) => {
-                self.player.decrease_gold(20)?;
-                self.player.choose_potions_to_obtain(
-                    &[*self.potion_rng.choose(self.character.potion_pool)],
-                    1,
-                )
-            }
-            Choice::EventChoice(30, _) => {
-                self.player.decrease_gold(30)?;
-                self.player.choose_potions_to_obtain(
-                    &[
-                        *self.potion_rng.choose(self.character.potion_pool),
-                        *self.potion_rng.choose(self.character.potion_pool),
-                    ],
-                    2,
-                )
-            }
-            Choice::EventChoice(40, _) => {
-                self.player.decrease_gold(40)?;
-                self.player.choose_potions_to_obtain(
-                    &[
-                        *self.potion_rng.choose(self.character.potion_pool),
-                        *self.potion_rng.choose(self.character.potion_pool),
-                        *self.potion_rng.choose(self.character.potion_pool),
-                    ],
-                    3,
-                )
-            }
-            Choice::Skip => Ok(()),
+        let (gold, count) = match choice {
+            Choice::EventChoice(20, _) => (20, 1),
+            Choice::EventChoice(30, _) => (30, 2),
+            Choice::EventChoice(40, _) => (40, 3),
+            Choice::Skip => return Ok(()),
             _ => unreachable!(),
-        }
+        };
+        self.player.decrease_gold(gold)?;
+        self.player
+            .choose_potions_to_obtain(&self.potion_generator.gen_potions(count), count)
     }
 }

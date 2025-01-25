@@ -6,6 +6,9 @@ pub enum EnemyCondition {
     /// At the end of its turn, gains X strength.
     Ritual(StackCount, JustApplied),
 
+    // On death, applies X Vulnerable.
+    SporeCloud(StackCount),
+
     /// Target takes 50% more damage from attacks.
     Vulnerable(StackCount),
 
@@ -126,7 +129,6 @@ pub enum Buff {
     Shifting,        // Upon losing HP, loses that much Strength until the end of the turn.
     SimmeringRage,   // At the start of your next turn, enter Wrath.
     Split,           // When its HP is at or below 50%, split into 2 smaller Slimes.
-    SporeCloud,      // On death, applies X Vulnerable.
     Stasis,          // On death, a stolen card is returned to your hand.
     StaticDischarge, // Whenever you receive unblocked Attack damage, Channel X Lightning.
     Storm,           // Whenever you play a Power card, channel X Lightning.

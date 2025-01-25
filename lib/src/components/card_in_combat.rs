@@ -6,14 +6,5 @@ pub struct CardInCombat {
     pub deck_index: Option<DeckIndex>,
     pub card: Card,
     pub cost_this_combat: Energy,
-}
-
-impl CardInCombat {
-    pub fn new(deck_index: Option<DeckIndex>, card: Card, cost_this_combat: Energy) -> Self {
-        Self {
-            deck_index,
-            card,
-            cost_this_combat,
-        }
-    }
+    pub cost_this_turn: Energy,
 }

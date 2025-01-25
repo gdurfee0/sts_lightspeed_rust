@@ -3,13 +3,13 @@ use crate::data::{
     THIRD_NEOW_POOL,
 };
 
-use super::{CardGenerator, RelicGenerator, Seed, StsRandom};
+use super::{CardGenerator, PotionGenerator, RelicGenerator, Seed, StsRandom};
 
 pub struct NeowGenerator<'a> {
     character: &'static Character,
     neow_rng: StsRandom,
-    potion_rng: &'a mut StsRandom,
     card_generator: &'a mut CardGenerator,
+    potion_generator: &'a mut PotionGenerator,
     relic_generator: &'a mut RelicGenerator,
     blessing_choices: [NeowBlessing; 4],
 }
@@ -18,8 +18,8 @@ impl<'a> NeowGenerator<'a> {
     pub fn new(
         seed: Seed,
         character: &'static Character,
-        potion_rng: &'a mut StsRandom,
         card_generator: &'a mut CardGenerator,
+        potion_generator: &'a mut PotionGenerator,
         relic_generator: &'a mut RelicGenerator,
     ) -> Self {
         let mut neow_rng = StsRandom::from(seed);
@@ -39,8 +39,8 @@ impl<'a> NeowGenerator<'a> {
         Self {
             character,
             neow_rng,
-            potion_rng,
             card_generator,
+            potion_generator,
             relic_generator,
             blessing_choices,
         }
@@ -91,12 +91,7 @@ impl<'a> NeowGenerator<'a> {
 
     pub fn three_random_potions(&mut self) -> Vec<Potion> {
         let _ = self.card_generator.combat_rewards(); // For fidelity to the game's rng
-        let mut result: Vec<Potion> = Vec::with_capacity(3);
-        for _ in 0..3 {
-            let potion = self.potion_rng.choose(self.character.potion_pool);
-            result.push(*potion);
-        }
-        result
+        self.potion_generator.gen_potions(3)
     }
 }
 
@@ -110,20 +105,20 @@ mod test {
 
     struct NeowGeneratorEnvironment {
         seed: Seed,
-        potion_rng: StsRandom,
         card_generator: CardGenerator,
+        potion_generator: PotionGenerator,
         relic_generator: RelicGenerator,
     }
 
     impl NeowGeneratorEnvironment {
         fn new(seed: Seed) -> Self {
-            let potion_rng = StsRandom::from(seed);
             let card_generator = CardGenerator::new(seed, IRONCLAD, Act::get(1));
+            let potion_generator = PotionGenerator::new(seed, IRONCLAD);
             let relic_generator = RelicGenerator::new(seed, IRONCLAD);
             Self {
                 seed,
-                potion_rng,
                 card_generator,
+                potion_generator,
                 relic_generator,
             }
         }
@@ -132,8 +127,8 @@ mod test {
             NeowGenerator::new(
                 self.seed,
                 character,
-                &mut self.potion_rng,
                 &mut self.card_generator,
+                &mut self.potion_generator,
                 &mut self.relic_generator,
             )
         }

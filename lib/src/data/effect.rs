@@ -1,6 +1,6 @@
-use crate::types::{AttackCount, AttackDamage, Block};
+use crate::types::{AttackCount, AttackDamage, Block, Strength};
 
-use super::card::Card;
+use super::card::{Card, CardType};
 use super::condition::{EnemyCondition, PlayerCondition};
 use super::intent::Intent;
 
@@ -10,11 +10,12 @@ pub enum EnemyEffect {
     Apply(PlayerCondition),
     ApplyToSelf(EnemyCondition),
     DealDamage(AttackDamage),
+    GainBlock(Block),
+    GainStrength(Strength),
     /*
     Buff(Buff, StackCount),
     BuffAll(Buff, StackCount),
     Debuff(Debuff, StackCount),
-    GainBlock(Block),
     GiveBlockToLeader(Block),
     Heal(Hp),
     HealAll(Hp),
@@ -27,7 +28,9 @@ pub enum EnemyEffect {
 
 #[derive(Clone, Debug)]
 pub enum PlayerEffect {
-    AddToDiscardPile(&'static [Card]),
+    AddRandomCardThatCostsZeroThisTurnToHand(CardType),
+    AddSelfCopyToDiscardPile(),
+    //AddToDiscardPile(&'static [Card]),
     Apply(EnemyCondition),
     ApplyToAll(EnemyCondition),
     ApplyToSelf(PlayerCondition),

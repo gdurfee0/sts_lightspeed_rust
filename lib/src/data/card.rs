@@ -607,7 +607,7 @@ static ALL_CARDS: Lazy<Vec<CardDetails>> = Lazy::new(|| {
         */
         define_card!(
             (Anger, Attack, 0),
-            [DealDamage(6), AddToDiscardPile(&[Card::Anger])],
+            [DealDamage(6), AddSelfCopyToDiscardPile()],
             requires_target
         ),
         /*
@@ -914,7 +914,13 @@ static ALL_CARDS: Lazy<Vec<CardDetails>> = Lazy::new(|| {
             [exhaust, requires_target]
         ),
         define_card!((Discovery, Skill, 1), [HandCustom()], exhaust),
-        define_card!((Distraction, Skill, 1), [HandCustom()], exhaust),
+        */
+        define_card!(
+            (Distraction, Skill, 1),
+            [AddRandomCardThatCostsZeroThisTurnToHand(CardType::Skill)],
+            exhaust
+        ),
+        /*
         define_card!(
             (DodgeAndRoll, Skill, 1),
             [GainBlock(4), Buff(Buff::BlockNextTurn, 4)]
@@ -1016,6 +1022,11 @@ static ALL_CARDS: Lazy<Vec<CardDetails>> = Lazy::new(|| {
         ),
         */
         define_card!(
+            (InfernalBlade, Skill, 1),
+            [AddRandomCardThatCostsZeroThisTurnToHand(CardType::Skill)],
+            exhaust
+        ),
+        define_card!(
             (Intimidate, Skill, 0),
             [ApplyToAll(EnemyCondition::Weak(1))],
             exhaust
@@ -1028,6 +1039,11 @@ static ALL_CARDS: Lazy<Vec<CardDetails>> = Lazy::new(|| {
                 DealDamageToAll(4),
                 ApplyToAll(EnemyCondition::Vulnerable(1))
             ]
+        ),
+        define_card!(
+            (WhiteNoise, Skill, 1),
+            [AddRandomCardThatCostsZeroThisTurnToHand(CardType::Power)],
+            exhaust
         ),
     ]
 });
@@ -1048,16 +1064,13 @@ mod test {
                     PlayerEffect::DealDamage(_) | PlayerEffect::Apply(_) //| PlayerEffect::SapStrength(_)
                 )
             });
-            /*
-            if card.effect_chain.iter().any(|effect| {
-                matches!(
-                    effect,
-                    PlayerEffect::DealDamageCustom() | PlayerEffect::DebuffCustom()
-                )
-            }) {
+            if card
+                .effect_chain
+                .iter()
+                .any(|effect| matches!(effect, PlayerEffect::DealDamageCustom()))
+            {
                 continue;
             }
-            */
             assert_eq!(
                 (card.card, card.requires_target),
                 (card.card, should_require_target)

@@ -19,14 +19,19 @@ pub struct EnemyState {
 }
 
 impl EnemyState {
-    pub fn new(enemy: Enemy, hp_max: HpMax, first_action: EnemyAction) -> Self {
+    pub fn new(
+        enemy: Enemy,
+        hp_max: HpMax,
+        first_action: EnemyAction,
+        conditions: Vec<EnemyCondition>,
+    ) -> Self {
         Self {
             enemy,
             hp: hp_max,
             hp_max,
             block: 0,
             strength: 0,
-            conditions: Vec::new(),
+            conditions,
             run_length: 1,
             next_action: first_action,
         }

@@ -18,3 +18,32 @@ end
 card 0 0
 skip
 4
+1
+4
+0
+1
+end
+2
+0
+1
+gold 0
+skip
+3
+6 1
+3 0
+end
+6 1 
+4 1
+3 1
+end
+6 0
+3
+3
+end
+2
+gold 0
+card 0 0
+proceed
+3
+1
+10

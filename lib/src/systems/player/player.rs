@@ -4,7 +4,7 @@ use anyhow::Error;
 
 use crate::components::{Notification, PlayerInteraction, PlayerState, PotionAction, StsMessage};
 use crate::data::{Card, Character, Potion, Relic};
-use crate::types::{ColumnIndex, DeckIndex, Gold, Hp, HpMax};
+use crate::types::{ColumnIndex, Gold, Hp, HpMax};
 use crate::{Choice, Prompt};
 
 /// Encapsulates the state of the player in the game, e.g. HP, gold, deck, etc.
@@ -266,11 +266,23 @@ impl Player {
         Ok(())
     }
 
-    pub fn remove_card(&mut self, deck_index: DeckIndex) -> Result<(), Error> {
-        let card = self.state.deck.remove(deck_index);
-        self.comms
-            .send_notification(Notification::CardRemoved(card))?;
-        self.comms
-            .send_notification(Notification::Deck(self.state.deck.to_vec()))
+    pub fn choose_card_to_remove(&mut self) -> Result<(), Error> {
+        let deck = self.state.deck.clone();
+        let choices = deck
+            .iter()
+            .copied()
+            .enumerate()
+            .map(|(deck_index, card)| Choice::RemoveCard(deck_index, card))
+            .collect::<Vec<_>>();
+        match self.comms.prompt_for_choice(Prompt::RemoveCard, &choices)? {
+            Choice::RemoveCard(deck_index, _) => {
+                let card = self.state.deck.remove(*deck_index);
+                self.comms
+                    .send_notification(Notification::CardRemoved(card))?;
+                self.comms
+                    .send_notification(Notification::Deck(self.state.deck.to_vec()))
+            }
+            invalid => unreachable!("{:?}", invalid),
+        }
     }
 }

@@ -30,7 +30,12 @@ impl PlayerCombatState {
                 .iter()
                 .copied()
                 .enumerate()
-                .map(|(i, card)| CardInCombat::new(Some(i), card, card.cost()))
+                .map(|(i, card)| CardInCombat {
+                    deck_index: Some(i),
+                    card,
+                    cost_this_combat: card.cost(),
+                    cost_this_turn: card.cost(),
+                })
                 .collect(),
             discard_pile: Vec::new(),
             exhaust_pile: Vec::new(),

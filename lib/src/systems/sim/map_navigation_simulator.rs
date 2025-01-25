@@ -4,11 +4,10 @@ use crate::components::map::{ExitBits, Map, MapHighlighter, ROW_COUNT};
 use crate::components::Room;
 use crate::data::Act;
 use crate::systems::map::MapBuilder;
+use crate::systems::player::Player;
 use crate::systems::rng::Seed;
 use crate::types::{ColumnIndex, RowIndex};
 use crate::Notification;
-
-use super::player::Player;
 
 pub struct MapSimulator {
     // Current player location (row, column) in the map

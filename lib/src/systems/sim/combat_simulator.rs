@@ -2,14 +2,11 @@ use anyhow::Error;
 
 use crate::components::EnemyStatus;
 use crate::data::{Card, CardDetails, Encounter, EnemyCondition, EnemyEffect, PlayerEffect};
+use crate::systems::enemy::{EnemyInCombat, EnemyPartyGenerator};
+use crate::systems::player::{CombatAction, Player, PlayerInCombat};
 use crate::systems::rng::{Seed, StsRandom};
 use crate::types::{AttackDamage, Block, EnemyIndex};
 use crate::Notification;
-
-use super::enemy_in_combat::EnemyInCombat;
-use super::party_generator::EnemyPartyGenerator;
-use super::player::Player;
-use super::player_in_combat::{CombatAction, PlayerInCombat};
 
 pub struct CombatSimulator<'a> {
     encounter: Encounter,
@@ -109,7 +106,10 @@ impl<'a> CombatSimulator<'a> {
     }
 
     fn conduct_enemies_turn(&mut self) -> Result<(), Error> {
-        for maybe_enemy in self.enemy_party.iter_mut() {
+        for enemy in self.enemy_party.iter_mut().filter_map(|e| e.as_mut()) {
+            enemy.start_turn();
+        }
+        for (enemy_index, maybe_enemy) in self.enemy_party.iter_mut().enumerate() {
             if let Some(enemy) = maybe_enemy.as_mut() {
                 for effect in enemy.next_action(&mut self.ai_rng).effect_chain().iter() {
                     // TODO: reactions
@@ -131,7 +131,14 @@ impl<'a> CombatSimulator<'a> {
                                     *amount,
                                 ))?;
                         }
+                        EnemyEffect::GainBlock(amount) => enemy.state.block += *amount,
+                        EnemyEffect::GainStrength(amount) => enemy.state.strength += *amount,
                     }
+                    let enemy_status = EnemyStatus::from(&*enemy);
+                    self.player_in_combat
+                        .player
+                        .comms
+                        .send_notification(Notification::EnemyStatus(enemy_index, enemy_status))?;
                     if enemy.state.is_dead() {
                         *maybe_enemy = None;
                         break;
@@ -142,14 +149,9 @@ impl<'a> CombatSimulator<'a> {
                 }
             }
         }
-        for enemy in self
-            .enemy_party
-            .iter_mut()
-            .filter_map(|enemy| enemy.as_mut())
-        {
+        for enemy in self.enemy_party.iter_mut().filter_map(|e| e.as_mut()) {
             enemy.end_turn();
         }
-
         Ok(())
     }
 
@@ -158,15 +160,17 @@ impl<'a> CombatSimulator<'a> {
         let card_details = CardDetails::for_card(card);
         for effect in card_details.effect_chain.iter() {
             match effect {
-                PlayerEffect::AddToDiscardPile(cards) => {
-                    self.player_in_combat.add_to_discard_pile(cards)?;
+                PlayerEffect::AddRandomCardThatCostsZeroThisTurnToHand(_) => todo!(),
+                PlayerEffect::AddSelfCopyToDiscardPile() => {
+                    //self.player_in_combat.add_to_discard_pile(cards)?;
+                    todo!();
                 }
                 PlayerEffect::Apply(_) => unreachable!(
                     "Debuff should be handled by play_card_against_enemy, {:?}",
                     card_details
                 ),
-                PlayerEffect::ApplyToAll(condition) => {
-                    self.apply_to_all_enemies(condition)?;
+                PlayerEffect::ApplyToAll(enemy_condition) => {
+                    self.apply_to_all_enemies(enemy_condition)?;
                 }
                 PlayerEffect::ApplyToSelf(player_condition) => {
                     self.player_in_combat.apply_condition(player_condition)?;
@@ -211,7 +215,8 @@ impl<'a> CombatSimulator<'a> {
                     }
                     _ => unreachable!("{:?}", card_details),
                 },
-                PlayerEffect::AddToDiscardPile(_)
+                PlayerEffect::AddRandomCardThatCostsZeroThisTurnToHand(_)
+                | PlayerEffect::AddSelfCopyToDiscardPile()
                 | PlayerEffect::ApplyToAll(_)
                 | PlayerEffect::ApplyToSelf(_)
                 | PlayerEffect::DealDamageToAll(_)

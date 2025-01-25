@@ -3,10 +3,9 @@ use std::iter::once;
 use anyhow::Error;
 
 use crate::data::{Card, Character, NeowBlessing, NeowBonus, NeowPenalty, Relic};
-use crate::systems::rng::{CardGenerator, NeowGenerator, RelicGenerator, Seed, StsRandom};
+use crate::systems::player::Player;
+use crate::systems::rng::{CardGenerator, NeowGenerator, PotionGenerator, RelicGenerator, Seed};
 use crate::{Choice, Prompt};
-
-use super::player::Player;
 
 pub struct NeowSimulator<'a> {
     neow_generator: NeowGenerator<'a>,
@@ -19,12 +18,17 @@ impl<'a> NeowSimulator<'a> {
         seed: Seed,
         character: &'static Character,
         card_generator: &'a mut CardGenerator,
-        potion_rng: &'a mut StsRandom,
+        potion_generator: &'a mut PotionGenerator,
         relic_generator: &'a mut RelicGenerator,
         player: &'a mut Player,
     ) -> Self {
-        let neow_generator =
-            NeowGenerator::new(seed, character, potion_rng, card_generator, relic_generator);
+        let neow_generator = NeowGenerator::new(
+            seed,
+            character,
+            card_generator,
+            potion_generator,
+            relic_generator,
+        );
         let starting_relic = character.starting_relic;
         Self {
             starting_relic,
@@ -75,7 +79,7 @@ impl<'a> NeowSimulator<'a> {
             NeowBlessing::ObtainThreeRandomPotions => self
                 .player
                 .choose_potions_to_obtain(&self.neow_generator.three_random_potions(), 3),
-            NeowBlessing::RemoveCard => self.choose_card_to_remove(),
+            NeowBlessing::RemoveCard => self.player.choose_card_to_remove(),
             NeowBlessing::ReplaceStarterRelic => {
                 let replacement_relic = self.neow_generator.boss_relic();
                 self.player
@@ -127,24 +131,6 @@ impl<'a> NeowSimulator<'a> {
         {
             Choice::ObtainCard(card) => self.player.obtain_card(*card),
             Choice::Skip => Ok(()),
-            invalid => unreachable!("{:?}", invalid),
-        }
-    }
-
-    fn choose_card_to_remove(&mut self) -> Result<(), Error> {
-        let deck = self.player.state.deck.clone();
-        let choices = deck
-            .iter()
-            .copied()
-            .enumerate()
-            .map(|(deck_index, card)| Choice::RemoveCard(deck_index, card))
-            .collect::<Vec<_>>();
-        match self
-            .player
-            .comms
-            .prompt_for_choice(Prompt::RemoveCard, &choices)?
-        {
-            Choice::RemoveCard(deck_index, _) => self.player.remove_card(*deck_index),
             invalid => unreachable!("{:?}", invalid),
         }
     }

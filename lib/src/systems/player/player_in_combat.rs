@@ -25,8 +25,8 @@ pub struct PlayerInCombat<'a> {
 #[derive(Clone, Debug)]
 pub enum CombatAction {
     EndTurn,
-    PlayCard(Card),
-    PlayCardAgainstEnemy(Card, EnemyIndex),
+    PlayCard(CardInCombat),
+    PlayCardAgainstEnemy(CardInCombat, EnemyIndex),
 }
 
 impl<'a> PlayerInCombat<'a> {
@@ -36,7 +36,7 @@ impl<'a> PlayerInCombat<'a> {
         let card_randomizer_rng = StsRandom::from(seed_for_floor);
         shuffle_rng.java_compat_shuffle(&mut state.draw_pile);
         // Move innate cards to the top of the draw pile
-        state.draw_pile.sort_by_key(|card| card.card.is_innate());
+        state.draw_pile.sort_by_key(|card| card.details.innate);
         // TODO: Draw more than 5 cards if there are more than 5 innate cards
         let cards_drawn_each_turn = if player.state.has_relic(Relic::SneckoEye) {
             7
@@ -159,7 +159,7 @@ impl<'a> PlayerInCombat<'a> {
                 .state
                 .energy
                 .saturating_sub(card_in_combat.cost_this_combat);
-            if card_in_combat.card.exhausts() {
+            if card_in_combat.details.exhaust {
                 self.state.exhaust_pile.push(card_in_combat);
                 self.player
                     .comms
@@ -268,21 +268,23 @@ impl<'a> PlayerInCombat<'a> {
             .send_notification(Notification::Conditions(self.state.conditions.clone()))
     }
 
-    pub fn add_to_discard_pile(&mut self, cards: &[Card]) -> Result<(), Error> {
-        cards
-            .iter()
-            .map(|&card| CardInCombat {
-                deck_index: None,
-                card,
-                cost_this_combat: card.cost(),
-                cost_this_turn: card.cost(),
-            })
-            .for_each(|card| {
-                self.state.discard_pile.push(card);
-            });
+    pub fn add_cards_to_discard_pile(&mut self, cards: &[Card]) -> Result<(), Error> {
+        for card in cards {
+            self.state.discard_pile.push(CardInCombat::new(None, *card));
+        }
         self.player
             .comms
             .send_notification(Notification::AddToDiscardPile(cards.to_vec()))
+    }
+
+    pub fn add_card_to_discard_pile(&mut self, card: &CardInCombat) -> Result<(), Error> {
+        let mut new_card = CardInCombat::new(None, card.card);
+        new_card.cost_this_combat = card.cost_this_combat;
+        new_card.cost_this_turn = card.cost_this_turn;
+        self.state.discard_pile.push(new_card);
+        self.player
+            .comms
+            .send_notification(Notification::AddToDiscardPile(vec![new_card.card]))
     }
 
     pub fn take_blockable_damage(&mut self, amount: AttackDamage) -> Result<(), Error> {
@@ -433,13 +435,14 @@ impl<'a> PlayerInCombat<'a> {
                 .comms
                 .prompt_for_choice(Prompt::CombatAction, &choices)?
             {
-                Choice::PlayCardFromHand(hand_index, card) => {
+                Choice::PlayCardFromHand(hand_index, _) => {
                     self.card_just_played = Some(*hand_index);
-                    if card.requires_target() {
+                    let card = self.state.hand[*hand_index];
+                    if card.details.requires_target {
                         let enemy_index = self.choose_enemy_to_target(enemies)?;
-                        return Ok(CombatAction::PlayCardAgainstEnemy(*card, enemy_index));
+                        return Ok(CombatAction::PlayCardAgainstEnemy(card, enemy_index));
                     } else {
-                        return Ok(CombatAction::PlayCard(*card));
+                        return Ok(CombatAction::PlayCard(card));
                     }
                 }
                 Choice::ExpendPotion(potion_action) => self.expend_potion(potion_action)?,

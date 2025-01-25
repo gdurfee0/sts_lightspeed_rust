@@ -1,7 +1,7 @@
 use anyhow::Error;
 
-use crate::components::EnemyStatus;
-use crate::data::{Card, CardDetails, Encounter, EnemyCondition, EnemyEffect, PlayerEffect};
+use crate::components::{CardInCombat, EnemyStatus};
+use crate::data::{Card, Encounter, EnemyCondition, EnemyEffect, PlayerEffect};
 use crate::systems::enemy::{EnemyInCombat, EnemyPartyGenerator};
 use crate::systems::player::{CombatAction, Player, PlayerInCombat};
 use crate::systems::rng::{Seed, StsRandom};
@@ -85,7 +85,7 @@ impl<'a> CombatSimulator<'a> {
                 .collect::<Vec<_>>();
             match self.player_in_combat.choose_next_action(&enemy_statuses)? {
                 CombatAction::PlayCard(card_details) => {
-                    self.play_card(card_details)?;
+                    self.play_card(&card_details)?;
                     if self.combat_should_end() {
                         return Ok(());
                     }
@@ -115,7 +115,7 @@ impl<'a> CombatSimulator<'a> {
                     // TODO: reactions
                     match effect {
                         EnemyEffect::AddToDiscardPile(cards) => {
-                            self.player_in_combat.add_to_discard_pile(cards)?;
+                            self.player_in_combat.add_cards_to_discard_pile(cards)?;
                         }
                         EnemyEffect::Apply(condition) => {
                             self.player_in_combat.apply_condition(condition)?;
@@ -156,18 +156,17 @@ impl<'a> CombatSimulator<'a> {
     }
 
     // TODO: reactions
-    fn play_card(&mut self, card: Card) -> Result<(), Error> {
-        let card_details = CardDetails::for_card(card);
-        for effect in card_details.effect_chain.iter() {
+    fn play_card(&mut self, card: &CardInCombat) -> Result<(), Error> {
+        for effect in card.details.effect_chain.iter() {
             match effect {
                 PlayerEffect::AddRandomCardThatCostsZeroThisTurnToHand(_) => todo!(),
                 PlayerEffect::AddSelfCopyToDiscardPile() => {
-                    //self.player_in_combat.add_to_discard_pile(cards)?;
+                    self.player_in_combat.add_card_to_discard_pile(card)?;
                     todo!();
                 }
                 PlayerEffect::Apply(_) => unreachable!(
                     "Debuff should be handled by play_card_against_enemy, {:?}",
-                    card_details
+                    card
                 ),
                 PlayerEffect::ApplyToAll(enemy_condition) => {
                     self.apply_to_all_enemies(enemy_condition)?;
@@ -177,7 +176,7 @@ impl<'a> CombatSimulator<'a> {
                 }
                 PlayerEffect::DealDamage(_) | PlayerEffect::DealDamageCustom() => unreachable!(
                     "DealDamage should be handled by play_card_against_enemy, {:?}",
-                    card_details
+                    card
                 ),
                 PlayerEffect::DealDamageToAll(amount) => {
                     self.attack_all_enemies(*amount)?;
@@ -197,11 +196,10 @@ impl<'a> CombatSimulator<'a> {
 
     fn play_card_against_enemy(
         &mut self,
-        card: Card,
+        card: CardInCombat,
         enemy_index: EnemyIndex,
     ) -> Result<(), Error> {
-        let card_details = CardDetails::for_card(card);
-        for effect in card_details.effect_chain.iter() {
+        for effect in card.details.effect_chain.iter() {
             match effect {
                 PlayerEffect::Apply(condition) => {
                     self.apply_to_enemy(enemy_index, condition)?;
@@ -209,11 +207,11 @@ impl<'a> CombatSimulator<'a> {
                 PlayerEffect::DealDamage(amount) => {
                     self.attack_enemy(enemy_index, *amount)?;
                 }
-                PlayerEffect::DealDamageCustom() => match card_details.card {
+                PlayerEffect::DealDamageCustom() => match card.card {
                     Card::BodySlam => {
                         self.attack_enemy(enemy_index, self.player_in_combat.state.block)?;
                     }
-                    _ => unreachable!("{:?}", card_details),
+                    _ => unreachable!("{:?}", card),
                 },
                 PlayerEffect::AddRandomCardThatCostsZeroThisTurnToHand(_)
                 | PlayerEffect::AddSelfCopyToDiscardPile()
@@ -223,7 +221,7 @@ impl<'a> CombatSimulator<'a> {
                 | PlayerEffect::GainBlock(_)
                 | PlayerEffect::UpgradeOneCardInCombat() => unreachable!(
                     "Inappropriate card handled by play_card_against_enemy, {:?}",
-                    card_details
+                    card
                 ),
             }
             if self.combat_should_end() {

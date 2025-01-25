@@ -16,7 +16,7 @@ mod stance;
 
 pub use act::Act;
 pub use action::EnemyAction;
-pub use card::{Card, CardDetails, CURSE_CARD_POOL, UNCOMMON_COLORLESS_CARDS};
+pub use card::{Card, CardDetails, CardType, CURSE_CARD_POOL, UNCOMMON_COLORLESS_CARDS};
 pub use character::Character;
 pub use condition::{EnemyCondition, PlayerCondition};
 pub use effect::{EnemyEffect, PlayerEffect};

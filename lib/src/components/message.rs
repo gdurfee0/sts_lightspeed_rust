@@ -2,6 +2,7 @@ use crate::data::{Card, Enemy, NeowBlessing, Potion};
 use crate::types::{ColumnIndex, DeckIndex, EnemyIndex, Gold, HandIndex, PotionIndex};
 
 use super::notification::Notification;
+use super::CardInCombat;
 
 /// Message type for communication from the Simualtor to a client (human operator or AI agent).
 /// The Simulator will send any `Notification`s to the client, concluding with a `Choices`

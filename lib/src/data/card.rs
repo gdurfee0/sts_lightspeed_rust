@@ -412,6 +412,7 @@ pub const CURSE_CARD_POOL: &[Card] = &[
 ];
 
 #[derive(Clone, Copy, Debug)]
+#[cfg_attr(test, derive(Eq, Hash, PartialEq))]
 pub enum CardType {
     Attack,
     Curse,
@@ -420,29 +421,8 @@ pub enum CardType {
     Status,
 }
 
-impl Card {
-    pub fn cost(&self) -> Energy {
-        CardDetails::for_card(*self).cost
-    }
-
-    pub fn exhausts(&self) -> bool {
-        CardDetails::for_card(*self).exhaust
-    }
-
-    pub fn is_curse(&self) -> bool {
-        matches!(CardDetails::for_card(*self).type_, CardType::Curse)
-    }
-
-    pub fn is_innate(&self) -> bool {
-        CardDetails::for_card(*self).innate
-    }
-
-    pub fn requires_target(&self) -> bool {
-        CardDetails::for_card(*self).requires_target
-    }
-}
-
-#[derive(Debug)]
+#[derive(Clone, Debug)]
+#[cfg_attr(test, derive(Eq, Hash, PartialEq))]
 pub struct CardDetails {
     pub card: Card,
     pub type_: CardType,

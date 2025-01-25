@@ -27,6 +27,7 @@ pub enum EnemyEffect {
 }
 
 #[derive(Clone, Debug)]
+#[cfg_attr(test, derive(Eq, Hash, PartialEq))]
 pub enum PlayerEffect {
     AddRandomCardThatCostsZeroThisTurnToHand(CardType),
     AddSelfCopyToDiscardPile(),

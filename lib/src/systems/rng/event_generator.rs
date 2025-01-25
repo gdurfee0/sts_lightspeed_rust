@@ -1,5 +1,5 @@
 use crate::components::{PlayerState, Room};
-use crate::data::{Act, Event, ONE_TIME_EVENTS};
+use crate::data::{Act, CardDetails, CardType, Event, ONE_TIME_EVENTS};
 use crate::types::Floor;
 
 use super::seed::Seed;
@@ -140,7 +140,10 @@ impl EventGenerator {
             Event::SecretPortal => false, // 13m 20s
             Event::TheCleric => state.gold >= 35,
             Event::TheColosseum => floor - ((self.act.number as u64 - 1) * 17) >= 7,
-            Event::TheDivineFountain => state.deck.iter().any(|card| card.is_curse()),
+            Event::TheDivineFountain => state
+                .deck
+                .iter()
+                .any(|card| matches!(CardDetails::for_card(*card).type_, CardType::Curse)),
             Event::TheJoust => self.act.number == 2 && state.gold >= 50,
             Event::TheMoaiHead => state.hp <= state.hp_max / 2,
             Event::TheWomanInBlue => state.gold >= 20,

@@ -3,10 +3,13 @@ use crate::types::{JustApplied, StackCount};
 #[derive(Clone, Debug)]
 #[cfg_attr(test, derive(Eq, Hash, PartialEq))]
 pub enum EnemyCondition {
+    /// Upon receiving attack damage, gain X Block, once per combat.
+    CurlUp(StackCount),
+
     /// At the end of its turn, gains X strength.
     Ritual(StackCount, JustApplied),
 
-    // On death, applies X Vulnerable.
+    /// On death, applies X Vulnerable.
     SporeCloud(StackCount),
 
     /// Target takes 50% more damage from attacks.
@@ -61,7 +64,6 @@ pub enum Buff {
     Corruption,      // Skills cost 0. Whenever you play a Skill, Exhaust it.
     CreativeAi,      // At the start of your turn, add X random Power cards into your hand.
     Curiosity,       // Whenever you play a Power card, gain X Strength.
-    CurlUp,          // Upon receiving attack damage, gain X Block, once per combat.
     DarkEmbrace,     // Whenever a card is Exhausted, draw X cards.
     DemonForm,       // At the start of your turn, gain X Strength.
     Deva,            // At the start of your turn gain Energy N times and increase this gain by X.

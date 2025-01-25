@@ -7,6 +7,8 @@ use std::collections::HashMap;
 
 use once_cell::sync::Lazy;
 
+use crate::types::AttackDamage;
+
 use super::card::Card;
 use super::condition::{EnemyCondition, PlayerCondition};
 use super::effect::EnemyEffect;
@@ -23,7 +25,7 @@ pub enum EnemyAction {
     CultistIncantation,
     FungiBeastBite,
     FungiBeastGrow,
-    GreenLouseBite,
+    GreenLouseBite(AttackDamage),
     GreenLouseSpitWeb,
     JawWormBellow,
     JawWormChomp,

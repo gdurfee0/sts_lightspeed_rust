@@ -1,12 +1,13 @@
 # License Information
 
-This repository contains two categories of code:
+This repository contains three categories of code:
 
 1. **Original code** by Glenn Durfee, licensed under MIT (see Section A below).
 2. **Reference implementation** by gamerpuppy, also under MIT (see Section B below).
+3. **Slay the Spire mod code** derived from Alchyr, also under MIT (see Section C below). 
 
 Parts of the first category contain information sourced from the
-[Slay The Spire Wiki](https://slay-the-spire.fandom.com/wiki/Slay_the_Spire_Wiki). See Section C
+[Slay The Spire Wiki](https://slay-the-spire.fandom.com/wiki/Slay_the_Spire_Wiki). See Section D
 for license details.
 
 
@@ -43,7 +44,13 @@ The contents of the `reference-impl` directory are authored by gamerpuppy.
 That code is distributed under a separate MIT License 
 (see [reference-impl/LICENSE.md](reference-impl/LICENSE.md) for details).
 
-## Section C: Attribution of Third-Party Content
+## Section C: MIT License for work derived from Alchyr's BasicMod Implementation
+
+The contents of the `pipemod` directory were derived from Alchyr's BasicMod code. 
+That code is distributed under a separate MIT License 
+(see [pipemod/LICENSE.md](pipemod/LICENSE.md) for details).
+
+## Section D: Attribution of Third-Party Content
 
 Portions of the documentation/content in this repository are derived from the 
 [Slay The Spire Wiki](https://slay-the-spire.fandom.com/wiki/Slay_the_Spire_Wiki) 

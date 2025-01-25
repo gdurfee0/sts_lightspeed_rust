@@ -3,7 +3,7 @@ use crate::data::{Enemy, EnemyAction, EnemyCondition};
 use crate::systems::rng::StsRandom;
 use crate::types::{AttackDamage, Block};
 
-use super::enemy_characteristics::{characteristics_for_enemy, EnemyCharacteristics};
+use super::enemy_characteristics::{create_enemy, EnemyCharacteristics};
 
 #[derive(Debug)]
 pub struct EnemyInCombat {
@@ -13,14 +13,8 @@ pub struct EnemyInCombat {
 
 impl EnemyInCombat {
     pub fn new(enemy: Enemy, hp_rng: &mut StsRandom, ai_rng: &mut StsRandom) -> Self {
-        let (health_range, mut enemy_characteristics) = characteristics_for_enemy(enemy);
-        let hp_max = hp_rng.gen_range(health_range.clone());
-        let state = EnemyState::new(
-            enemy,
-            hp_max,
-            enemy_characteristics.first_action(ai_rng),
-            enemy_characteristics.powers(),
-        );
+        let enemy_characteristics = create_enemy(enemy, hp_rng);
+        let state = enemy_characteristics.on_spawn(ai_rng);
         Self {
             state,
             enemy_characteristics,
@@ -47,6 +41,7 @@ impl EnemyInCombat {
     pub fn end_turn(&mut self) {
         for condition in self.state.conditions.iter_mut() {
             match condition {
+                EnemyCondition::CurlUp(_) => {}
                 EnemyCondition::Ritual(intensity, just_applied) => {
                     if !*just_applied {
                         self.state.strength += *intensity as i32;
@@ -59,9 +54,11 @@ impl EnemyInCombat {
             }
         }
         self.state.conditions.retain(|c| match c {
+            EnemyCondition::CurlUp(_) => true,
+            EnemyCondition::Ritual(_, _) => true,
+            EnemyCondition::SporeCloud(_) => true,
             EnemyCondition::Vulnerable(turns) => *turns > 0,
             EnemyCondition::Weak(turns) => *turns > 0,
-            _ => true,
         });
     }
 
@@ -80,6 +77,11 @@ impl EnemyInCombat {
         incoming_condition: &EnemyCondition,
     ) -> bool {
         match existing_condition {
+            EnemyCondition::CurlUp(_) => {
+                if let EnemyCondition::CurlUp(_) = incoming_condition {
+                    return true;
+                }
+            }
             EnemyCondition::Ritual(intensity, just_applied) => {
                 if let EnemyCondition::Ritual(additional_intensity, _) = incoming_condition {
                     *intensity = intensity.saturating_add(*additional_intensity);
@@ -114,6 +116,15 @@ impl EnemyInCombat {
         let remaining_damage = amount.saturating_sub(block);
         self.state.block = self.state.block.saturating_sub(amount);
         self.state.hp = self.state.hp.saturating_sub(remaining_damage);
+        if self.state.hp > 0 {
+            self.state.conditions.retain(|c| match c {
+                EnemyCondition::CurlUp(stacks) => {
+                    self.state.block = self.state.block.saturating_add(*stacks);
+                    false
+                }
+                _ => true,
+            });
+        }
         (block, remaining_damage)
     }
 }

@@ -1,7 +1,7 @@
 use anyhow::Error;
 
 use crate::components::{CardInCombat, EnemyStatus};
-use crate::data::{Card, Encounter, EnemyCondition, EnemyEffect, PlayerEffect};
+use crate::data::{Card, Encounter, EnemyCondition, EnemyEffect, PlayerCondition, PlayerEffect};
 use crate::systems::enemy::{EnemyInCombat, EnemyPartyGenerator};
 use crate::systems::player::{CombatAction, Player, PlayerInCombat};
 use crate::systems::rng::{Seed, StsRandom};
@@ -246,6 +246,17 @@ impl<'a> CombatSimulator<'a> {
                     .player
                     .comms
                     .send_notification(Notification::EnemyDied(index, enemy_type))?;
+                // Invoke death effects
+                for condition in enemy.state.conditions.iter() {
+                    match condition {
+                        EnemyCondition::SporeCloud(stacks) => {
+                            self.player_in_combat
+                                .apply_condition(&PlayerCondition::Vulnerable(*stacks))?;
+                        }
+                        _ => {}
+                    }
+                }
+
                 self.enemy_party[index] = None;
             }
         }

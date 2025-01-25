@@ -1,17 +1,12 @@
 use std::fmt;
-use std::ops::RangeInclusive;
 
+use crate::components::EnemyState;
 use crate::data::{Enemy, EnemyAction, EnemyCondition};
 use crate::systems::rng::StsRandom;
-use crate::types::Hp;
+use crate::types::{AttackDamage, HpMax, StackCount};
 
 pub trait EnemyCharacteristics: fmt::Debug {
-    fn powers(&mut self) -> Vec<EnemyCondition> {
-        vec![]
-    }
-
-    fn first_action(&mut self, ai_rng: &mut StsRandom) -> EnemyAction;
-
+    fn on_spawn(&self, ai_rng: &mut StsRandom) -> EnemyState;
     fn next_action(
         &mut self,
         ai_rng: &mut StsRandom,
@@ -20,34 +15,18 @@ pub trait EnemyCharacteristics: fmt::Debug {
     ) -> EnemyAction;
 }
 
-macro_rules! define_enemy {
-    ($enemy:ident, $hprange:expr) => {
-        ($hprange, Box::new($enemy) as Box<dyn EnemyCharacteristics>)
-    };
-}
-
-macro_rules! define_enemies {
-    ($enemy:expr, $($enemy_ident:ident => $hprange:expr,)*) => {
-        match $enemy {
-            $(Enemy::$enemy_ident => define_enemy!($enemy_ident, $hprange),)*
-            unfinished => panic!("Unfinished enemy: {:?}", unfinished),
-        }
+pub fn create_enemy(enemy: Enemy, hp_rng: &mut StsRandom) -> Box<dyn EnemyCharacteristics> {
+    match enemy {
+        Enemy::AcidSlimeM => Box::new(AcidSlimeM::new(hp_rng)),
+        Enemy::AcidSlimeS => Box::new(AcidSlimeS::new(hp_rng)),
+        Enemy::Cultist => Box::new(Cultist::new(hp_rng)),
+        Enemy::FungiBeast => Box::new(FungiBeast::new(hp_rng)),
+        Enemy::GreenLouse => Box::new(GreenLouse::new(hp_rng)),
+        Enemy::JawWorm => Box::new(JawWorm::new(hp_rng)),
+        Enemy::SpikeSlimeM => Box::new(SpikeSlimeM::new(hp_rng)),
+        Enemy::SpikeSlimeS => Box::new(SpikeSlimeS::new(hp_rng)),
+        unavailable => todo!("Unavailable enemy: {:?}", unavailable),
     }
-}
-
-pub fn characteristics_for_enemy(
-    enemy: Enemy,
-) -> (RangeInclusive<Hp>, Box<dyn EnemyCharacteristics>) {
-    define_enemies!(
-        enemy,
-        AcidSlimeM => 28..=32,
-        AcidSlimeS => 8..=12,
-        Cultist => 48..=54,
-        FungiBeast => 22..=28,
-        JawWorm => 40..=44,
-        SpikeSlimeM => 28..=32,
-        SpikeSlimeS => 10..=14,
-    )
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
@@ -71,9 +50,17 @@ pub fn characteristics_for_enemy(
 // - https://slay-the-spire.fandom.com/wiki/Acid_Slime
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 #[derive(Debug)]
-struct AcidSlimeM;
+struct AcidSlimeM {
+    hp_max: HpMax,
+}
 
 impl AcidSlimeM {
+    fn new(hp_rng: &mut StsRandom) -> Self {
+        Self {
+            hp_max: hp_rng.gen_range(28..=32),
+        }
+    }
+
     fn next_action_helper(
         ai_rng: &mut StsRandom,
         last_action: Option<EnemyAction>,
@@ -111,8 +98,13 @@ impl AcidSlimeM {
 }
 
 impl EnemyCharacteristics for AcidSlimeM {
-    fn first_action(&mut self, ai_rng: &mut StsRandom) -> EnemyAction {
-        Self::next_action_helper(ai_rng, None, 0)
+    fn on_spawn(&self, ai_rng: &mut StsRandom) -> EnemyState {
+        EnemyState::new(
+            Enemy::AcidSlimeM,
+            self.hp_max,
+            vec![],
+            Self::next_action_helper(ai_rng, None, 0),
+        )
     }
 
     fn next_action(
@@ -134,17 +126,27 @@ impl EnemyCharacteristics for AcidSlimeM {
 // - https://slay-the-spire.fandom.com/wiki/Acid_Slime
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 #[derive(Debug)]
-struct AcidSlimeS;
+struct AcidSlimeS {
+    hp_max: HpMax,
+}
+
+impl AcidSlimeS {
+    fn new(hp_rng: &mut StsRandom) -> Self {
+        Self {
+            hp_max: hp_rng.gen_range(8..=12),
+        }
+    }
+}
 
 impl EnemyCharacteristics for AcidSlimeS {
-    fn first_action(&mut self, ai_rng: &mut StsRandom) -> EnemyAction {
-        // The game burns an extra roll on the first turn then eschews the rng thereafter.
+    fn on_spawn(&self, ai_rng: &mut StsRandom) -> EnemyState {
         let _ = ai_rng.gen_range(0..100);
-        if ai_rng.next_bool() {
+        let first_action = if ai_rng.next_bool() {
             EnemyAction::AcidSlimeSTackle
         } else {
             EnemyAction::AcidSlimeSLick
-        }
+        };
+        EnemyState::new(Enemy::AcidSlimeS, self.hp_max, vec![], first_action)
     }
 
     fn next_action(
@@ -169,11 +171,26 @@ impl EnemyCharacteristics for AcidSlimeS {
 // - https://slay-the-spire.fandom.com/wiki/Cultist
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 #[derive(Debug)]
-struct Cultist;
+struct Cultist {
+    hp_max: HpMax,
+}
+
+impl Cultist {
+    fn new(hp_rng: &mut StsRandom) -> Self {
+        Self {
+            hp_max: hp_rng.gen_range(48..=54),
+        }
+    }
+}
 
 impl EnemyCharacteristics for Cultist {
-    fn first_action(&mut self, _: &mut StsRandom) -> EnemyAction {
-        EnemyAction::CultistIncantation
+    fn on_spawn(&self, _: &mut StsRandom) -> EnemyState {
+        EnemyState::new(
+            Enemy::Cultist,
+            self.hp_max,
+            vec![],
+            EnemyAction::CultistIncantation,
+        )
     }
 
     fn next_action(&mut self, _: &mut StsRandom, _: EnemyAction, _: usize) -> EnemyAction {
@@ -190,9 +207,17 @@ impl EnemyCharacteristics for Cultist {
 // - https://slay-the-spire.fandom.com/wiki/Fungi_Beast
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 #[derive(Debug)]
-struct FungiBeast;
+struct FungiBeast {
+    hp_max: HpMax,
+}
 
 impl FungiBeast {
+    fn new(hp_rng: &mut StsRandom) -> Self {
+        Self {
+            hp_max: hp_rng.gen_range(22..=28),
+        }
+    }
+
     fn next_action_helper(
         ai_rng: &mut StsRandom,
         last_action: Option<EnemyAction>,
@@ -210,12 +235,14 @@ impl FungiBeast {
 }
 
 impl EnemyCharacteristics for FungiBeast {
-    fn powers(&mut self) -> Vec<EnemyCondition> {
-        vec![EnemyCondition::SporeCloud(2)]
-    }
-
-    fn first_action(&mut self, ai_rng: &mut StsRandom) -> EnemyAction {
-        Self::next_action_helper(ai_rng, None, 0)
+    fn on_spawn(&self, ai_rng: &mut StsRandom) -> EnemyState {
+        let first_action = Self::next_action_helper(ai_rng, None, 0);
+        EnemyState::new(
+            Enemy::FungiBeast,
+            self.hp_max,
+            vec![EnemyCondition::SporeCloud(2)],
+            first_action,
+        )
     }
 
     fn next_action(
@@ -233,58 +260,64 @@ impl EnemyCharacteristics for FungiBeast {
 // - 11 to 17 HP
 // - Bite: Deal D damage (D between 5 and 7, chosen upon spawning)
 // - Spit Web: Apply 2 Weak
+// - Spawns with 3-7 Curl Up
 // - https://slay-the-spire.fandom.com/wiki/Louses#Green_Louse
 ////////////////////////////////////////////////////////////////////////////////////////////////////
-
-/*
 #[derive(Debug)]
 struct GreenLouse {
+    hp_max: HpMax,
     bite_damage: AttackDamage,
+    curl_up_stacks: StackCount,
 }
 
 impl GreenLouse {
-
-}
-
-
-
-fn green_louse(
-    ai_rng: &mut StsRandom,
-    last_action: Option<EnemyAction>,
-    run_length: usize,
-) -> EnemyAction {
-    match ai_rng.gen_range(0..100) {
-        0..25 if last_action != Some(EnemyAction::GreenLouseSpitWeb) || run_length < 2 => {
-            EnemyAction::GreenLouseSpitWeb
+    fn new(hp_rng: &mut StsRandom) -> Self {
+        Self {
+            hp_max: hp_rng.gen_range(11..=17),
+            bite_damage: hp_rng.gen_range(5..=7),
+            curl_up_stacks: hp_rng.gen_range(3..=7),
         }
-        0..25 => EnemyAction::GreenLouseBite,
-        _ if last_action != Some(EnemyAction::GreenLouseBite) || run_length < 2 => {
-            EnemyAction::GreenLouseBite
+    }
+
+    fn next_action_helper(
+        &self,
+        ai_rng: &mut StsRandom,
+        last_action: Option<EnemyAction>,
+        run_length: usize,
+    ) -> EnemyAction {
+        match ai_rng.gen_range(0..100) {
+            0..25 if last_action != Some(EnemyAction::GreenLouseSpitWeb) || run_length < 2 => {
+                EnemyAction::GreenLouseSpitWeb
+            }
+            0..25 => EnemyAction::GreenLouseBite(self.bite_damage),
+            _ if matches!(last_action, Some(EnemyAction::GreenLouseBite(_))) || run_length < 2 => {
+                EnemyAction::GreenLouseBite(self.bite_damage)
+            }
+            _ => EnemyAction::GreenLouseSpitWeb,
         }
-        _ => EnemyAction::GreenLouseSpitWeb,
     }
 }
 
-#[derive(Debug)]
-struct GreenLouse {
-    bite_damage: AttackDamage,
-}
-
 impl EnemyCharacteristics for GreenLouse {
-    fn on_spawn(&mut self, enemy_in_combat: &mut EnemyInCombat) {
-        enemy_in_combat.state.next_action = EnemyAction::GreenLouseBite;
+    fn on_spawn(&self, ai_rng: &mut StsRandom) -> EnemyState {
+        let first_action = self.next_action_helper(ai_rng, None, 0);
+        EnemyState::new(
+            Enemy::GreenLouse,
+            self.hp_max,
+            vec![EnemyCondition::CurlUp(self.curl_up_stacks)],
+            first_action,
+        )
     }
 
     fn next_action(
         &mut self,
         ai_rng: &mut StsRandom,
-        last_action: Option<EnemyAction>,
+        last_action: EnemyAction,
         run_length: usize,
     ) -> EnemyAction {
-        green_louse(ai_rng, last_action, run_length)
+        self.next_action_helper(ai_rng, Some(last_action), run_length)
     }
 }
-*/
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // Jaw Worm
@@ -295,11 +328,26 @@ impl EnemyCharacteristics for GreenLouse {
 // - https://slay-the-spire.fandom.com/wiki/Jaw_Worm
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 #[derive(Debug)]
-struct JawWorm;
+struct JawWorm {
+    hp_max: HpMax,
+}
+
+impl JawWorm {
+    fn new(hp_rng: &mut StsRandom) -> Self {
+        Self {
+            hp_max: hp_rng.gen_range(40..=44),
+        }
+    }
+}
 
 impl EnemyCharacteristics for JawWorm {
-    fn first_action(&mut self, _: &mut StsRandom) -> EnemyAction {
-        EnemyAction::JawWormChomp
+    fn on_spawn(&self, _: &mut StsRandom) -> EnemyState {
+        EnemyState::new(
+            Enemy::JawWorm,
+            self.hp_max,
+            vec![],
+            EnemyAction::JawWormChomp,
+        )
     }
 
     fn next_action(
@@ -342,9 +390,17 @@ impl EnemyCharacteristics for JawWorm {
 // - https://slay-the-spire.fandom.com/wiki/Spike_Slime
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 #[derive(Debug)]
-struct SpikeSlimeM;
+struct SpikeSlimeM {
+    hp_max: HpMax,
+}
 
 impl SpikeSlimeM {
+    fn new(hp_rng: &mut StsRandom) -> Self {
+        Self {
+            hp_max: hp_rng.gen_range(28..=32),
+        }
+    }
+
     fn next_action_helper(
         ai_rng: &mut StsRandom,
         last_action: Option<EnemyAction>,
@@ -364,8 +420,13 @@ impl SpikeSlimeM {
 }
 
 impl EnemyCharacteristics for SpikeSlimeM {
-    fn first_action(&mut self, ai_rng: &mut StsRandom) -> EnemyAction {
-        Self::next_action_helper(ai_rng, None, 0)
+    fn on_spawn(&self, ai_rng: &mut StsRandom) -> EnemyState {
+        EnemyState::new(
+            Enemy::SpikeSlimeM,
+            self.hp_max,
+            vec![],
+            Self::next_action_helper(ai_rng, None, 0),
+        )
     }
 
     fn next_action(
@@ -386,12 +447,27 @@ impl EnemyCharacteristics for SpikeSlimeM {
 // - https://slay-the-spire.fandom.com/wiki/Spike_Slime
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 #[derive(Debug)]
-struct SpikeSlimeS;
+struct SpikeSlimeS {
+    hp_max: HpMax,
+}
+
+impl SpikeSlimeS {
+    fn new(hp_rng: &mut StsRandom) -> Self {
+        Self {
+            hp_max: hp_rng.gen_range(10..=14),
+        }
+    }
+}
 
 impl EnemyCharacteristics for SpikeSlimeS {
-    fn first_action(&mut self, ai_rng: &mut StsRandom) -> EnemyAction {
+    fn on_spawn(&self, ai_rng: &mut StsRandom) -> EnemyState {
         let _ = ai_rng.gen_range(0..100); // Burn a random number for consistency with the game
-        EnemyAction::SpikeSlimeSTackle
+        EnemyState::new(
+            Enemy::SpikeSlimeS,
+            self.hp_max,
+            vec![],
+            EnemyAction::SpikeSlimeSTackle,
+        )
     }
 
     fn next_action(&mut self, ai_rng: &mut StsRandom, _: EnemyAction, _: usize) -> EnemyAction {

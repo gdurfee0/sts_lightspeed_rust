@@ -22,8 +22,8 @@ impl EnemyState {
     pub fn new(
         enemy: Enemy,
         hp_max: HpMax,
-        first_action: EnemyAction,
         conditions: Vec<EnemyCondition>,
+        first_action: EnemyAction,
     ) -> Self {
         Self {
             enemy,

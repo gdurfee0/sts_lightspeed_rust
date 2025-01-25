@@ -1,22 +1,22 @@
-package basicmod.relics;
+package pipemod.relics;
 
 import basemod.abstracts.CustomRelic;
 import basemod.helpers.RelicType;
-import basicmod.util.GeneralUtils;
-import basicmod.util.TextureLoader;
 import com.megacrit.cardcrawl.cards.AbstractCard;
 import com.megacrit.cardcrawl.core.CardCrawlGame;
 import com.megacrit.cardcrawl.helpers.ImageMaster;
 import com.megacrit.cardcrawl.localization.RelicStrings;
+import pipemod.util.GeneralUtils;
+import pipemod.util.TextureLoader;
 
-import static basicmod.BasicMod.relicPath;
+import static pipemod.PipeMod.relicPath;
 
 public abstract class BaseRelic extends CustomRelic {
     public AbstractCard.CardColor pool = null;
     public RelicType relicType = RelicType.SHARED;
     protected String imageName;
 
-    //for character specific relics
+    // for character specific relics
     public BaseRelic(String id, String imageName, AbstractCard.CardColor pool, RelicTier tier, LandingSound sfx) {
         this(id, imageName, tier, sfx);
 
@@ -27,8 +27,9 @@ public abstract class BaseRelic extends CustomRelic {
         this(id, GeneralUtils.removePrefix(id), tier, sfx);
     }
 
-    //To use a basegame relic image, just pass in the imagename used by a basegame relic instead of the ID.
-    //eg. "calendar.png"
+    // To use a basegame relic image, just pass in the imagename used by a basegame
+    // relic instead of the ID.
+    // eg. "calendar.png"
     public BaseRelic(String id, String imageName, RelicTier tier, LandingSound sfx) {
         super(testStrings(id), notPng(imageName) ? "" : imageName, tier, sfx);
 
@@ -44,8 +45,7 @@ public abstract class BaseRelic extends CustomRelic {
             outlineImg = TextureLoader.getTextureNull(relicPath(imageName + "Outline.png"), true);
             if (outlineImg == null)
                 outlineImg = img;
-        }
-        else {
+        } else {
             ImageMaster.loadRelicImg("Derp Rock", "derpRock.png");
             this.img = ImageMaster.getRelicImg("Derp Rock");
             this.outlineImg = ImageMaster.getRelicOutlineImg("Derp Rock");
@@ -58,14 +58,13 @@ public abstract class BaseRelic extends CustomRelic {
             if (largeImg == null) {
                 this.largeImg = ImageMaster.loadImage(relicPath("large/" + imageName + ".png"));
             }
-        }
-        else {
+        } else {
             super.loadLargeImg();
         }
     }
 
     private void setPool(AbstractCard.CardColor pool) {
-        switch (pool) { //Basegame pools are handled differently
+        switch (pool) { // Basegame pools are handled differently
             case RED:
                 relicType = RelicType.RED;
                 break;
@@ -85,7 +84,9 @@ public abstract class BaseRelic extends CustomRelic {
     }
 
     /**
-     * Checks whether relic has localization set up correctly and gives a more accurate error message if it does not
+     * Checks whether relic has localization set up correctly and gives a more
+     * accurate error message if it does not
+     * 
      * @param ID the relic's ID
      * @return the relic's ID, to allow use in super constructor invocation
      */

@@ -5,3 +5,6 @@
 	path = reference-impl/pybind11
 	url = ../../pybind/pybind11
 	branch = stable
+[submodule "pipemod/StSLib"]
+	path = pipemod/StSLib
+	url = git@github.com:kiooeht/StSLib.git

@@ -1,4 +1,4 @@
-package basicmod.util;
+package pipemod.util;
 
 import com.megacrit.cardcrawl.cards.AbstractCard;
 
@@ -9,8 +9,8 @@ public class CardStats {
     public final AbstractCard.CardRarity cardRarity;
     public final AbstractCard.CardColor cardColor;
 
-    public CardStats(AbstractCard.CardColor cardColor, AbstractCard.CardType cardType, AbstractCard.CardRarity cardRarity, AbstractCard.CardTarget cardTarget, int baseCost)
-    {
+    public CardStats(AbstractCard.CardColor cardColor, AbstractCard.CardType cardType,
+            AbstractCard.CardRarity cardRarity, AbstractCard.CardTarget cardTarget, int baseCost) {
         this.baseCost = baseCost;
         this.cardType = cardType;
         this.cardTarget = cardTarget;

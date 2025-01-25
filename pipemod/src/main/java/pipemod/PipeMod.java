@@ -1,22 +1,16 @@
 package pipemod;
 
 import basemod.BaseMod;
-import basemod.interfaces.EditKeywordsSubscriber;
-import basemod.interfaces.EditStringsSubscriber;
 import basemod.interfaces.PostInitializeSubscriber;
 import com.badlogic.gdx.Files;
-import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.backends.lwjgl.LwjglFileHandle;
 import com.badlogic.gdx.files.FileHandle;
 import com.badlogic.gdx.graphics.Texture;
-import com.badlogic.gdx.utils.GdxRuntimeException;
 import com.evacipated.cardcrawl.modthespire.Loader;
 import com.evacipated.cardcrawl.modthespire.ModInfo;
 import com.evacipated.cardcrawl.modthespire.Patcher;
 import com.evacipated.cardcrawl.modthespire.lib.SpireInitializer;
-import com.google.gson.Gson;
 import com.megacrit.cardcrawl.core.Settings;
-import com.megacrit.cardcrawl.localization.*;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.scannotation.AnnotationDB;
@@ -24,13 +18,12 @@ import pipemod.util.GeneralUtils;
 import pipemod.util.KeywordInfo;
 import pipemod.util.TextureLoader;
 
+import java.io.*;
 import java.nio.charset.StandardCharsets;
 import java.util.*;
 
 @SpireInitializer
 public class PipeMod implements
-        EditStringsSubscriber,
-        EditKeywordsSubscriber,
         PostInitializeSubscriber {
     public static ModInfo info;
     public static String modID; // Edit your pom.xml to change this
@@ -65,11 +58,39 @@ public class PipeMod implements
         // Set up the mod information displayed in the in-game mods menu.
         // The information used is taken from your pom.xml file.
 
+        logger.info(modID + " Hello, world.");
+        connectPipe();
+        logger.info(modID + " Hello, world again.");
+
         // If you want to set up a config panel, that will be done here.
         // You can find information about this on the BaseMod wiki page "Mod Config and
         // Panel".
         BaseMod.registerModBadge(badgeTexture, info.Name, GeneralUtils.arrToString(info.Authors), info.Description,
                 null);
+    }
+
+    public void connectPipe() {
+        String pipeName = "\\\\.\\pipe\\my-pipe";
+
+        System.out.println("Attempting to connect to the named pipe server...");
+
+        try (RandomAccessFile pipe = new RandomAccessFile(pipeName, "rw")) {
+            System.out.println("Connected to the server!");
+
+            // Write a message to the server
+            String message = "Hello from the client!";
+            pipe.write(message.getBytes(StandardCharsets.UTF_8));
+            System.out.println("Sent to server: " + message);
+
+            // Read response from the server
+            byte[] buffer = new byte[1024];
+            int bytesRead = pipe.read(buffer);
+            String response = new String(buffer, 0, bytesRead, StandardCharsets.UTF_8);
+            System.out.println("Received from server: " + response);
+
+        } catch (IOException e) {
+            System.err.println("Error communicating with the named pipe server: " + e.getMessage());
+        }
     }
 
     /*----------Localization----------*/
@@ -82,82 +103,6 @@ public class PipeMod implements
     private static final String defaultLanguage = "eng";
 
     public static final Map<String, KeywordInfo> keywords = new HashMap<>();
-
-    @Override
-    public void receiveEditStrings() {
-        /*
-         * First, load the default localization.
-         * Then, if the current language is different, attempt to load localization for
-         * that language.
-         * This results in the default localization being used for anything that might
-         * be missing.
-         * The same process is used to load keywords slightly below.
-         */
-        loadLocalization(defaultLanguage); // no exception catching for default localization; you better have at least
-                                           // one that works.
-        if (!defaultLanguage.equals(getLangString())) {
-            try {
-                loadLocalization(getLangString());
-            } catch (GdxRuntimeException e) {
-                e.printStackTrace();
-            }
-        }
-    }
-
-    private void loadLocalization(String lang) {
-        // While this does load every type of localization, most of these files are just
-        // outlines so that you can see how they're formatted.
-        // Feel free to comment out/delete any that you don't end up using.
-        BaseMod.loadCustomStringsFile(CardStrings.class,
-                localizationPath(lang, "CardStrings.json"));
-        BaseMod.loadCustomStringsFile(CharacterStrings.class,
-                localizationPath(lang, "CharacterStrings.json"));
-        BaseMod.loadCustomStringsFile(EventStrings.class,
-                localizationPath(lang, "EventStrings.json"));
-        BaseMod.loadCustomStringsFile(OrbStrings.class,
-                localizationPath(lang, "OrbStrings.json"));
-        BaseMod.loadCustomStringsFile(PotionStrings.class,
-                localizationPath(lang, "PotionStrings.json"));
-        BaseMod.loadCustomStringsFile(PowerStrings.class,
-                localizationPath(lang, "PowerStrings.json"));
-        BaseMod.loadCustomStringsFile(RelicStrings.class,
-                localizationPath(lang, "RelicStrings.json"));
-        BaseMod.loadCustomStringsFile(UIStrings.class,
-                localizationPath(lang, "UIStrings.json"));
-    }
-
-    @Override
-    public void receiveEditKeywords() {
-        Gson gson = new Gson();
-        String json = Gdx.files.internal(localizationPath(defaultLanguage, "Keywords.json"))
-                .readString(String.valueOf(StandardCharsets.UTF_8));
-        KeywordInfo[] keywords = gson.fromJson(json, KeywordInfo[].class);
-        for (KeywordInfo keyword : keywords) {
-            keyword.prep();
-            registerKeyword(keyword);
-        }
-
-        if (!defaultLanguage.equals(getLangString())) {
-            try {
-                json = Gdx.files.internal(localizationPath(getLangString(), "Keywords.json"))
-                        .readString(String.valueOf(StandardCharsets.UTF_8));
-                keywords = gson.fromJson(json, KeywordInfo[].class);
-                for (KeywordInfo keyword : keywords) {
-                    keyword.prep();
-                    registerKeyword(keyword);
-                }
-            } catch (Exception e) {
-                logger.warn(modID + " does not support " + getLangString() + " keywords.");
-            }
-        }
-    }
-
-    private void registerKeyword(KeywordInfo info) {
-        BaseMod.addKeyword(modID.toLowerCase(), info.PROPER_NAME, info.NAMES, info.DESCRIPTION);
-        if (!info.ID.isEmpty()) {
-            keywords.put(info.ID, info);
-        }
-    }
 
     // These methods are used to generate the correct filepaths to various parts of
     // the resources folder.

@@ -1,0 +1,13 @@
+[package]
+name = "ipc-client"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+sts_lib = { path = "../../lib" }
+tokio = { version = "1.43.0", features = [
+    "full",
+    "net",
+    "rt-multi-thread",
+    "windows-sys",
+] }

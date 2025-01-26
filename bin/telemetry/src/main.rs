@@ -1,3 +1,4 @@
+/*
 use tokio::io::AsyncReadExt;
 use tokio::net::windows::named_pipe::ServerOptions;
 
@@ -39,8 +40,9 @@ async fn handle_incoming_messages() {
         );
     }
 }
+*/
 
 fn main() {
-    let rt = tokio::runtime::Runtime::new().expect("Failed to create Tokio runtime");
-    rt.block_on(handle_incoming_messages());
+    //let rt = tokio::runtime::Runtime::new().expect("Failed to create Tokio runtime");
+    //rt.block_on(handle_incoming_messages());
 }

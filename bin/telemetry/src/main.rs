@@ -1,7 +1,7 @@
 use tokio::io::AsyncReadExt;
 use tokio::net::windows::named_pipe::ServerOptions;
 
-const STS_TO_TELEMETRY_PIPE_NAME: &str = "\\\\.\\pipe\\mypipe";
+const STS_TO_TELEMETRY_PIPE_NAME: &str = "\\\\.\\pipe\\sts2telemetry";
 //const TELEMETRY_TO_STS_PIPE_NAME: &str = r"\\.\pipe\telemetry-to-sts";
 
 async fn handle_incoming_messages() {

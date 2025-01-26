@@ -7,9 +7,8 @@
 
         <!-- Change the path for your system to match your Steam installation. -->
         <!-- If you're not sure, go to Slay the Spire in the Steam library, and choose Manage -> Browse local files -->
-        <steam.windows>C:/Program Files (x86)/steam/steamapps</steam.windows>
-        <steam.mac>${user.home}/Library/Application Support/Steam/steamapps</steam.mac>
-        <steam.linux>${user.home}/.local/share/Steam/steamapps</steam.linux>
+        <sts.path>/common/SlayTheSpire/desktop-1.0.jar</sts.path>
+        <steam.path>C:/Program Files (x86)/steam/steamapps</steam.path>
         <!-- In the Maven tab, under Profiles, make sure only the profile for your system is enabled. Windows is the default. -->
 
         <!-- These don't have to be up to date, it's just nice if they are. -->
@@ -24,7 +23,7 @@
 
     <!-- This information will be displayed in ModTheSpire, the modded launcher. -->
     <name>PipeMod</name>
-    <version>0.0.0</version>
+    <version>0.0.1</version>
     <!-- Avoid using \ in this description, as they can cause the description to fail to load. -->
     <!-- If you really want to use them, you'll need to "escape" them by putting another one in front, like \\ -->
     <description>Simple mod that pipes events from the game to a Rust runtime.</description>
@@ -33,8 +32,8 @@
     <!--You'll get a warning regarding these when you package your mod, but don't worry, it's just set up like this for convenience.-->
     <!--Technically these should be changed individually, but this allows you to just set it in one place.-->
     <!--Absolutely a no-go for larger projects, but for a personal mod it's fine.-->
-    <groupId>${modID}</groupId>
-    <artifactId>${modID}</artifactId>
+    <groupId>pipemod</groupId>
+    <artifactId>pipemod</artifactId>
 
     <dependencies>
         <dependency>
@@ -66,6 +65,21 @@
             <version>2.4.0</version>
             <scope>system</scope>
             <systemPath>${steam.path}/workshop/content/646570/1609158507/StSLib.jar</systemPath>
+        </dependency>
+        <dependency>
+            <groupId>com.fasterxml.jackson.core</groupId>
+            <artifactId>jackson-databind</artifactId>
+            <version>2.15.0</version>
+        </dependency>
+        <dependency>
+            <groupId>com.fasterxml.jackson.core</groupId>
+            <artifactId>jackson-core</artifactId>
+            <version>2.15.0</version>
+        </dependency>
+        <dependency>
+            <groupId>com.fasterxml.jackson.core</groupId>
+            <artifactId>jackson-annotations</artifactId>
+            <version>2.15.0</version>
         </dependency>
     </dependencies>
 
@@ -119,6 +133,19 @@
                         <delimiter>${*}</delimiter>
                     </delimiters>
                 </configuration>
+            </plugin>
+            <plugin>
+            <groupId>org.apache.maven.plugins</groupId>
+            <artifactId>maven-shade-plugin</artifactId>
+            <version>3.4.0</version>
+            <executions>
+                <execution>
+                    <phase>package</phase>
+                    <goals>
+                        <goal>shade</goal>
+                    </goals>
+                </execution>
+            </executions>
             </plugin>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
@@ -197,60 +224,8 @@
                 <activeByDefault>true</activeByDefault>
             </activation>
             <properties>
-                <steam.path>${steam.windows}</steam.path>
-                <sts.path>/common/SlayTheSpire/desktop-1.0.jar</sts.path>
+                
             </properties>
-        </profile>
-
-        <profile>
-            <id>linux</id>
-            <activation>
-                <activeByDefault>false</activeByDefault>
-                <os>
-                    <family>unix</family>
-                </os>
-            </activation>
-            <properties>
-                <steam.path>${steam.linux}</steam.path>
-                <sts.path>/common/SlayTheSpire/desktop-1.0.jar</sts.path>
-            </properties>
-        </profile>
-
-        <profile>
-            <id>mac</id>
-            <activation>
-                <activeByDefault>false</activeByDefault>
-                <os>
-                    <family>mac</family>
-                </os>
-            </activation>
-            <properties>
-                <steam.path>${steam.mac}</steam.path>
-                <sts.path>/common/SlayTheSpire/SlayTheSpire.app/Contents/Resources/desktop-1.0.jar</sts.path>
-            </properties>
-            <build>
-                <plugins>
-                    <plugin>
-                        <groupId>org.apache.maven.plugins</groupId>
-                        <artifactId>maven-antrun-plugin</artifactId>
-                        <version>3.1.0</version>
-                        <executions>
-                            <execution>
-                                <phase>package</phase>
-                                <configuration>
-                                    <target>
-                                        <!-- This moves your mod into a common folder where all mods you make can go. -->
-                                        <copy file="target/${project.artifactId}.jar" tofile="${steam.path}/common/SlayTheSpire/SlayTheSpire.app/Contents/Resources/mods/${project.artifactId}.jar"/>
-                                    </target>
-                                </configuration>
-                                <goals>
-                                    <goal>run</goal>
-                                </goals>
-                            </execution>
-                        </executions>
-                    </plugin>
-                </plugins>
-            </build>
         </profile>
     </profiles>
 </project>

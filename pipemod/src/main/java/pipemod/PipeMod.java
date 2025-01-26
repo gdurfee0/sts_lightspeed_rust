@@ -2,10 +2,15 @@ package pipemod;
 
 import basemod.BaseMod;
 import basemod.interfaces.PostInitializeSubscriber;
+import basemod.interfaces.StartGameSubscriber;
+
 import com.evacipated.cardcrawl.modthespire.Loader;
 import com.evacipated.cardcrawl.modthespire.ModInfo;
 import com.evacipated.cardcrawl.modthespire.Patcher;
 import com.evacipated.cardcrawl.modthespire.lib.SpireInitializer;
+
+import com.megacrit.cardcrawl.dungeons.AbstractDungeon;
+
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.scannotation.AnnotationDB;
@@ -15,7 +20,43 @@ import java.nio.charset.StandardCharsets;
 import java.util.*;
 
 @SpireInitializer
-public class PipeMod implements PostInitializeSubscriber {
+public class PipeMod implements PostInitializeSubscriber, StartGameSubscriber {
+    @Override
+    public void receivePostInitialize() {
+        logger.info(modID + " Hello, world.");
+    }
+
+    @Override
+    public void receiveStartGame() {
+        int amount = AbstractDungeon.player.gold;
+        connectPipe(amount);
+    }
+
+    public void connectPipe(int amount) {
+        String pipeName = "\\\\.\\pipe\\my-pipe";
+
+        System.out.println("Attempting to connect to the named pipe server...");
+
+        try (RandomAccessFile pipe = new RandomAccessFile(pipeName, "rw")) {
+            System.out.println("Connected to the server!");
+
+            // Write a message to the server
+            String message = "Hello from the client! " + amount;
+            pipe.write(message.getBytes(StandardCharsets.UTF_8));
+            System.out.println("Sent to server: " + message);
+
+            // Read response from the server
+            byte[] buffer = new byte[1024];
+            int bytesRead = pipe.read(buffer);
+            String response = new String(buffer, 0, bytesRead, StandardCharsets.UTF_8);
+            System.out.println("Received from server: " + response);
+
+        } catch (IOException e) {
+            System.err.println("Error communicating with the named pipe server: " + e.getMessage());
+        }
+    }
+
+    // Boilerplate code to load the mod. This is standard across all mods.
     public static ModInfo info;
     public static String modID; // Edit your pom.xml to change this
     static {
@@ -40,39 +81,6 @@ public class PipeMod implements PostInitializeSubscriber {
                                  // times.
         logger.info(modID + " subscribed to BaseMod.");
     }
-
-    @Override
-    public void receivePostInitialize() {
-        logger.info(modID + " Hello, world.");
-        connectPipe();
-        logger.info(modID + " Hello, world again.");
-    }
-
-    public void connectPipe() {
-        String pipeName = "\\\\.\\pipe\\my-pipe";
-
-        System.out.println("Attempting to connect to the named pipe server...");
-
-        try (RandomAccessFile pipe = new RandomAccessFile(pipeName, "rw")) {
-            System.out.println("Connected to the server!");
-
-            // Write a message to the server
-            String message = "Hello from the client!";
-            pipe.write(message.getBytes(StandardCharsets.UTF_8));
-            System.out.println("Sent to server: " + message);
-
-            // Read response from the server
-            byte[] buffer = new byte[1024];
-            int bytesRead = pipe.read(buffer);
-            String response = new String(buffer, 0, bytesRead, StandardCharsets.UTF_8);
-            System.out.println("Received from server: " + response);
-
-        } catch (IOException e) {
-            System.err.println("Error communicating with the named pipe server: " + e.getMessage());
-        }
-    }
-
-    /*----------Localization----------*/
 
     /**
      * This determines the mod's ID based on information stored by ModTheSpire.

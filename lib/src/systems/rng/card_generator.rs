@@ -94,12 +94,20 @@ mod tests {
         let _ = card_generator.combat_rewards();
         assert_eq!(
             card_generator.combat_rewards(),
-            vec![Card::Anger, Card::Intimidate, Card::BloodForBlood]
+            vec![
+                Card::Anger(false),
+                Card::Intimidate(false),
+                Card::BloodForBlood(false)
+            ]
         );
         let mut card_generator = CardGenerator::new(3.into(), IRONCLAD, Act::get(1));
         assert_eq!(
             card_generator.combat_rewards(),
-            vec![Card::Thunderclap, Card::HeavyBlade, Card::Armaments]
+            vec![
+                Card::Thunderclap(false),
+                Card::HeavyBlade(false),
+                Card::Armaments(false)
+            ]
         );
     }
 }

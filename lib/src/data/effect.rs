@@ -39,7 +39,8 @@ pub enum PlayerEffect {
     DealDamageCustom(),
     DealDamageToAll(AttackDamage),
     GainBlock(Block),
-    UpgradeOneCardInCombat(),
+    UpgradeAllCardsInHandThisCombat(),
+    UpgradeOneCardInHandThisCombat(),
     /*
     AddToHand(&'static [Card]),
     Buff(Buff, StackCount),

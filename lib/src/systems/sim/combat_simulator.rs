@@ -185,7 +185,8 @@ impl<'a> CombatSimulator<'a> {
                     self.player_in_combat
                         .gain_block(Self::incoming_block(&self.player_in_combat, *amount))?;
                 }
-                PlayerEffect::UpgradeOneCardInCombat() => todo!(),
+                PlayerEffect::UpgradeOneCardInHandThisCombat() => todo!(),
+                PlayerEffect::UpgradeAllCardsInHandThisCombat() => todo!(),
             }
             if self.combat_should_end() {
                 break;
@@ -208,7 +209,7 @@ impl<'a> CombatSimulator<'a> {
                     self.attack_enemy(enemy_index, *amount)?;
                 }
                 PlayerEffect::DealDamageCustom() => match card.card {
-                    Card::BodySlam => {
+                    Card::BodySlam(_) => {
                         self.attack_enemy(enemy_index, self.player_in_combat.state.block)?;
                     }
                     _ => unreachable!("{:?}", card),
@@ -219,7 +220,8 @@ impl<'a> CombatSimulator<'a> {
                 | PlayerEffect::ApplyToSelf(_)
                 | PlayerEffect::DealDamageToAll(_)
                 | PlayerEffect::GainBlock(_)
-                | PlayerEffect::UpgradeOneCardInCombat() => unreachable!(
+                | PlayerEffect::UpgradeOneCardInHandThisCombat()
+                | PlayerEffect::UpgradeAllCardsInHandThisCombat() => unreachable!(
                     "Inappropriate card handled by play_card_against_enemy, {:?}",
                     card
                 ),
@@ -248,12 +250,9 @@ impl<'a> CombatSimulator<'a> {
                     .send_notification(Notification::EnemyDied(index, enemy_type))?;
                 // Invoke death effects
                 for condition in enemy.state.conditions.iter() {
-                    match condition {
-                        EnemyCondition::SporeCloud(stacks) => {
-                            self.player_in_combat
-                                .apply_condition(&PlayerCondition::Vulnerable(*stacks))?;
-                        }
-                        _ => {}
+                    if let EnemyCondition::SporeCloud(stacks) = condition {
+                        self.player_in_combat
+                            .apply_condition(&PlayerCondition::Vulnerable(*stacks))?;
                     }
                 }
 

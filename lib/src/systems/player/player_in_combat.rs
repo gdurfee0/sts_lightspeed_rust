@@ -350,7 +350,7 @@ impl<'a> PlayerInCombat<'a> {
             self.state.hp_loss_count += 1;
             // TODO: Lookup instead of linear pass?
             for card in self.state.cards_iter_mut() {
-                if let Card::BloodForBlood = card.card {
+                if matches!(card.card, Card::BloodForBlood(_)) {
                     card.cost_this_combat = card.cost_this_combat.saturating_sub(1);
                 }
             }
@@ -513,7 +513,7 @@ mod tests {
         let (to_client, from_server) = channel();
 
         let mut player = Player::new(IRONCLAD, from_client, to_client);
-        player.state.deck = vec![Card::BloodForBlood];
+        player.state.deck = vec![Card::BloodForBlood(false)];
         let mut player_in_combat = PlayerInCombat::new(&mut player, Seed::from(3));
 
         assert_eq!(
@@ -522,7 +522,7 @@ mod tests {
                 .state
                 .draw_pile
                 .iter()
-                .find(|card| card.card == Card::BloodForBlood)
+                .find(|card| matches!(card.card, Card::BloodForBlood(false)))
                 .unwrap()
                 .cost_this_combat
         );
@@ -533,7 +533,7 @@ mod tests {
                 .state
                 .draw_pile
                 .iter()
-                .find(|card| card.card == Card::BloodForBlood)
+                .find(|card| matches!(card.card, Card::BloodForBlood(false)))
                 .unwrap()
                 .cost_this_combat
         );
@@ -548,7 +548,7 @@ mod tests {
                 .state
                 .draw_pile
                 .iter()
-                .find(|card| card.card == Card::BloodForBlood)
+                .find(|card| matches!(card.card, Card::BloodForBlood(false)))
                 .unwrap()
                 .cost_this_combat
         );

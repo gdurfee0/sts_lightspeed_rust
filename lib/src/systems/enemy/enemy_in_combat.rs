@@ -1,9 +1,9 @@
 use crate::components::{EnemyState, EnemyStatus};
-use crate::data::{Enemy, EnemyAction, EnemyCondition};
+use crate::data::{EnemyAction, EnemyCondition};
 use crate::systems::rng::StsRandom;
 use crate::types::{AttackDamage, Block};
 
-use super::enemy_characteristics::{create_enemy, EnemyCharacteristics};
+use super::enemy_characteristics::EnemyCharacteristics;
 
 #[derive(Debug)]
 pub struct EnemyInCombat {

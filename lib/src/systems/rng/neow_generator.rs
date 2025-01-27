@@ -169,37 +169,57 @@ mod test {
         let mut generator = nge.generator(IRONCLAD);
         assert_eq!(
             generator.three_card_choices(),
-            vec![Card::SeeingRed, Card::Clothesline, Card::BloodForBlood]
+            vec![
+                Card::SeeingRed(false),
+                Card::Clothesline(false),
+                Card::BloodForBlood(false)
+            ]
         );
         let mut nge = NeowGeneratorEnvironment::new(40.into());
         let mut generator = nge.generator(IRONCLAD);
         assert_eq!(
             generator.three_card_choices(),
-            vec![Card::IronWave, Card::Cleave, Card::Headbutt]
+            vec![
+                Card::IronWave(false),
+                Card::Cleave(false),
+                Card::Headbutt(false)
+            ]
         );
         let mut nge = NeowGeneratorEnvironment::new(3.into());
         let mut generator = nge.generator(SILENT);
         assert_eq!(
             generator.three_card_choices(),
-            vec![Card::Dash, Card::Backflip, Card::Choke]
+            vec![Card::Dash(false), Card::Backflip(false), Card::Choke(false)]
         );
         let mut nge = NeowGeneratorEnvironment::new(3.into());
         let mut generator = nge.generator(DEFECT);
         assert_eq!(
             generator.three_card_choices(),
-            vec![Card::Equilibrium, Card::CompileDriver, Card::Aggregate]
+            vec![
+                Card::Equilibrium(false),
+                Card::CompileDriver(false),
+                Card::Aggregate(false)
+            ]
         );
         let mut nge = NeowGeneratorEnvironment::new(3.into());
         let mut generator = nge.generator(WATCHER);
         assert_eq!(
             generator.three_card_choices(),
-            vec![Card::Worship, Card::CutThroughFate, Card::WheelKick]
+            vec![
+                Card::Worship(false),
+                Card::CutThroughFate(false),
+                Card::WheelKick(false)
+            ]
         );
         let mut nge = NeowGeneratorEnvironment::new(40.into());
         let mut generator = nge.generator(WATCHER);
         assert_eq!(
             generator.three_card_choices(),
-            vec![Card::FlyingSleeves, Card::Tranquility, Card::Evaluate]
+            vec![
+                Card::FlyingSleeves(false),
+                Card::Tranquility(false),
+                Card::Evaluate(false)
+            ]
         );
     }
 
@@ -207,26 +227,26 @@ mod test {
     fn test_one_random_rare_card() {
         let mut nge = NeowGeneratorEnvironment::new(2.into());
         let mut generator = nge.generator(IRONCLAD);
-        assert_eq!(generator.one_random_rare_card(), Card::DemonForm);
+        assert_eq!(generator.one_random_rare_card(), Card::DemonForm(false));
         let mut nge = NeowGeneratorEnvironment::new(13.into());
         let mut generator = nge.generator(IRONCLAD);
-        assert_eq!(generator.one_random_rare_card(), Card::Reaper);
+        assert_eq!(generator.one_random_rare_card(), Card::Reaper(false));
     }
 
     #[test]
     fn test_one_curse() {
         let mut nge = NeowGeneratorEnvironment::new(2.into());
         let mut generator = nge.generator(IRONCLAD);
-        assert_eq!(generator.one_curse(), Card::Clumsy);
+        assert_eq!(generator.one_curse(), Card::Clumsy(false));
         let mut nge = NeowGeneratorEnvironment::new(11.into());
         let mut generator = nge.generator(IRONCLAD);
-        assert_eq!(generator.one_curse(), Card::Clumsy);
+        assert_eq!(generator.one_curse(), Card::Clumsy(false));
         let mut nge = NeowGeneratorEnvironment::new(12.into());
         let mut generator = nge.generator(IRONCLAD);
-        assert_eq!(generator.one_curse(), Card::Decay); // TODO: Writhe?
+        assert_eq!(generator.one_curse(), Card::Decay(false)); // TODO: Writhe?
         let mut nge = NeowGeneratorEnvironment::new(13.into());
         let mut generator = nge.generator(IRONCLAD);
-        assert_eq!(generator.one_curse(), Card::Parasite);
+        assert_eq!(generator.one_curse(), Card::Parasite(false));
     }
 
     #[test]

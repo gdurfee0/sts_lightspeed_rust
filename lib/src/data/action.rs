@@ -103,7 +103,7 @@ macro_rules! define_actions {
 }
 
 static ALL_ENEMY_ACTIONS: Lazy<HashMap<EnemyAction, EnemyActionDetails>> = define_actions!(
-    AcidSlimeMCorrosiveSpit => [DealDamage(7), AddToDiscardPile(&[Card::Slimed])],
+    AcidSlimeMCorrosiveSpit => [DealDamage(7), AddToDiscardPile(&[Card::Slimed(false)])],
     AcidSlimeMLick => [Apply(PlayerCondition::Weak(1))],
     AcidSlimeMTackle => [DealDamage(10)],
     AcidSlimeSLick => [Apply(PlayerCondition::Weak(1))],
@@ -115,7 +115,7 @@ static ALL_ENEMY_ACTIONS: Lazy<HashMap<EnemyAction, EnemyActionDetails>> = defin
     JawWormBellow => [GainStrength(3), GainBlock(6)],
     JawWormChomp => [DealDamage(11)],
     JawWormThrash => [DealDamage(7), GainBlock(5)],
-    SpikeSlimeMFlameTackle => [DealDamage(8), AddToDiscardPile(&[Card::Slimed])],
+    SpikeSlimeMFlameTackle => [DealDamage(8), AddToDiscardPile(&[Card::Slimed(false)])],
     SpikeSlimeMLick => [Apply(PlayerCondition::Frail(1))],
     SpikeSlimeSTackle => [DealDamage(5)],
 );

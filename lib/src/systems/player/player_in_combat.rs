@@ -15,6 +15,7 @@ pub struct PlayerInCombat<'a> {
     pub player: &'a mut Player,
     pub state: PlayerCombatState,
 
+    turn_number: usize,
     shuffle_rng: StsRandom,
     card_randomizer_rng: StsRandom,
     cards_drawn_each_turn: usize,
@@ -37,6 +38,11 @@ impl<'a> PlayerInCombat<'a> {
         shuffle_rng.java_compat_shuffle(&mut state.draw_pile);
         // Move innate cards to the top of the draw pile
         state.draw_pile.sort_by_key(|card| card.details.innate);
+        println!("Draw pile at start of combat:");
+        for (i, card) in state.draw_pile.iter().enumerate() {
+            println!("    {}: {:?}", i, card.card);
+        }
+
         // TODO: Draw more than 5 cards if there are more than 5 innate cards
         let cards_drawn_each_turn = if player.state.has_relic(Relic::SneckoEye) {
             7
@@ -44,11 +50,12 @@ impl<'a> PlayerInCombat<'a> {
             5
         };
         Self {
+            player,
+            state,
+            turn_number: 0,
             shuffle_rng,
             card_randomizer_rng,
-            player,
             cards_drawn_each_turn,
-            state,
             card_just_played: None,
         }
     }
@@ -77,12 +84,29 @@ impl<'a> PlayerInCombat<'a> {
             .send_notification(Notification::EnemyParty(enemies.to_vec()))
     }
 
+    pub fn debug_self(&self, message: &str) {
+        println!("PlayerInCombat, turn {}, {}", self.turn_number, message);
+        println!("    draw_pile:");
+        for (i, card) in self.state.draw_pile.iter().enumerate() {
+            println!("        {}: {:?}", i, card.card);
+        }
+        println!("    discard_pile:");
+        for (i, card) in self.state.discard_pile.iter().enumerate() {
+            println!("        {}: {:?}", i, card.card);
+        }
+        println!("    hand:");
+        for (i, card) in self.state.hand.iter().enumerate() {
+            println!("        {}: {:?}", i, card.card);
+        }
+    }
+
     pub fn start_turn(&mut self) -> Result<(), Error> {
         // Reset energy
         // TODO: energy conservation
         self.state.energy = 3;
 
         // Draw cards
+        self.debug_self("before drawing cards");
         self.draw_cards()?;
 
         // Set block to 0
@@ -104,6 +128,7 @@ impl<'a> PlayerInCombat<'a> {
             card.cost_this_turn = card.cost_this_combat;
         }
 
+        self.turn_number += 1;
         // TODO: Apply other end-of-turn effects
         Ok(())
     }
@@ -127,10 +152,10 @@ impl<'a> PlayerInCombat<'a> {
                 self.player
                     .comms
                     .send_notification(Notification::ShufflingDiscardToDraw)?;
-                println!("Discard pile before shuffle: {:?}", self.state.discard_pile);
+                self.debug_self("before shuffle");
                 self.shuffle_rng
                     .java_compat_shuffle(&mut self.state.discard_pile);
-                println!("Discard pile after shuffle: {:?}", self.state.discard_pile);
+                self.debug_self("after shuffle");
                 self.state.draw_pile.append(&mut self.state.discard_pile);
                 if let Some(card) = self.state.draw_pile.pop() {
                     self.draw_card(card)?;

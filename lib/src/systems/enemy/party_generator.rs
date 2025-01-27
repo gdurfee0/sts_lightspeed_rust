@@ -1,6 +1,7 @@
 use crate::data::{Encounter, Enemy};
 use crate::systems::rng::{Seed, StsRandom};
 
+use super::enemy_characteristics::create_enemy;
 use super::enemy_in_combat::EnemyInCombat;
 
 pub struct EnemyPartyGenerator<'a> {
@@ -31,8 +32,9 @@ impl<'a> EnemyPartyGenerator<'a> {
                 let mut iter = enemy_party.iter_mut();
                 $(
                     if let Some(slot) = iter.next() {
+                        let enemy_characteristics = create_enemy(Enemy::$enemy, &mut self.hp_rng);
                         *slot = Some(
-                            EnemyInCombat::new(Enemy::$enemy, &mut self.hp_rng, self.ai_rng)
+                            EnemyInCombat::new(enemy_characteristics, self.ai_rng)
                         );
                     }
                 )*
@@ -54,29 +56,28 @@ impl<'a> EnemyPartyGenerator<'a> {
             Encounter::ExordiumWildlife => {
                 // This must have been one of their earlier ideas for the game, as it's implemented
                 // in a more wasteful way than the other encounters.
-                let fungi_beast =
-                    EnemyInCombat::new(Enemy::FungiBeast, &mut self.hp_rng, self.ai_rng);
-                let jaw_worm = EnemyInCombat::new(Enemy::JawWorm, &mut self.hp_rng, self.ai_rng);
+                let fungi_beast = create_enemy(Enemy::FungiBeast, &mut self.hp_rng);
+                let jaw_worm = create_enemy(Enemy::JawWorm, &mut self.hp_rng);
                 let choice = self.misc_rng.gen_range(0..=1);
-                enemy_party[0] = Some(if choice == 0 { fungi_beast } else { jaw_worm });
-                let louse = EnemyInCombat::new(
+                enemy_party[0] = Some(EnemyInCombat::new(
+                    if choice == 0 { fungi_beast } else { jaw_worm },
+                    self.ai_rng,
+                ));
+                let louse = create_enemy(
                     if self.misc_rng.next_bool() {
                         Enemy::RedLouse
                     } else {
                         Enemy::GreenLouse
                     },
                     &mut self.hp_rng,
-                    self.ai_rng,
                 );
-                let spike_slime_m =
-                    EnemyInCombat::new(Enemy::SpikeSlimeM, &mut self.hp_rng, self.ai_rng);
-                let acid_slime_m =
-                    EnemyInCombat::new(Enemy::AcidSlimeM, &mut self.hp_rng, self.ai_rng);
+                let spike_slime_m = create_enemy(Enemy::SpikeSlimeM, &mut self.hp_rng);
+                let acid_slime_m = create_enemy(Enemy::AcidSlimeM, &mut self.hp_rng);
                 let choice = self.misc_rng.gen_range(0..=2);
                 enemy_party[1] = Some(match choice {
-                    0 => louse,
-                    1 => spike_slime_m,
-                    2 => acid_slime_m,
+                    0 => EnemyInCombat::new(louse, self.ai_rng),
+                    1 => EnemyInCombat::new(spike_slime_m, self.ai_rng),
+                    2 => EnemyInCombat::new(acid_slime_m, self.ai_rng),
                     _ => unreachable!(),
                 });
             }

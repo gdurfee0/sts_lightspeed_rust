@@ -353,7 +353,7 @@ mod test {
                         Some(EnemyStatus::new(
                             Enemy::SpikeSlimeM,
                             (31, 31),
-                            Intent::Aggressive(8, 1)
+                            Intent::AggressiveDebuff(8, 1)
                         )),
                         None,
                         None,

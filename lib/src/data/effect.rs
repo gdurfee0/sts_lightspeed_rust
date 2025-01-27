@@ -92,12 +92,18 @@ pub enum PlayerEffect {
 
 impl From<&[EnemyEffect]> for Intent {
     fn from(effect_chain: &[EnemyEffect]) -> Intent {
-        let has_debuff = effect_chain
-            .iter()
-            .any(|effect| matches!(effect, EnemyEffect::Apply(_)));
-        let has_buff = effect_chain
-            .iter()
-            .any(|effect| matches!(effect, EnemyEffect::ApplyToSelf(_)));
+        let has_debuff = effect_chain.iter().any(|effect| {
+            matches!(
+                effect,
+                EnemyEffect::Apply(_) | EnemyEffect::AddToDiscardPile(_)
+            )
+        });
+        let has_buff = effect_chain.iter().any(|effect| {
+            matches!(
+                effect,
+                EnemyEffect::ApplyToSelf(_) | EnemyEffect::GainStrength(_)
+            )
+        });
         let has_defense = false;
         /* effect_chain.iter().any(|effect| {
             matches!(

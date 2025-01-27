@@ -12,8 +12,10 @@ pub struct EnemyInCombat {
 }
 
 impl EnemyInCombat {
-    pub fn new(enemy: Enemy, hp_rng: &mut StsRandom, ai_rng: &mut StsRandom) -> Self {
-        let enemy_characteristics = create_enemy(enemy, hp_rng);
+    pub fn new(
+        enemy_characteristics: Box<dyn EnemyCharacteristics>,
+        ai_rng: &mut StsRandom,
+    ) -> Self {
         let state = enemy_characteristics.on_spawn(ai_rng);
         Self {
             state,

@@ -66,7 +66,7 @@ impl AcidSlimeM {
         last_action: Option<EnemyAction>,
         run_length: usize,
     ) -> EnemyAction {
-        match ai_rng.gen_range(0..100) {
+        let result = match ai_rng.gen_range(0..100) {
             0..30
                 if last_action != Some(EnemyAction::AcidSlimeMCorrosiveSpit) || run_length < 2 =>
             {
@@ -93,7 +93,13 @@ impl AcidSlimeM {
                 (EnemyAction::AcidSlimeMCorrosiveSpit, 0.4),
                 (EnemyAction::AcidSlimeMTackle, 0.6),
             ]),
-        }
+        };
+        println!(
+            "AcidSlimeM ai_rng {} next_action: {:?}",
+            ai_rng.get_counter(),
+            result
+        );
+        result
     }
 }
 
@@ -223,14 +229,20 @@ impl FungiBeast {
         last_action: Option<EnemyAction>,
         run_length: usize,
     ) -> EnemyAction {
-        match ai_rng.gen_range(0..100) {
+        let result = match ai_rng.gen_range(0..100) {
             0..60 if last_action != Some(EnemyAction::FungiBeastBite) || run_length < 2 => {
                 EnemyAction::FungiBeastBite
             }
             0..60 => EnemyAction::FungiBeastGrow,
             _ if last_action != Some(EnemyAction::FungiBeastGrow) => EnemyAction::FungiBeastGrow,
             _ => EnemyAction::FungiBeastBite,
-        }
+        };
+        println!(
+            "FungiBeast ai_rng {} next_action: {:?}",
+            ai_rng.get_counter(),
+            result
+        );
+        result
     }
 }
 
@@ -491,7 +503,8 @@ mod test {
         let seed: Seed = 3u64.into();
         let mut hp_rng = StsRandom::from(seed.with_offset(1));
         let mut ai_rng = StsRandom::from(seed.with_offset(1));
-        let mut enemy = EnemyInCombat::new(Enemy::AcidSlimeS, &mut hp_rng, &mut ai_rng);
+        let mut enemy =
+            EnemyInCombat::new(create_enemy(Enemy::AcidSlimeS, &mut hp_rng), &mut ai_rng);
         let status = EnemyStatus::from(&enemy.state);
         assert_eq!(status.enemy_type, Enemy::AcidSlimeS);
         assert_eq!(status.hp, 12);
@@ -520,7 +533,8 @@ mod test {
 
         let mut hp_rng = StsRandom::from(seed.with_offset(1));
         let mut ai_rng = StsRandom::from(seed.with_offset(1));
-        let mut enemy = EnemyInCombat::new(Enemy::AcidSlimeM, &mut hp_rng, &mut ai_rng);
+        let mut enemy =
+            EnemyInCombat::new(create_enemy(Enemy::AcidSlimeM, &mut hp_rng), &mut ai_rng);
         let status = EnemyStatus::from(&enemy.state);
         assert_eq!(status.enemy_type, Enemy::AcidSlimeM);
         assert_eq!(status.hp, 32);
@@ -558,7 +572,8 @@ mod test {
         let seed: Seed = 8u64.into();
         let mut hp_rng = StsRandom::from(seed.with_offset(1));
         let mut ai_rng = StsRandom::from(seed.with_offset(1));
-        let mut enemy = EnemyInCombat::new(Enemy::SpikeSlimeS, &mut hp_rng, &mut ai_rng);
+        let mut enemy =
+            EnemyInCombat::new(create_enemy(Enemy::SpikeSlimeS, &mut hp_rng), &mut ai_rng);
         let status = EnemyStatus::from(&enemy.state);
         assert_eq!(status.enemy_type, Enemy::SpikeSlimeS);
         assert_eq!(status.hp, 13);
@@ -578,7 +593,8 @@ mod test {
 
         let mut hp_rng = StsRandom::from(seed.with_offset(1));
         let mut ai_rng = StsRandom::from(seed.with_offset(1));
-        let mut enemy = EnemyInCombat::new(Enemy::SpikeSlimeM, &mut hp_rng, &mut ai_rng);
+        let mut enemy =
+            EnemyInCombat::new(create_enemy(Enemy::SpikeSlimeM, &mut hp_rng), &mut ai_rng);
         let status = EnemyStatus::from(&enemy.state);
         assert_eq!(status.enemy_type, Enemy::SpikeSlimeM);
         assert_eq!(status.hp, 31);

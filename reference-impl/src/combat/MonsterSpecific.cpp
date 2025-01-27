@@ -2307,15 +2307,19 @@ MMID Monster::getMoveForRoll(BattleContext &bc, int &monsterData, const int roll
             // 2 FUNGI_BEAST_GROW
             if (roll < 60) {
                 if (lastTwoMoves(MMID::FUNGI_BEAST_BITE)) {
+                    std::cout << "FUNGI_BEAST_GROW " << bc.aiRng.counter << ": " << roll << std::endl;
                     return (MMID::FUNGI_BEAST_GROW);
                 } else {
+                    std::cout << "FUNGI_BEAST_BITE " << bc.aiRng.counter << ": " << roll << std::endl;
                     return (MMID::FUNGI_BEAST_BITE);
                 }
 
             } else if (lastMove(MMID::FUNGI_BEAST_GROW)) {
+                std::cout << "FUNGI_BEAST_BITE " << bc.aiRng.counter << ": " << roll << std::endl;
                 return (MMID::FUNGI_BEAST_BITE);
 
             } else {
+                std::cout << "FUNGI_BEAST_GROW " << bc.aiRng.counter << ": " << roll << std::endl;
                 return (MMID::FUNGI_BEAST_GROW);
             }
             break;

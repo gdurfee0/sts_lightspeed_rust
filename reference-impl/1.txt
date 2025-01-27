@@ -69,3 +69,5 @@ card 0 2
 gold 0
 proceed
 2
+0
+

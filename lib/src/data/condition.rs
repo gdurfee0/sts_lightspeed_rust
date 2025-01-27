@@ -25,8 +25,17 @@ pub enum PlayerCondition {
     /// The costs of your cards are randomized on draw, from 0 to 3.
     Confused(),
 
+    /// Whenever you draw a Status card, draw X cards.
+    Evolve(StackCount),
+
+    /// Whenever you draw a Status or Curse card, deal X damage to ALL enemies.
+    FireBreathing(StackCount),
+
     /// Block gained from cards is reduced by 25%.
     Frail(StackCount),
+
+    /// Whenever you play an Attack, gain X Block.
+    Rage(StackCount),
 
     /// You take 50% more damage from attacks.
     Vulnerable(StackCount),
@@ -117,7 +126,6 @@ pub enum Buff {
     PenNib,          // Your next Attack deals double damage.
     Phantasmal,      // Deal Double Damage for the next X turns.
     PlatedArmor,     // At the end of your turn, gain X Block.
-    Rage,            // Whenever you play an Attack, gain X Block.
     Reactive,        // Upon receiving attack damage, changes its Intent.
     Rebound,         // The next X cards you play this turn are placed on top of your draw pile.
     Regenerate,      // At the start of your turn, heal X HP.

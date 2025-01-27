@@ -4,7 +4,7 @@ use std::collections::HashMap;
 
 use once_cell::sync::Lazy;
 
-use crate::data::EnemyCondition;
+use crate::data::{EnemyCondition, PlayerCondition};
 use crate::types::Energy;
 
 use super::effect::PlayerEffect;
@@ -586,12 +586,12 @@ static ALL_CARDS: Lazy<Vec<CardDetails>> = Lazy::new(|| {
         */
         define_card!(
             (Anger(false), Attack, 0),
-            [DealDamage(6), AddSelfCopyToDiscardPile()],
+            [DealDamage(6), CloneSelfIntoDiscardPile()],
             requires_target
         ),
         define_card!(
             (Anger(true), Attack, 0),
-            [DealDamage(8), AddSelfCopyToDiscardPile()],
+            [DealDamage(8), CloneSelfIntoDiscardPile()],
             requires_target
         ),
         /*
@@ -755,11 +755,18 @@ static ALL_CARDS: Lazy<Vec<CardDetails>> = Lazy::new(|| {
         ),
         define_card!((Caltrops, Power, 1), [Buff(Buff::Thorns, 3)]),
         define_card!((Capacitor, Power, 1), [GainOrbSlots(2)]),
+        */
         define_card!(
-            (Carnage, Attack, 2),
+            (Carnage(false), Attack, 2),
             [DealDamage(20)],
             [ethereal, requires_target]
         ),
+        define_card!(
+            (Carnage(true), Attack, 2),
+            [DealDamage(28)],
+            [ethereal, requires_target]
+        ),
+        /*
         define_card!(
             (CarveReality, Attack, 1),
             [DealDamage(6), AddToHand(&[Card::Smite])],
@@ -801,11 +808,18 @@ static ALL_CARDS: Lazy<Vec<CardDetails>> = Lazy::new(|| {
             (CloakAndDagger, Skill, 1),
             [GainBlock(6), AddToHand(&[Card::Shiv])]
         ),
+        */
         define_card!(
-            (Clothesline, Attack, 2),
-            [DealDamage(12), Debuff(Debuff::Weak, 2)],
+            (Clothesline(false), Attack, 2),
+            [DealDamage(12), Apply(EnemyCondition::Weak(2))],
             requires_target
         ),
+        define_card!(
+            (Clothesline(true), Attack, 2),
+            [DealDamage(14), Apply(EnemyCondition::Weak(3))],
+            requires_target
+        ),
+        /*
         define_card!((Clumsy, Curse, 1), [], [ethereal, unplayable]),
         define_card!(
             (ColdSnap, Attack, 1),
@@ -961,7 +975,16 @@ static ALL_CARDS: Lazy<Vec<CardDetails>> = Lazy::new(|| {
             requires_target
         ),
         define_card!((Dualcast, Skill, 1), [EvokeCustom()]),
-        define_card!((DualWield, Skill, 1), [HandCustom()]),
+        */
+        define_card!(
+            (DualWield(false), Skill, 1),
+            [CloneAttackOrPowerCardIntoHand(1)]
+        ),
+        define_card!(
+            (DualWield(true), Skill, 1),
+            [CloneAttackOrPowerCardIntoHand(2)]
+        ),
+        /*
         define_card!((EchoForm, Power, 3), [Buff(Buff::EchoForm, 1)]),
         define_card!(
             (Electrodynamics, Power, 2),
@@ -999,7 +1022,16 @@ static ALL_CARDS: Lazy<Vec<CardDetails>> = Lazy::new(|| {
             [DealDamage(7), DealDamage(7), DealDamage(7)],
             [requires_target, special_cost]
         ),
-        define_card!((Evolve, Power, 1), [Buff(Buff::Evolve, 1)]),
+        */
+        define_card!(
+            (Evolve(false), Power, 1),
+            [ApplyToSelf(PlayerCondition::Evolve(1))]
+        ),
+        define_card!(
+            (Evolve(true), Power, 1),
+            [ApplyToSelf(PlayerCondition::Evolve(2))]
+        ),
+        /*
         define_card!((Exhume, Skill, 1), [Exhume()], exhaust),
         define_card!((Expertise, Skill, 1), [DrawCustom()]),
         define_card!((Expunger, Attack, 1), [DealDamageCustom()], requires_target),
@@ -1028,20 +1060,33 @@ static ALL_CARDS: Lazy<Vec<CardDetails>> = Lazy::new(|| {
             [exhaust, requires_target]
         ),
         define_card!((Finesse, Skill, 0), [GainBlock(2), Draw(1)]),
-        define_card!(
-            (HeavyBlade, Attack, 2),
-            [DealDamageCustom()],
-            requires_target
-        ),
         */
         define_card!(
+            (FireBreathing(false), Power, 1),
+            [ApplyToSelf(PlayerCondition::FireBreathing(6))]
+        ),
+        define_card!(
+            (FireBreathing(true), Power, 1),
+            [ApplyToSelf(PlayerCondition::FireBreathing(10))]
+        ),
+        define_card!(
+            (HeavyBlade(false), Attack, 2),
+            [DealDamageWithStrengthMultiplier(14, 3)],
+            requires_target
+        ),
+        define_card!(
+            (HeavyBlade(true), Attack, 2),
+            [DealDamageWithStrengthMultiplier(14, 5)],
+            requires_target
+        ),
+        define_card!(
             (InfernalBlade(false), Skill, 1),
-            [AddRandomCardThatCostsZeroThisTurnToHand(CardType::Skill)],
+            [AddRandomCardThatCostsZeroThisTurnToHand(CardType::Attack)],
             exhaust
         ),
         define_card!(
             (InfernalBlade(true), Skill, 0),
-            [AddRandomCardThatCostsZeroThisTurnToHand(CardType::Skill)],
+            [AddRandomCardThatCostsZeroThisTurnToHand(CardType::Attack)],
             exhaust
         ),
         define_card!(
@@ -1053,6 +1098,14 @@ static ALL_CARDS: Lazy<Vec<CardDetails>> = Lazy::new(|| {
             (Intimidate(true), Skill, 0),
             [ApplyToAll(EnemyCondition::Weak(2))],
             exhaust
+        ),
+        define_card!(
+            (Rage(false), Skill, 0),
+            [ApplyToSelf(PlayerCondition::Rage(3))]
+        ),
+        define_card!(
+            (Rage(true), Skill, 0),
+            [ApplyToSelf(PlayerCondition::Rage(5))]
         ),
         define_card!((Slimed(false), Status, 1), [], exhaust),
         define_card!((Slimed(true), Status, 1), [], exhaust),
@@ -1098,7 +1151,9 @@ mod test {
             let should_require_target = card.effect_chain.iter().any(|effect| {
                 matches!(
                     effect,
-                    PlayerEffect::DealDamage(_) | PlayerEffect::Apply(_) //| PlayerEffect::SapStrength(_)
+                    PlayerEffect::Apply(_)
+                        | PlayerEffect::DealDamage(_)
+                        | PlayerEffect::DealDamageWithStrengthMultiplier(_, _)
                 )
             });
             if card

@@ -9,7 +9,8 @@ use crate::systems::rng::{
     CardGenerator, EncounterGenerator, EventGenerator, PotionGenerator, RelicGenerator, Seed,
     StsRandom,
 };
-use crate::types::Floor;
+use crate::types::{Floor, Hp};
+use crate::{Choice, Prompt};
 
 use super::combat_simulator::CombatSimulator;
 use super::event_simulator::EventSimulator;
@@ -115,7 +116,21 @@ impl StsSimulator {
                 Room::BurningElite2 => todo!(),
                 Room::BurningElite3 => todo!(),
                 Room::BurningElite4 => todo!(),
-                Room::RestSite => todo!(),
+                Room::RestSite => {
+                    let choices = vec![Choice::Rest, Choice::Upgrade];
+                    match self
+                        .player
+                        .comms
+                        .prompt_for_choice(Prompt::ChooseRestSiteAction, &choices)?
+                    {
+                        Choice::Rest => {
+                            let heal_amt = (self.player.state.hp_max as f32 * 0.3).floor() as Hp;
+                            self.player.increase_hp(heal_amt)?;
+                        }
+                        Choice::Upgrade => todo!(),
+                        invalid => unreachable!("{:?}", invalid),
+                    }
+                }
                 Room::Elite => todo!(),
                 Room::Event => match self.event_generator.next_event(floor, &self.player.state) {
                     (Room::Event, Some(event)) => {
@@ -269,11 +284,11 @@ mod test {
             StsMessage::Choices(
                 Prompt::CombatAction,
                 vec![
-                    Choice::PlayCardFromHand(0, Card::Strike(false)),
-                    Choice::PlayCardFromHand(1, Card::Defend(false)),
-                    Choice::PlayCardFromHand(2, Card::Bash(false)),
-                    Choice::PlayCardFromHand(3, Card::Defend(false)),
-                    Choice::PlayCardFromHand(4, Card::Strike(false)),
+                    Choice::PlayCardFromHand(0, Card::Strike(false), 1),
+                    Choice::PlayCardFromHand(1, Card::Defend(false), 1),
+                    Choice::PlayCardFromHand(2, Card::Bash(false), 2),
+                    Choice::PlayCardFromHand(3, Card::Defend(false), 1),
+                    Choice::PlayCardFromHand(4, Card::Strike(false), 1),
                     Choice::EndTurn,
                 ]
             )
@@ -304,10 +319,10 @@ mod test {
             StsMessage::Choices(
                 Prompt::CombatAction,
                 vec![
-                    Choice::PlayCardFromHand(0, Card::Defend(false)),
-                    Choice::PlayCardFromHand(1, Card::Bash(false)),
-                    Choice::PlayCardFromHand(2, Card::Defend(false)),
-                    Choice::PlayCardFromHand(3, Card::Strike(false)),
+                    Choice::PlayCardFromHand(0, Card::Defend(false), 1),
+                    Choice::PlayCardFromHand(1, Card::Bash(false), 2),
+                    Choice::PlayCardFromHand(2, Card::Defend(false), 1),
+                    Choice::PlayCardFromHand(3, Card::Strike(false), 1),
                     Choice::EndTurn,
                 ]
             )
@@ -335,8 +350,8 @@ mod test {
             StsMessage::Choices(
                 Prompt::CombatAction,
                 vec![
-                    Choice::PlayCardFromHand(0, Card::Defend(false)),
-                    Choice::PlayCardFromHand(2, Card::Defend(false)),
+                    Choice::PlayCardFromHand(0, Card::Defend(false), 1),
+                    Choice::PlayCardFromHand(2, Card::Defend(false), 1),
                     Choice::EndTurn,
                 ]
             )
@@ -364,11 +379,11 @@ mod test {
             StsMessage::Choices(
                 Prompt::CombatAction,
                 vec![
-                    Choice::PlayCardFromHand(0, Card::Strike(false)),
-                    Choice::PlayCardFromHand(1, Card::Strike(false)),
-                    Choice::PlayCardFromHand(2, Card::Strike(false)),
-                    Choice::PlayCardFromHand(3, Card::Defend(false)),
-                    Choice::PlayCardFromHand(4, Card::Defend(false)),
+                    Choice::PlayCardFromHand(0, Card::Strike(false), 1),
+                    Choice::PlayCardFromHand(1, Card::Strike(false), 1),
+                    Choice::PlayCardFromHand(2, Card::Strike(false), 1),
+                    Choice::PlayCardFromHand(3, Card::Defend(false), 1),
+                    Choice::PlayCardFromHand(4, Card::Defend(false), 1),
                     Choice::EndTurn,
                 ]
             )
@@ -379,10 +394,10 @@ mod test {
             StsMessage::Choices(
                 Prompt::CombatAction,
                 vec![
-                    Choice::PlayCardFromHand(0, Card::Strike(false)),
-                    Choice::PlayCardFromHand(1, Card::Strike(false)),
-                    Choice::PlayCardFromHand(2, Card::Strike(false)),
-                    Choice::PlayCardFromHand(3, Card::Defend(false)),
+                    Choice::PlayCardFromHand(0, Card::Strike(false), 1),
+                    Choice::PlayCardFromHand(1, Card::Strike(false), 1),
+                    Choice::PlayCardFromHand(2, Card::Strike(false), 1),
+                    Choice::PlayCardFromHand(3, Card::Defend(false), 1),
                     Choice::EndTurn,
                 ]
             )
@@ -393,9 +408,9 @@ mod test {
             StsMessage::Choices(
                 Prompt::CombatAction,
                 vec![
-                    Choice::PlayCardFromHand(0, Card::Strike(false)),
-                    Choice::PlayCardFromHand(1, Card::Strike(false)),
-                    Choice::PlayCardFromHand(2, Card::Strike(false)),
+                    Choice::PlayCardFromHand(0, Card::Strike(false), 1),
+                    Choice::PlayCardFromHand(1, Card::Strike(false), 1),
+                    Choice::PlayCardFromHand(2, Card::Strike(false), 1),
                     Choice::EndTurn,
                 ]
             )
@@ -424,11 +439,11 @@ mod test {
             StsMessage::Choices(
                 Prompt::CombatAction,
                 vec![
-                    Choice::PlayCardFromHand(0, Card::Defend(false)),
-                    Choice::PlayCardFromHand(1, Card::Slimed(false)),
-                    Choice::PlayCardFromHand(2, Card::Strike(false)),
-                    Choice::PlayCardFromHand(3, Card::Bash(false)),
-                    Choice::PlayCardFromHand(4, Card::Strike(false)),
+                    Choice::PlayCardFromHand(0, Card::Defend(false), 1),
+                    Choice::PlayCardFromHand(1, Card::Slimed(false), 1),
+                    Choice::PlayCardFromHand(2, Card::Strike(false), 1),
+                    Choice::PlayCardFromHand(3, Card::Bash(false), 2),
+                    Choice::PlayCardFromHand(4, Card::Strike(false), 1),
                     Choice::EndTurn,
                 ]
             )
@@ -457,10 +472,10 @@ mod test {
             StsMessage::Choices(
                 Prompt::CombatAction,
                 vec![
-                    Choice::PlayCardFromHand(0, Card::Defend(false)),
-                    Choice::PlayCardFromHand(1, Card::Slimed(false)),
-                    Choice::PlayCardFromHand(2, Card::Strike(false)),
-                    Choice::PlayCardFromHand(3, Card::Strike(false)),
+                    Choice::PlayCardFromHand(0, Card::Defend(false), 1),
+                    Choice::PlayCardFromHand(1, Card::Slimed(false), 1),
+                    Choice::PlayCardFromHand(2, Card::Strike(false), 1),
+                    Choice::PlayCardFromHand(3, Card::Strike(false), 1),
                     Choice::EndTurn,
                 ]
             )
@@ -496,11 +511,11 @@ mod test {
             StsMessage::Choices(
                 Prompt::CombatAction,
                 vec![
-                    Choice::PlayCardFromHand(0, Card::Defend(false)),
-                    Choice::PlayCardFromHand(1, Card::Defend(false)),
-                    Choice::PlayCardFromHand(2, Card::Strike(false)),
-                    Choice::PlayCardFromHand(3, Card::Strike(false)),
-                    Choice::PlayCardFromHand(4, Card::Strike(false)),
+                    Choice::PlayCardFromHand(0, Card::Defend(false), 1),
+                    Choice::PlayCardFromHand(1, Card::Defend(false), 1),
+                    Choice::PlayCardFromHand(2, Card::Strike(false), 1),
+                    Choice::PlayCardFromHand(3, Card::Strike(false), 1),
+                    Choice::PlayCardFromHand(4, Card::Strike(false), 1),
                     Choice::EndTurn,
                 ]
             )
@@ -529,10 +544,10 @@ mod test {
             StsMessage::Choices(
                 Prompt::CombatAction,
                 vec![
-                    Choice::PlayCardFromHand(0, Card::Defend(false)),
-                    Choice::PlayCardFromHand(1, Card::Defend(false)),
-                    Choice::PlayCardFromHand(2, Card::Strike(false)),
-                    Choice::PlayCardFromHand(3, Card::Strike(false)),
+                    Choice::PlayCardFromHand(0, Card::Defend(false), 1),
+                    Choice::PlayCardFromHand(1, Card::Defend(false), 1),
+                    Choice::PlayCardFromHand(2, Card::Strike(false), 1),
+                    Choice::PlayCardFromHand(3, Card::Strike(false), 1),
                     Choice::EndTurn,
                 ]
             )
@@ -561,9 +576,9 @@ mod test {
             StsMessage::Choices(
                 Prompt::CombatAction,
                 vec![
-                    Choice::PlayCardFromHand(0, Card::Defend(false)),
-                    Choice::PlayCardFromHand(1, Card::Defend(false)),
-                    Choice::PlayCardFromHand(2, Card::Strike(false)),
+                    Choice::PlayCardFromHand(0, Card::Defend(false), 1),
+                    Choice::PlayCardFromHand(1, Card::Defend(false), 1),
+                    Choice::PlayCardFromHand(2, Card::Strike(false), 1),
                     Choice::EndTurn,
                 ]
             )
@@ -641,11 +656,11 @@ mod test {
             StsMessage::Choices(
                 Prompt::CombatAction,
                 vec![
-                    Choice::PlayCardFromHand(0, Card::Strike(false)),
-                    Choice::PlayCardFromHand(1, Card::Strike(false)),
-                    Choice::PlayCardFromHand(2, Card::Strike(false)),
-                    Choice::PlayCardFromHand(3, Card::Defend(false)),
-                    Choice::PlayCardFromHand(4, Card::Defend(false)),
+                    Choice::PlayCardFromHand(0, Card::Strike(false), 1),
+                    Choice::PlayCardFromHand(1, Card::Strike(false), 1),
+                    Choice::PlayCardFromHand(2, Card::Strike(false), 1),
+                    Choice::PlayCardFromHand(3, Card::Defend(false), 1),
+                    Choice::PlayCardFromHand(4, Card::Defend(false), 1),
                     Choice::EndTurn,
                 ]
             )
@@ -673,10 +688,10 @@ mod test {
             StsMessage::Choices(
                 Prompt::CombatAction,
                 vec![
-                    Choice::PlayCardFromHand(0, Card::Strike(false)),
-                    Choice::PlayCardFromHand(1, Card::Strike(false)),
-                    Choice::PlayCardFromHand(2, Card::Defend(false)),
-                    Choice::PlayCardFromHand(3, Card::Defend(false)),
+                    Choice::PlayCardFromHand(0, Card::Strike(false), 1),
+                    Choice::PlayCardFromHand(1, Card::Strike(false), 1),
+                    Choice::PlayCardFromHand(2, Card::Defend(false), 1),
+                    Choice::PlayCardFromHand(3, Card::Defend(false), 1),
                     Choice::EndTurn,
                 ]
             )
@@ -704,9 +719,9 @@ mod test {
             StsMessage::Choices(
                 Prompt::CombatAction,
                 vec![
-                    Choice::PlayCardFromHand(0, Card::Strike(false)),
-                    Choice::PlayCardFromHand(1, Card::Defend(false)),
-                    Choice::PlayCardFromHand(2, Card::Defend(false)),
+                    Choice::PlayCardFromHand(0, Card::Strike(false), 1),
+                    Choice::PlayCardFromHand(1, Card::Defend(false), 1),
+                    Choice::PlayCardFromHand(2, Card::Defend(false), 1),
                     Choice::EndTurn,
                 ]
             )
@@ -754,11 +769,11 @@ mod test {
             StsMessage::Choices(
                 Prompt::CombatAction,
                 vec![
-                    Choice::PlayCardFromHand(0, Card::Defend(false)),
-                    Choice::PlayCardFromHand(1, Card::Strike(false)),
-                    Choice::PlayCardFromHand(2, Card::Bash(false)),
-                    Choice::PlayCardFromHand(3, Card::Defend(false)),
-                    Choice::PlayCardFromHand(4, Card::Strike(false)),
+                    Choice::PlayCardFromHand(0, Card::Defend(false), 1),
+                    Choice::PlayCardFromHand(1, Card::Strike(false), 1),
+                    Choice::PlayCardFromHand(2, Card::Bash(false), 2),
+                    Choice::PlayCardFromHand(3, Card::Defend(false), 1),
+                    Choice::PlayCardFromHand(4, Card::Strike(false), 1),
                     Choice::EndTurn,
                 ]
             )
@@ -788,10 +803,10 @@ mod test {
             StsMessage::Choices(
                 Prompt::CombatAction,
                 vec![
-                    Choice::PlayCardFromHand(0, Card::Defend(false)),
-                    Choice::PlayCardFromHand(1, Card::Strike(false)),
-                    Choice::PlayCardFromHand(2, Card::Defend(false)),
-                    Choice::PlayCardFromHand(3, Card::Strike(false)),
+                    Choice::PlayCardFromHand(0, Card::Defend(false), 1),
+                    Choice::PlayCardFromHand(1, Card::Strike(false), 1),
+                    Choice::PlayCardFromHand(2, Card::Defend(false), 1),
+                    Choice::PlayCardFromHand(3, Card::Strike(false), 1),
                     Choice::EndTurn,
                 ]
             )
@@ -843,11 +858,11 @@ mod test {
             StsMessage::Choices(
                 Prompt::CombatAction,
                 vec![
-                    Choice::PlayCardFromHand(0, Card::Thunderclap(false)),
-                    Choice::PlayCardFromHand(1, Card::Defend(false)),
-                    Choice::PlayCardFromHand(2, Card::Defend(false)),
-                    Choice::PlayCardFromHand(3, Card::Strike(false)),
-                    Choice::PlayCardFromHand(4, Card::Defend(false)),
+                    Choice::PlayCardFromHand(0, Card::Thunderclap(false), 1),
+                    Choice::PlayCardFromHand(1, Card::Defend(false), 1),
+                    Choice::PlayCardFromHand(2, Card::Defend(false), 1),
+                    Choice::PlayCardFromHand(3, Card::Strike(false), 1),
+                    Choice::PlayCardFromHand(4, Card::Defend(false), 1),
                     Choice::EndTurn,
                 ]
             )
@@ -870,10 +885,10 @@ mod test {
             StsMessage::Choices(
                 Prompt::CombatAction,
                 vec![
-                    Choice::PlayCardFromHand(0, Card::Defend(false)),
-                    Choice::PlayCardFromHand(1, Card::Defend(false)),
-                    Choice::PlayCardFromHand(2, Card::Strike(false)),
-                    Choice::PlayCardFromHand(3, Card::Defend(false)),
+                    Choice::PlayCardFromHand(0, Card::Defend(false), 1),
+                    Choice::PlayCardFromHand(1, Card::Defend(false), 1),
+                    Choice::PlayCardFromHand(2, Card::Strike(false), 1),
+                    Choice::PlayCardFromHand(3, Card::Defend(false), 1),
                     Choice::EndTurn,
                 ]
             )
@@ -891,9 +906,9 @@ mod test {
             StsMessage::Choices(
                 Prompt::CombatAction,
                 vec![
-                    Choice::PlayCardFromHand(0, Card::Defend(false)),
-                    Choice::PlayCardFromHand(1, Card::Strike(false)),
-                    Choice::PlayCardFromHand(2, Card::Defend(false)),
+                    Choice::PlayCardFromHand(0, Card::Defend(false), 1),
+                    Choice::PlayCardFromHand(1, Card::Strike(false), 1),
+                    Choice::PlayCardFromHand(2, Card::Defend(false), 1),
                     Choice::EndTurn,
                 ]
             )
@@ -936,11 +951,11 @@ mod test {
             StsMessage::Choices(
                 Prompt::CombatAction,
                 vec![
-                    Choice::PlayCardFromHand(0, Card::Strike(false)),
-                    Choice::PlayCardFromHand(1, Card::Strike(false)),
-                    Choice::PlayCardFromHand(2, Card::Strike(false)),
-                    Choice::PlayCardFromHand(3, Card::Defend(false)),
-                    Choice::PlayCardFromHand(4, Card::Bash(false)),
+                    Choice::PlayCardFromHand(0, Card::Strike(false), 1),
+                    Choice::PlayCardFromHand(1, Card::Strike(false), 1),
+                    Choice::PlayCardFromHand(2, Card::Strike(false), 1),
+                    Choice::PlayCardFromHand(3, Card::Defend(false), 1),
+                    Choice::PlayCardFromHand(4, Card::Bash(false), 2),
                     Choice::EndTurn,
                 ]
             )

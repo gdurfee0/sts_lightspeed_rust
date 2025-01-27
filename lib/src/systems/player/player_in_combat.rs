@@ -1,9 +1,9 @@
 use anyhow::Error;
 
 use crate::components::{CardInCombat, EnemyStatus, Notification, PlayerCombatState, PotionAction};
-use crate::data::{Card, PlayerCondition, Potion, Relic};
+use crate::data::{Card, CardType, PlayerCondition, Potion, Relic};
 use crate::systems::rng::StsRandom;
-use crate::types::{AttackDamage, Block, Dexterity, EnemyIndex, HandIndex};
+use crate::types::{AttackDamage, Block, Dexterity, EnemyIndex, HandIndex, StackCount};
 use crate::{Choice, Prompt, Seed};
 
 use super::player::Player;
@@ -145,31 +145,56 @@ impl<'a> PlayerInCombat<'a> {
     pub fn draw_cards(&mut self) -> Result<(), Error> {
         // Draw new cards
         for _ in 0..self.cards_drawn_each_turn {
-            if let Some(card) = self.state.draw_pile.pop() {
-                self.draw_card(card)?;
-            } else {
-                // Shuffle discard pile into draw pile
-                self.player
-                    .comms
-                    .send_notification(Notification::ShufflingDiscardToDraw)?;
-                self.debug_self("before shuffle");
-                self.shuffle_rng
-                    .java_compat_shuffle(&mut self.state.discard_pile);
-                self.debug_self("after shuffle");
-                self.state.draw_pile.append(&mut self.state.discard_pile);
-                if let Some(card) = self.state.draw_pile.pop() {
-                    self.draw_card(card)?;
-                }
-            }
+            self.draw_card()?;
         }
         Ok(())
     }
 
-    fn draw_card(&mut self, mut card: CardInCombat) -> Result<(), Error> {
-        if self.state.is_confused() {
-            card.cost_this_combat = self.card_randomizer_rng.gen_range(0..=3);
+    fn draw_card(&mut self) -> Result<(), Error> {
+        if let Some(card) = self.state.draw_pile.pop() {
+            self.put_card_in_hand(card)
+        } else {
+            // Shuffle discard pile into draw pile
+            self.player
+                .comms
+                .send_notification(Notification::ShufflingDiscardToDraw)?;
+            self.debug_self("before shuffle");
+            self.shuffle_rng
+                .java_compat_shuffle(&mut self.state.discard_pile);
+            self.debug_self("after shuffle");
+            self.state.draw_pile.append(&mut self.state.discard_pile);
+            if let Some(card) = self.state.draw_pile.pop() {
+                self.put_card_in_hand(card)
+            } else {
+                Ok(())
+            }
+        }
+    }
+
+    fn put_card_in_hand(&mut self, mut card: CardInCombat) -> Result<(), Error> {
+        let mut extra_cards_to_draw = 0;
+        for condition in self.state.conditions.iter() {
+            match condition {
+                PlayerCondition::Confused() => {
+                    card.cost_this_combat = self.card_randomizer_rng.gen_range(0..=3);
+                    card.cost_this_turn = card.cost_this_combat;
+                }
+                PlayerCondition::Evolve(stacks) => {
+                    if matches!(card.details.type_, CardType::Status) {
+                        extra_cards_to_draw += *stacks;
+                    }
+                }
+                PlayerCondition::FireBreathing(_) => todo!(),
+                PlayerCondition::Frail(_) => {}
+                PlayerCondition::Rage(_) => {}
+                PlayerCondition::Vulnerable(_) => {}
+                PlayerCondition::Weak(_) => {}
+            }
         }
         self.state.hand.push(card);
+        for _ in 0..extra_cards_to_draw {
+            self.draw_card()?;
+        }
         self.player.comms.send_notification(Notification::CardDrawn(
             self.state.hand.len() - 1,
             card.card,
@@ -178,8 +203,25 @@ impl<'a> PlayerInCombat<'a> {
     }
 
     pub fn dispose_of_card_just_played(&mut self) -> Result<(), Error> {
+        let mut rage_stacks: Option<StackCount> = None;
+        for condition in self.state.conditions.iter() {
+            match condition {
+                PlayerCondition::Confused() => {}
+                PlayerCondition::Evolve(_) => {}
+                PlayerCondition::FireBreathing(_) => todo!(),
+                PlayerCondition::Frail(_) => {}
+                PlayerCondition::Rage(stacks) => {
+                    rage_stacks = Some(*stacks);
+                }
+                PlayerCondition::Vulnerable(_) => {}
+                PlayerCondition::Weak(_) => {}
+            }
+        }
         if let Some(hand_index) = self.card_just_played {
             let card_in_combat = self.state.hand.remove(hand_index);
+            if let (CardType::Attack, Some(stacks)) = (card_in_combat.details.type_, rage_stacks) {
+                self.gain_block(stacks)?;
+            }
             self.state.energy = self
                 .state
                 .energy
@@ -237,39 +279,40 @@ impl<'a> PlayerInCombat<'a> {
         existing_condition: &mut PlayerCondition,
         incoming_condition: &PlayerCondition,
     ) -> bool {
-        match existing_condition {
-            PlayerCondition::Confused() => {
-                if let PlayerCondition::Confused() = incoming_condition {
-                    return true;
-                }
+        match (existing_condition, incoming_condition) {
+            (PlayerCondition::Confused(), PlayerCondition::Confused()) => true,
+            (PlayerCondition::Evolve(stacks), PlayerCondition::Evolve(additional_stacks)) => {
+                *stacks = stacks.saturating_add(*additional_stacks);
+                true
             }
-            PlayerCondition::Frail(turns) => {
-                if let PlayerCondition::Frail(additional_turns) = incoming_condition {
-                    *turns = turns.saturating_add(*additional_turns);
-                    return true;
-                }
+            (PlayerCondition::Frail(turns), PlayerCondition::Frail(additional_turns)) => {
+                *turns = turns.saturating_add(*additional_turns);
+                true
             }
-            PlayerCondition::Vulnerable(turns) => {
-                if let PlayerCondition::Vulnerable(additional_turns) = incoming_condition {
-                    *turns = turns.saturating_add(*additional_turns);
-                    return true;
-                }
+            (PlayerCondition::Rage(stacks), PlayerCondition::Rage(additional_stacks)) => {
+                *stacks = stacks.saturating_add(*additional_stacks);
+                true
             }
-            PlayerCondition::Weak(turns) => {
-                if let PlayerCondition::Weak(additional_turns) = incoming_condition {
-                    *turns = turns.saturating_add(*additional_turns);
-                    return true;
-                }
+            (PlayerCondition::Vulnerable(turns), PlayerCondition::Vulnerable(additional_turns)) => {
+                *turns = turns.saturating_add(*additional_turns);
+                true
             }
+            (PlayerCondition::Weak(turns), PlayerCondition::Weak(additional_turns)) => {
+                *turns = turns.saturating_add(*additional_turns);
+                true
+            }
+            _ => false,
         }
-        false
     }
 
     fn tick_down_conditions(&mut self) -> Result<(), Error> {
         for condition in self.state.conditions.iter_mut() {
             match condition {
-                PlayerCondition::Confused() => (),
+                PlayerCondition::Confused() => {}
+                PlayerCondition::Evolve(_) => {}
+                PlayerCondition::FireBreathing(_) => todo!(),
                 PlayerCondition::Frail(turns) => *turns = turns.saturating_sub(1),
+                PlayerCondition::Rage(_) => {}
                 PlayerCondition::Vulnerable(turns) => *turns = turns.saturating_sub(1),
                 PlayerCondition::Weak(turns) => *turns = turns.saturating_sub(1),
             }
@@ -449,7 +492,11 @@ impl<'a> PlayerInCombat<'a> {
                     if card.cost_this_combat > self.state.energy {
                         None
                     } else {
-                        Some(Choice::PlayCardFromHand(hand_index, card.card))
+                        Some(Choice::PlayCardFromHand(
+                            hand_index,
+                            card.card,
+                            card.cost_this_turn,
+                        ))
                     }
                 })
                 .collect::<Vec<_>>();
@@ -460,7 +507,7 @@ impl<'a> PlayerInCombat<'a> {
                 .comms
                 .prompt_for_choice(Prompt::CombatAction, &choices)?
             {
-                Choice::PlayCardFromHand(hand_index, _) => {
+                Choice::PlayCardFromHand(hand_index, _, _) => {
                     self.card_just_played = Some(*hand_index);
                     let card = self.state.hand[*hand_index];
                     if card.details.requires_target {

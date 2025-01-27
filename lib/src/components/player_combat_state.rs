@@ -58,12 +58,6 @@ impl PlayerCombatState {
             .any(|c| matches!(c, PlayerCondition::Weak(_)))
     }
 
-    pub fn is_confused(&self) -> bool {
-        self.conditions
-            .iter()
-            .any(|c| matches!(c, PlayerCondition::Confused()))
-    }
-
     pub fn cards_iter_mut(&mut self) -> impl Iterator<Item = &mut CardInCombat> {
         self.hand
             .iter_mut()

@@ -11,6 +11,7 @@ impl fmt::Display for Prompt {
             Prompt::ChooseNeow => write!(f, "Choose Neow's Blessing"),
             Prompt::ChooseNext => write!(f, "Choose the next item to obtain"),
             Prompt::ChooseOne => write!(f, "Choose an item to obtain"),
+            Prompt::ChooseRestSiteAction => write!(f, "Rest or Upgrade?"),
             Prompt::ClimbFloor => write!(f, "Move up into one of the following columns"),
             Prompt::ClimbFloorHasPotion => write!(
                 f,
@@ -53,12 +54,16 @@ impl fmt::Display for Choice {
             }
             Choice::ObtainGold(gold) => write!(f, "Obtain {} gold", gold),
             Choice::ObtainPotion(potion) => write!(f, "{:?}", potion),
-            Choice::PlayCardFromHand(_, card) => write!(f, "Play \"{:?}\"", card),
+            Choice::PlayCardFromHand(_, card, energy) => {
+                write!(f, "Play \"{:?}\" ({} energy)", card, energy)
+            }
             Choice::RemoveCard(_, card) => write!(f, "{:?}", card),
+            Choice::Rest => write!(f, "Rest"),
             Choice::Skip => write!(f, "(Skip)"),
             Choice::TargetEnemy(_, enemy) => {
                 write!(f, "Target \"{:?}\"", enemy)
             }
+            Choice::Upgrade => write!(f, "Upgrade Card"),
         }
     }
 }

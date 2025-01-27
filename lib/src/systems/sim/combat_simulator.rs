@@ -5,7 +5,7 @@ use crate::data::{Card, Encounter, EnemyCondition, EnemyEffect, PlayerCondition,
 use crate::systems::enemy::{EnemyInCombat, EnemyPartyGenerator};
 use crate::systems::player::{CombatAction, Player, PlayerInCombat};
 use crate::systems::rng::{Seed, StsRandom};
-use crate::types::{AttackDamage, Block, EnemyIndex};
+use crate::types::{AttackDamage, Block, EnemyIndex, Strength};
 use crate::Notification;
 
 pub struct CombatSimulator<'a> {
@@ -160,10 +160,6 @@ impl<'a> CombatSimulator<'a> {
         for effect in card.details.effect_chain.iter() {
             match effect {
                 PlayerEffect::AddRandomCardThatCostsZeroThisTurnToHand(_) => todo!(),
-                PlayerEffect::AddSelfCopyToDiscardPile() => {
-                    self.player_in_combat.add_card_to_discard_pile(card)?;
-                    todo!();
-                }
                 PlayerEffect::Apply(_) => unreachable!(
                     "Debuff should be handled by play_card_against_enemy, {:?}",
                     card
@@ -174,7 +170,16 @@ impl<'a> CombatSimulator<'a> {
                 PlayerEffect::ApplyToSelf(player_condition) => {
                     self.player_in_combat.apply_condition(player_condition)?;
                 }
-                PlayerEffect::DealDamage(_) | PlayerEffect::DealDamageCustom() => unreachable!(
+                PlayerEffect::CloneAttackOrPowerCardIntoHand(_) => {
+                    todo!();
+                }
+                PlayerEffect::CloneSelfIntoDiscardPile() => {
+                    self.player_in_combat.add_card_to_discard_pile(card)?;
+                    todo!();
+                }
+                PlayerEffect::DealDamage(_)
+                | PlayerEffect::DealDamageCustom()
+                | PlayerEffect::DealDamageWithStrengthMultiplier(_, _) => unreachable!(
                     "DealDamage should be handled by play_card_against_enemy, {:?}",
                     card
                 ),
@@ -206,24 +211,20 @@ impl<'a> CombatSimulator<'a> {
                     self.apply_to_enemy(enemy_index, condition)?;
                 }
                 PlayerEffect::DealDamage(amount) => {
-                    self.attack_enemy(enemy_index, *amount)?;
+                    self.attack_enemy(enemy_index, *amount, 1)?;
                 }
                 PlayerEffect::DealDamageCustom() => match card.card {
                     Card::BodySlam(_) => {
-                        self.attack_enemy(enemy_index, self.player_in_combat.state.block)?;
+                        self.attack_enemy(enemy_index, self.player_in_combat.state.block, 1)?;
                     }
                     _ => unreachable!("{:?}", card),
                 },
-                PlayerEffect::AddRandomCardThatCostsZeroThisTurnToHand(_)
-                | PlayerEffect::AddSelfCopyToDiscardPile()
-                | PlayerEffect::ApplyToAll(_)
-                | PlayerEffect::ApplyToSelf(_)
-                | PlayerEffect::DealDamageToAll(_)
-                | PlayerEffect::GainBlock(_)
-                | PlayerEffect::UpgradeOneCardInHandThisCombat()
-                | PlayerEffect::UpgradeAllCardsInHandThisCombat() => unreachable!(
-                    "Inappropriate card handled by play_card_against_enemy, {:?}",
-                    card
+                PlayerEffect::DealDamageWithStrengthMultiplier(amount, multiplier) => {
+                    self.attack_enemy(enemy_index, *amount, *multiplier)?;
+                }
+                effect => unreachable!(
+                    "Inappropriate card handled by play_card_against_enemy, {:?} {:?}",
+                    card, effect
                 ),
             }
             if self.combat_should_end() {
@@ -233,10 +234,20 @@ impl<'a> CombatSimulator<'a> {
         Ok(())
     }
 
-    fn attack_enemy(&mut self, index: EnemyIndex, amount: AttackDamage) -> Result<(), Error> {
+    fn attack_enemy(
+        &mut self,
+        index: EnemyIndex,
+        amount: AttackDamage,
+        strength_multiplier: Strength,
+    ) -> Result<(), Error> {
         // TODO: reaction
         if let Some(enemy) = self.enemy_party[index].as_mut() {
-            enemy.take_damage(Self::outgoing_damage(&self.player_in_combat, enemy, amount));
+            enemy.take_damage(Self::outgoing_damage(
+                &self.player_in_combat,
+                enemy,
+                amount,
+                strength_multiplier,
+            ));
             let enemy_status = EnemyStatus::from(&*enemy);
             let enemy_type = enemy_status.enemy_type;
             self.player_in_combat
@@ -264,7 +275,7 @@ impl<'a> CombatSimulator<'a> {
 
     fn attack_all_enemies(&mut self, amount: AttackDamage) -> Result<(), Error> {
         for index in 0..5 {
-            self.attack_enemy(index, amount)?;
+            self.attack_enemy(index, amount, 1)?;
         }
         Ok(())
     }
@@ -323,7 +334,9 @@ impl<'a> CombatSimulator<'a> {
         player: &PlayerInCombat,
         enemy: &EnemyInCombat,
         amount: AttackDamage,
+        strength_multiplier: Strength,
     ) -> AttackDamage {
+        let amount = amount + (player.state.strength * strength_multiplier) as AttackDamage;
         let caster_modified_mount = if player.state.is_weak() {
             (amount as f32 * 0.75).floor() as u32
         } else {

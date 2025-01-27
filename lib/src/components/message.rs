@@ -1,5 +1,5 @@
 use crate::data::{Card, Enemy, NeowBlessing, Potion};
-use crate::types::{ColumnIndex, DeckIndex, EnemyIndex, Gold, HandIndex, PotionIndex};
+use crate::types::{ColumnIndex, DeckIndex, EnemyIndex, Energy, Gold, HandIndex, PotionIndex};
 
 use super::notification::Notification;
 use super::CardInCombat;
@@ -26,6 +26,7 @@ pub enum Prompt {
     ChooseNeow,
     ChooseNext, // Expectation is that the player may accept more than one of the Choices offered.
     ChooseOne,  // Expectation is that the player can pick at most one of the Choices offered.
+    ChooseRestSiteAction,
     CombatAction,
     ClimbFloor,
     ClimbFloorHasPotion,
@@ -45,7 +46,9 @@ pub enum Choice {
     ObtainGold(Gold),
     ObtainPotion(Potion),
     RemoveCard(DeckIndex, Card),
-    PlayCardFromHand(HandIndex, Card),
+    Rest,
+    Upgrade,
+    PlayCardFromHand(HandIndex, Card, Energy),
     Skip,
     TargetEnemy(EnemyIndex, Enemy),
 }

@@ -84,7 +84,7 @@ impl<'a> CombatClient<'a> {
                     i + 1,
                     choice,
                     match choice {
-                        Choice::PlayCardFromHand(_, card) => {
+                        Choice::PlayCardFromHand(_, card, _) => {
                             self.modified_card_details(CardDetails::for_card(*card), None)
                         }
                         Choice::TargetEnemy(index, _) => self.modified_card_details(
@@ -102,7 +102,7 @@ impl<'a> CombatClient<'a> {
                 }
                 Ok(_) => match user_input.trim().parse::<usize>() {
                     Ok(i) if i <= choices.len() && i > 0 => {
-                        if let Choice::PlayCardFromHand(_, card) = &choices[i - 1] {
+                        if let Choice::PlayCardFromHand(_, card, _) = &choices[i - 1] {
                             self.card_chosen = Some(CardDetails::for_card(*card));
                         }
                         return Ok(i - 1);
@@ -192,7 +192,7 @@ impl<'a> CombatClient<'a> {
             }
             first = false;
         }
-        result.push(']');
+        result.push_str("]");
         if let Some(enemy_index) = maybe_enemy_index {
             let enemy = self.enemy_party[enemy_index]
                 .as_ref()

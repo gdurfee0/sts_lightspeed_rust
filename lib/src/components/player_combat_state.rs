@@ -58,6 +58,14 @@ impl PlayerCombatState {
             .any(|c| matches!(c, PlayerCondition::Weak(_)))
     }
 
+    pub fn cards_iter(&self) -> impl Iterator<Item = &CardInCombat> {
+        self.hand
+            .iter()
+            .chain(self.draw_pile.iter())
+            .chain(self.discard_pile.iter())
+            .chain(self.exhaust_pile.iter())
+    }
+
     pub fn cards_iter_mut(&mut self) -> impl Iterator<Item = &mut CardInCombat> {
         self.hand
             .iter_mut()

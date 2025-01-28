@@ -30,7 +30,7 @@ pub enum EnemyEffect {
 #[cfg_attr(test, derive(Eq, Hash, PartialEq))]
 pub enum PlayerEffect {
     AddRandomCardThatCostsZeroThisTurnToHand(CardType),
-    //AddToDiscardPile(&'static [Card]),
+    AddToDiscardPile(&'static [Card]),
     Apply(EnemyCondition),
     ApplyToAll(EnemyCondition),
     ApplyToSelf(PlayerCondition),
@@ -39,8 +39,10 @@ pub enum PlayerEffect {
     DealDamage(AttackDamage),
     DealDamageCustom(),
     DealDamageToAll(AttackDamage),
+    DealDamageToRandomEnemy(AttackDamage),
     DealDamageWithStrengthMultiplier(AttackDamage, Strength),
     GainBlock(Block),
+    PutCardFromDiscardPileOnTopOfDrawPile(),
     UpgradeAllCardsInHandThisCombat(),
     UpgradeOneCardInHandThisCombat(),
     /*

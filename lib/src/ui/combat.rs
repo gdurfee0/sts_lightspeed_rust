@@ -192,7 +192,7 @@ impl<'a> CombatClient<'a> {
             }
             first = false;
         }
-        result.push_str("]");
+        result.push(']');
         if let Some(enemy_index) = maybe_enemy_index {
             let enemy = self.enemy_party[enemy_index]
                 .as_ref()

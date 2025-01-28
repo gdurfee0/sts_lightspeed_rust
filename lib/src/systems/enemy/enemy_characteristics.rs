@@ -22,6 +22,7 @@ pub fn create_enemy(enemy: Enemy, hp_rng: &mut StsRandom) -> Box<dyn EnemyCharac
         Enemy::Cultist => Box::new(Cultist::new(hp_rng)),
         Enemy::FungiBeast => Box::new(FungiBeast::new(hp_rng)),
         Enemy::GreenLouse => Box::new(GreenLouse::new(hp_rng)),
+        Enemy::GremlinNob => Box::new(GremlinNob::new(hp_rng)),
         Enemy::JawWorm => Box::new(JawWorm::new(hp_rng)),
         Enemy::SpikeSlimeM => Box::new(SpikeSlimeM::new(hp_rng)),
         Enemy::SpikeSlimeS => Box::new(SpikeSlimeS::new(hp_rng)),
@@ -328,6 +329,55 @@ impl EnemyCharacteristics for GreenLouse {
         run_length: usize,
     ) -> EnemyAction {
         self.next_action_helper(ai_rng, Some(last_action), run_length)
+    }
+}
+
+////////////////////////////////////////////////////////////////////////////////////////////////////
+// Gremlin Nob
+// - 82 to 86 HP
+// - Bellow: Gains 2 Enrage
+// - Rush: Deal 14 damage
+// - Skull Bash: Deal 6 damage and apply 2 Vulnerable
+// - Always starts with Bellow
+// - 33% Skull Bash, 67% Rush. Cannot use Rush three times in a row.
+// - https://slay-the-spire.fandom.com/wiki/Gremlin_Nob
+////////////////////////////////////////////////////////////////////////////////////////////////////
+#[derive(Debug)]
+struct GremlinNob {
+    hp_max: HpMax,
+}
+
+impl GremlinNob {
+    fn new(hp_rng: &mut StsRandom) -> Self {
+        Self {
+            hp_max: hp_rng.gen_range(82..=86),
+        }
+    }
+}
+
+impl EnemyCharacteristics for GremlinNob {
+    fn on_spawn(&self, _: &mut StsRandom) -> EnemyState {
+        EnemyState::new(
+            Enemy::GremlinNob,
+            self.hp_max,
+            vec![],
+            EnemyAction::GremlinNobBellow,
+        )
+    }
+
+    fn next_action(
+        &mut self,
+        ai_rng: &mut StsRandom,
+        last_action: EnemyAction,
+        run_length: usize,
+    ) -> EnemyAction {
+        match ai_rng.gen_range(0..100) {
+            0..33 => EnemyAction::GremlinNobSkullBash,
+            _ if last_action != EnemyAction::GremlinNobRush || run_length < 2 => {
+                EnemyAction::GremlinNobRush
+            }
+            _ => EnemyAction::GremlinNobSkullBash,
+        }
     }
 }
 

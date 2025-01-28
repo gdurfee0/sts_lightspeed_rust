@@ -44,6 +44,7 @@ impl EnemyInCombat {
         for condition in self.state.conditions.iter_mut() {
             match condition {
                 EnemyCondition::CurlUp(_) => {}
+                EnemyCondition::Enrage(_) => {}
                 EnemyCondition::Ritual(intensity, just_applied) => {
                     if !*just_applied {
                         self.state.strength += *intensity as i32;
@@ -57,6 +58,7 @@ impl EnemyInCombat {
         }
         self.state.conditions.retain(|c| match c {
             EnemyCondition::CurlUp(_) => true,
+            EnemyCondition::Enrage(_) => true,
             EnemyCondition::Ritual(_, _) => true,
             EnemyCondition::SporeCloud(_) => true,
             EnemyCondition::Vulnerable(turns) => *turns > 0,
@@ -78,38 +80,17 @@ impl EnemyInCombat {
         existing_condition: &mut EnemyCondition,
         incoming_condition: &EnemyCondition,
     ) -> bool {
-        match existing_condition {
-            EnemyCondition::CurlUp(_) => {
-                if let EnemyCondition::CurlUp(_) = incoming_condition {
-                    return true;
-                }
+        match (existing_condition, incoming_condition) {
+            (EnemyCondition::Vulnerable(turns), EnemyCondition::Vulnerable(additional_turns)) => {
+                *turns = turns.saturating_add(*additional_turns);
+                true
             }
-            EnemyCondition::Ritual(intensity, just_applied) => {
-                if let EnemyCondition::Ritual(additional_intensity, _) = incoming_condition {
-                    *intensity = intensity.saturating_add(*additional_intensity);
-                    *just_applied = true;
-                    return true;
-                }
+            (EnemyCondition::Weak(turns), EnemyCondition::Weak(additional_turns)) => {
+                *turns = turns.saturating_add(*additional_turns);
+                true
             }
-            EnemyCondition::SporeCloud(_) => {
-                if let EnemyCondition::SporeCloud(_) = incoming_condition {
-                    return true;
-                }
-            }
-            EnemyCondition::Vulnerable(turns) => {
-                if let EnemyCondition::Vulnerable(additional_turns) = incoming_condition {
-                    *turns = turns.saturating_add(*additional_turns);
-                    return true;
-                }
-            }
-            EnemyCondition::Weak(turns) => {
-                if let EnemyCondition::Weak(additional_turns) = incoming_condition {
-                    *turns = turns.saturating_add(*additional_turns);
-                    return true;
-                }
-            }
+            _ => false,
         }
-        false
     }
 
     /// Damage amount must already have player and enemy conditions applied.

@@ -108,7 +108,6 @@ impl StsSimulator {
         neow_simulator.run()?;
         let mut floor = 1;
         loop {
-            //self.card_generator = CardGenerator::new(self.seed.with_offset(floor), self.character);
             self.misc_rng = self.seed.with_offset(floor).into();
             match map_simulator.advance(&mut self.player)? {
                 Room::Boss => todo!(),
@@ -131,7 +130,12 @@ impl StsSimulator {
                         invalid => unreachable!("{:?}", invalid),
                     }
                 }
-                Room::Elite => todo!(),
+                Room::Elite => {
+                    let encounter = self.encounter_generator.next_elite_encounter();
+                    if !self.run_encounter(floor, encounter)? {
+                        break;
+                    }
+                }
                 Room::Event => match self.event_generator.next_event(floor, &self.player.state) {
                     (Room::Event, Some(event)) => {
                         EventSimulator::new(event, &mut self.potion_generator, &mut self.player)
@@ -1100,7 +1104,7 @@ mod test {
         let simulator_thread = thread::spawn(move || simulator.run());
         let mut choice_seq = vec![];
         let mut steps = 0;
-        while steps < 620 {
+        while steps < 700 {
             match from_server.recv_timeout(Duration::from_secs(5)) {
                 Ok(message) => {
                     println!("{:?}", message);

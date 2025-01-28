@@ -1070,6 +1070,16 @@ static ALL_CARDS: Lazy<Vec<CardDetails>> = Lazy::new(|| {
             [ApplyToSelf(PlayerCondition::FireBreathing(10))]
         ),
         define_card!(
+            (Headbutt(false), Attack, 1),
+            [DealDamage(9), PutCardFromDiscardPileOnTopOfDrawPile()],
+            requires_target
+        ),
+        define_card!(
+            (Headbutt(false), Attack, 1),
+            [DealDamage(12), PutCardFromDiscardPileOnTopOfDrawPile()],
+            requires_target
+        ),
+        define_card!(
             (HeavyBlade(false), Attack, 2),
             [DealDamageWithStrengthMultiplier(14, 3)],
             requires_target
@@ -1100,6 +1110,16 @@ static ALL_CARDS: Lazy<Vec<CardDetails>> = Lazy::new(|| {
             exhaust
         ),
         define_card!(
+            (PerfectedStrike(false), Attack, 2),
+            [DealDamageCustom()],
+            requires_target
+        ),
+        define_card!(
+            (PerfectedStrike(true), Attack, 2),
+            [DealDamageCustom()],
+            requires_target
+        ),
+        define_card!(
             (Rage(false), Skill, 0),
             [ApplyToSelf(PlayerCondition::Rage(3))]
         ),
@@ -1111,6 +1131,23 @@ static ALL_CARDS: Lazy<Vec<CardDetails>> = Lazy::new(|| {
         define_card!((Slimed(true), Status, 1), [], exhaust),
         define_card!((Strike(false), Attack, 1), [DealDamage(6)], requires_target),
         define_card!((Strike(true), Attack, 1), [DealDamage(9)], requires_target),
+        define_card!(
+            (SwordBoomerang(false), Attack, 1),
+            [
+                DealDamageToRandomEnemy(3),
+                DealDamageToRandomEnemy(3),
+                DealDamageToRandomEnemy(3)
+            ],
+        ),
+        define_card!(
+            (SwordBoomerang(true), Attack, 1),
+            [
+                DealDamageToRandomEnemy(3),
+                DealDamageToRandomEnemy(3),
+                DealDamageToRandomEnemy(3),
+                DealDamageToRandomEnemy(3)
+            ],
+        ),
         define_card!(
             (Thunderclap(false), Attack, 1),
             [
@@ -1134,6 +1171,16 @@ static ALL_CARDS: Lazy<Vec<CardDetails>> = Lazy::new(|| {
             (WhiteNoise(true), Skill, 0),
             [AddRandomCardThatCostsZeroThisTurnToHand(CardType::Power)],
             exhaust
+        ),
+        define_card!(
+            (WildStrike(false), Attack, 1),
+            [DealDamage(12), AddToDiscardPile(&[Card::Wound(false)])],
+            requires_target
+        ),
+        define_card!(
+            (WildStrike(true), Attack, 1),
+            [DealDamage(17), AddToDiscardPile(&[Card::Wound(false)])],
+            requires_target
         ),
     ]
 });

@@ -3,19 +3,22 @@ use crate::types::{JustApplied, StackCount};
 #[derive(Clone, Debug)]
 #[cfg_attr(test, derive(Eq, Hash, PartialEq))]
 pub enum EnemyCondition {
-    /// Upon receiving attack damage, gain X Block, once per combat.
+    /// Upon receiving attack damage, it gains X Block, once per combat.
     CurlUp(StackCount),
 
-    /// At the end of its turn, gains X strength.
+    /// Whenever the player plays a skill, it gains X Strength.
+    Enrage(StackCount),
+
+    /// At the end of its turn, it gains X strength.
     Ritual(StackCount, JustApplied),
 
-    /// On death, applies X Vulnerable.
+    /// On death, it applies X Vulnerable.
     SporeCloud(StackCount),
 
-    /// Target takes 50% more damage from attacks.
+    /// It takes 50% more damage from the player's attacks.
     Vulnerable(StackCount),
 
-    /// Target deals 25% less attack damage.
+    /// It deals 25% less attack damage to player.
     Weak(StackCount),
 }
 
@@ -84,7 +87,6 @@ pub enum Buff {
     EchoForm,        // The first X cards you play each turn are played twice.
     Electro,         // Lightning hits ALL enemies.
     Energized,       // Gain X additional Energy next turn.
-    Enrage,          // Whenever you play a skill, gain X Strength.
     Envenom,         // Whenever you deal unblocked attack damage, apply X Poison.
     Equilibrium,     // Retain your hand for X turns.
     Establishment,   // Whenever a card is Retained, lower its cost by X.

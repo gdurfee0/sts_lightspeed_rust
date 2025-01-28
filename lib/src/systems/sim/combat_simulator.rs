@@ -13,7 +13,7 @@ pub struct CombatSimulator<'a> {
     seed_for_floor: Seed,
     ai_rng: StsRandom,
     misc_rng: &'a mut StsRandom,
-    player_in_combat: PlayerInCombat<'a>,
+    player: PlayerInCombat<'a>,
     enemy_party: [Option<EnemyInCombat>; 5],
 }
 
@@ -31,7 +31,7 @@ impl<'a> CombatSimulator<'a> {
             seed_for_floor,
             ai_rng,
             misc_rng,
-            player_in_combat,
+            player: player_in_combat,
             enemy_party: [None, None, None, None, None],
         }
     }
@@ -48,7 +48,7 @@ impl<'a> CombatSimulator<'a> {
             self.misc_rng,
         )
         .generate(&mut self.enemy_party);
-        self.player_in_combat.start_combat(
+        self.player.start_combat(
             &self
                 .enemy_party
                 .iter()
@@ -65,43 +65,42 @@ impl<'a> CombatSimulator<'a> {
                 break;
             }
         }
-        let victorious = self.player_in_combat.player.state.hp > 0;
-        self.player_in_combat.end_combat()?;
+        let victorious = self.player.player.state.hp > 0;
+        self.player.end_combat()?;
         Ok(victorious)
     }
 
     fn combat_should_end(&self) -> bool {
-        self.player_in_combat.player.state.hp == 0
-            || self.enemy_party.iter().all(|enemy| enemy.is_none())
+        self.player.player.state.hp == 0 || self.enemy_party.iter().all(|enemy| enemy.is_none())
     }
 
     fn conduct_player_turn(&mut self) -> Result<(), Error> {
-        self.player_in_combat.start_turn()?;
+        self.player.start_turn()?;
         loop {
             let enemy_statuses = self
                 .enemy_party
                 .iter()
                 .map(|maybe_enemy| maybe_enemy.as_ref().map(EnemyStatus::from))
                 .collect::<Vec<_>>();
-            match self.player_in_combat.choose_next_action(&enemy_statuses)? {
+            match self.player.choose_next_action(&enemy_statuses)? {
                 CombatAction::PlayCard(card_details) => {
                     self.play_card(&card_details)?;
                     if self.combat_should_end() {
                         return Ok(());
                     }
-                    self.player_in_combat.dispose_of_card_just_played()?;
+                    self.player.dispose_of_card_just_played()?;
                 }
                 CombatAction::PlayCardAgainstEnemy(card_details, enemy_index) => {
                     self.play_card_against_enemy(card_details, enemy_index)?;
                     if self.combat_should_end() {
                         return Ok(());
                     }
-                    self.player_in_combat.dispose_of_card_just_played()?;
+                    self.player.dispose_of_card_just_played()?;
                 }
                 CombatAction::EndTurn => break,
             }
         }
-        self.player_in_combat.end_turn()?;
+        self.player.end_turn()?;
         Ok(())
     }
 
@@ -115,27 +114,26 @@ impl<'a> CombatSimulator<'a> {
                     // TODO: reactions
                     match effect {
                         EnemyEffect::AddToDiscardPile(cards) => {
-                            self.player_in_combat.add_cards_to_discard_pile(cards)?;
+                            self.player.add_cards_to_discard_pile(cards)?;
                         }
                         EnemyEffect::Apply(condition) => {
-                            self.player_in_combat.apply_condition(condition)?;
+                            self.player.apply_condition(condition)?;
                         }
                         EnemyEffect::ApplyToSelf(enemy_condition) => {
                             enemy.apply_condition(enemy_condition);
                         }
                         EnemyEffect::DealDamage(amount) => {
-                            self.player_in_combat
-                                .take_blockable_damage(Self::incoming_damage(
-                                    &self.player_in_combat,
-                                    enemy,
-                                    *amount,
-                                ))?;
+                            self.player.take_blockable_damage(Self::incoming_damage(
+                                &self.player,
+                                enemy,
+                                *amount,
+                            ))?;
                         }
                         EnemyEffect::GainBlock(amount) => enemy.state.block += *amount,
                         EnemyEffect::GainStrength(amount) => enemy.state.strength += *amount,
                     }
                     let enemy_status = EnemyStatus::from(&*enemy);
-                    self.player_in_combat
+                    self.player
                         .player
                         .comms
                         .send_notification(Notification::EnemyStatus(enemy_index, enemy_status))?;
@@ -143,7 +141,7 @@ impl<'a> CombatSimulator<'a> {
                         *maybe_enemy = None;
                         break;
                     }
-                    if self.player_in_combat.player.state.hp == 0 {
+                    if self.player.player.state.hp == 0 {
                         break;
                     }
                 }
@@ -160,6 +158,9 @@ impl<'a> CombatSimulator<'a> {
         for effect in card.details.effect_chain.iter() {
             match effect {
                 PlayerEffect::AddRandomCardThatCostsZeroThisTurnToHand(_) => todo!(),
+                PlayerEffect::AddToDiscardPile(cards) => {
+                    self.player.add_cards_to_discard_pile(cards)?;
+                }
                 PlayerEffect::Apply(_) => unreachable!(
                     "Debuff should be handled by play_card_against_enemy, {:?}",
                     card
@@ -168,36 +169,54 @@ impl<'a> CombatSimulator<'a> {
                     self.apply_to_all_enemies(enemy_condition)?;
                 }
                 PlayerEffect::ApplyToSelf(player_condition) => {
-                    self.player_in_combat.apply_condition(player_condition)?;
+                    self.player.apply_condition(player_condition)?;
                 }
                 PlayerEffect::CloneAttackOrPowerCardIntoHand(_) => {
                     todo!();
                 }
                 PlayerEffect::CloneSelfIntoDiscardPile() => {
-                    self.player_in_combat.add_card_to_discard_pile(card)?;
+                    self.player.add_card_to_discard_pile(card)?;
                     todo!();
                 }
+                PlayerEffect::DealDamageToAll(amount) => {
+                    self.attack_all_enemies(*amount)?;
+                }
+                PlayerEffect::DealDamageToRandomEnemy(amount) => {
+                    let enemy_index = self.pick_random_enemy();
+                    if let Some(enemy_index) = enemy_index {
+                        self.attack_enemy(enemy_index, *amount, 1)?;
+                    }
+                }
+                PlayerEffect::GainBlock(amount) => {
+                    self.player
+                        .gain_block(Self::incoming_block(&self.player, *amount))?;
+                }
+                PlayerEffect::PutCardFromDiscardPileOnTopOfDrawPile() => todo!(),
+                PlayerEffect::UpgradeOneCardInHandThisCombat() => todo!(),
+                PlayerEffect::UpgradeAllCardsInHandThisCombat() => todo!(),
                 PlayerEffect::DealDamage(_)
                 | PlayerEffect::DealDamageCustom()
                 | PlayerEffect::DealDamageWithStrengthMultiplier(_, _) => unreachable!(
                     "DealDamage should be handled by play_card_against_enemy, {:?}",
                     card
                 ),
-                PlayerEffect::DealDamageToAll(amount) => {
-                    self.attack_all_enemies(*amount)?;
-                }
-                PlayerEffect::GainBlock(amount) => {
-                    self.player_in_combat
-                        .gain_block(Self::incoming_block(&self.player_in_combat, *amount))?;
-                }
-                PlayerEffect::UpgradeOneCardInHandThisCombat() => todo!(),
-                PlayerEffect::UpgradeAllCardsInHandThisCombat() => todo!(),
             }
             if self.combat_should_end() {
                 break;
             }
         }
         Ok(())
+    }
+
+    fn pick_random_enemy(&mut self) -> Option<EnemyIndex> {
+        let living_foes = self
+            .enemy_party
+            .iter()
+            .enumerate()
+            .filter(|(_, e)| e.is_some())
+            .collect::<Vec<_>>();
+        let alive_index = self.misc_rng.gen_range(0..living_foes.len());
+        Some(living_foes[alive_index].0)
     }
 
     fn play_card_against_enemy(
@@ -215,12 +234,40 @@ impl<'a> CombatSimulator<'a> {
                 }
                 PlayerEffect::DealDamageCustom() => match card.card {
                     Card::BodySlam(_) => {
-                        self.attack_enemy(enemy_index, self.player_in_combat.state.block, 1)?;
+                        self.attack_enemy(enemy_index, self.player.state.block, 1)?;
+                    }
+                    Card::PerfectedStrike(upgraded) => {
+                        let per_strike_bonus = if upgraded { 3 } else { 2 };
+                        let strike_count = self
+                            .player
+                            .state
+                            .cards_iter()
+                            .filter(|c| {
+                                matches!(
+                                    c.card,
+                                    Card::Strike(_)
+                                        | Card::MeteorStrike(_)
+                                        | Card::PerfectedStrike(_)
+                                        | Card::PommelStrike(_)
+                                        | Card::SneakyStrike(_)
+                                        | Card::ThunderStrike(_)
+                                        | Card::TwinStrike(_)
+                                        | Card::WildStrike(_)
+                                        | Card::WindmillStrike(_)
+                                )
+                            })
+                            .count();
+                        let damage = 6 + (per_strike_bonus * strike_count) as AttackDamage;
+                        self.attack_enemy(enemy_index, damage, 1)?;
                     }
                     _ => unreachable!("{:?}", card),
                 },
                 PlayerEffect::DealDamageWithStrengthMultiplier(amount, multiplier) => {
                     self.attack_enemy(enemy_index, *amount, *multiplier)?;
+                }
+                PlayerEffect::PutCardFromDiscardPileOnTopOfDrawPile() => {
+                    self.player
+                        .put_card_from_discard_pile_on_top_of_draw_pile()?;
                 }
                 effect => unreachable!(
                     "Inappropriate card handled by play_card_against_enemy, {:?} {:?}",
@@ -243,26 +290,26 @@ impl<'a> CombatSimulator<'a> {
         // TODO: reaction
         if let Some(enemy) = self.enemy_party[index].as_mut() {
             enemy.take_damage(Self::outgoing_damage(
-                &self.player_in_combat,
+                &self.player,
                 enemy,
                 amount,
                 strength_multiplier,
             ));
             let enemy_status = EnemyStatus::from(&*enemy);
             let enemy_type = enemy_status.enemy_type;
-            self.player_in_combat
+            self.player
                 .player
                 .comms
                 .send_notification(Notification::EnemyStatus(index, enemy_status))?;
             if enemy.state.is_dead() {
-                self.player_in_combat
+                self.player
                     .player
                     .comms
                     .send_notification(Notification::EnemyDied(index, enemy_type))?;
                 // Invoke death effects
                 for condition in enemy.state.conditions.iter() {
                     if let EnemyCondition::SporeCloud(stacks) = condition {
-                        self.player_in_combat
+                        self.player
                             .apply_condition(&PlayerCondition::Vulnerable(*stacks))?;
                     }
                 }
@@ -288,7 +335,7 @@ impl<'a> CombatSimulator<'a> {
         if let Some(enemy) = self.enemy_party[index].as_mut() {
             enemy.apply_condition(condition);
             let enemy_status = EnemyStatus::from(&*enemy);
-            self.player_in_combat
+            self.player
                 .player
                 .comms
                 .send_notification(Notification::EnemyStatus(index, enemy_status))?;
@@ -347,5 +394,19 @@ impl<'a> CombatSimulator<'a> {
         } else {
             caster_modified_mount
         }
+        /*
+        let x = [
+            PlayCardFromHand(0, Bash(false), 1),
+            TargetEnemy(0, GremlinNob),
+            PlayCardFromHand(1, Thunderclap(false), 1),
+            PlayCardFromHand(0, Defend(false), 1),
+            EndTurn,
+            PlayCardFromHand(4, Defend(false), 1),
+            PlayCardFromHand(4, Defend(false), 0),
+            PlayCardFromHand(0, Strike(false), 0),
+            TargetEnemy(0, GremlinNob),
+            PlayCardFromHand(2, InfernalBlade(false), 0),
+        ];
+        */
     }
 }

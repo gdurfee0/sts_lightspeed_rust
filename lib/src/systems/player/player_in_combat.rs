@@ -543,6 +543,33 @@ impl<'a> PlayerInCombat<'a> {
             invalid => unreachable!("{:?}", invalid),
         }
     }
+
+    pub fn put_card_from_discard_pile_on_top_of_draw_pile(&mut self) -> Result<(), Error> {
+        if !self.state.discard_pile.is_empty() {
+            let choices = self
+                .state
+                .discard_pile
+                .iter()
+                .copied()
+                .enumerate()
+                .map(|(discard_index, card)| Choice::PutOnTopOfDrawPile(discard_index, card.card))
+                .collect::<Vec<_>>();
+            match self
+                .player
+                .comms
+                .prompt_for_choice(Prompt::ChooseCardToPutOnTopOfDrawPile, &choices)?
+            {
+                Choice::PutOnTopOfDrawPile(discard_index, _) => {
+                    self.state
+                        .draw_pile
+                        .push(self.state.discard_pile[*discard_index]);
+                    self.state.discard_pile.remove(*discard_index);
+                }
+                invalid => unreachable!("{:?}", invalid),
+            }
+        }
+        Ok(())
+    }
 }
 
 #[cfg(test)]
@@ -600,6 +627,65 @@ mod tests {
                 .cost_this_combat
         );
 
+        drop(to_server);
+        drop(from_server);
+    }
+
+    #[test]
+    fn test_put_card_from_discard_pile_on_top_of_draw_pile() {
+        let (to_server, from_client) = channel();
+        let (to_client, from_server) = channel();
+
+        let mut player = Player::new(IRONCLAD, from_client, to_client);
+        player.state.deck = vec![];
+        let mut player_in_combat = PlayerInCombat::new(&mut player, Seed::from(3));
+
+        player_in_combat
+            .state
+            .draw_pile
+            .push(CardInCombat::new(Some(11), Card::Strike(false)));
+        player_in_combat
+            .state
+            .draw_pile
+            .push(CardInCombat::new(Some(22), Card::Strike(false)));
+        player_in_combat
+            .state
+            .discard_pile
+            .push(CardInCombat::new(Some(42), Card::Strike(false)));
+        player_in_combat
+            .state
+            .discard_pile
+            .push(CardInCombat::new(Some(64), Card::Defend(false)));
+        player_in_combat
+            .state
+            .discard_pile
+            .push(CardInCombat::new(Some(99), Card::Strike(false)));
+        to_server.send(1).unwrap();
+        player_in_combat
+            .put_card_from_discard_pile_on_top_of_draw_pile()
+            .unwrap();
+        assert_eq!(3, player_in_combat.state.draw_pile.len());
+        assert_eq!(
+            Card::Strike(false),
+            player_in_combat.state.draw_pile[0].card
+        );
+        assert_eq!(
+            Card::Strike(false),
+            player_in_combat.state.draw_pile[1].card
+        );
+        assert_eq!(
+            Card::Defend(false),
+            player_in_combat.state.draw_pile[2].card
+        );
+        assert_eq!(2, player_in_combat.state.discard_pile.len());
+        assert_eq!(
+            Card::Strike(false),
+            player_in_combat.state.discard_pile[0].card
+        );
+        assert_eq!(
+            Card::Strike(false),
+            player_in_combat.state.discard_pile[1].card
+        );
         drop(to_server);
         drop(from_server);
     }

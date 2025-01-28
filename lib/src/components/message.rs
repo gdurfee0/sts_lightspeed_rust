@@ -1,8 +1,9 @@
 use crate::data::{Card, Enemy, NeowBlessing, Potion};
-use crate::types::{ColumnIndex, DeckIndex, EnemyIndex, Energy, Gold, HandIndex, PotionIndex};
+use crate::types::{
+    ColumnIndex, DeckIndex, DiscardIndex, EnemyIndex, Energy, Gold, HandIndex, PotionIndex,
+};
 
 use super::notification::Notification;
-use super::CardInCombat;
 
 /// Message type for communication from the Simualtor to a client (human operator or AI agent).
 /// The Simulator will send any `Notification`s to the client, concluding with a `Choices`
@@ -21,6 +22,7 @@ pub enum StsMessage {
 #[derive(Clone, Debug)]
 #[cfg_attr(test, derive(Eq, Hash, PartialEq))]
 pub enum Prompt {
+    ChooseCardToPutOnTopOfDrawPile,
     ChooseCombatReward,
     ChooseForEvent,
     ChooseNeow,
@@ -45,6 +47,7 @@ pub enum Choice {
     ObtainCard(Card),
     ObtainGold(Gold),
     ObtainPotion(Potion),
+    PutOnTopOfDrawPile(DiscardIndex, Card),
     RemoveCard(DeckIndex, Card),
     Rest,
     Upgrade,

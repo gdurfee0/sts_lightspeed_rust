@@ -85,7 +85,7 @@ impl<'a> EnemyPartyGenerator<'a> {
             Encounter::GiantHead => todo!("{:?}", self.encounter),
             Encounter::GremlinGang => todo!("{:?}", self.encounter),
             Encounter::GremlinLeader => todo!("{:?}", self.encounter),
-            Encounter::GremlinNob => todo!("{:?}", self.encounter),
+            Encounter::GremlinNob => enemy_party!(GremlinNob),
             Encounter::Hexaghost => todo!("{:?}", self.encounter),
             Encounter::JawWorm => enemy_party!(JawWorm),
             Encounter::JawWormHorde => todo!("{:?}", self.encounter),

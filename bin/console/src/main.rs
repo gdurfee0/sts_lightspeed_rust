@@ -3,7 +3,7 @@ use std::sync::mpsc::{channel, Receiver, Sender};
 use std::{env, thread};
 
 use anyhow::anyhow;
-use sts_lib::data::Character;
+use sts_lib::data::{CardDetails, CardType, Character};
 use sts_lib::ui::combat::CombatClient;
 use sts_lib::{Choice, Notification, Prompt, Seed, StsMessage, StsSimulator};
 
@@ -15,6 +15,41 @@ fn main() -> Result<(), anyhow::Error> {
     let simulator_handle = thread::spawn(move || {
         let _ = simulator.run();
     });
+
+    println!("Attacks:");
+    for card in character
+        .common_card_pool
+        .iter()
+        .rev()
+        .chain(character.uncommon_card_pool.iter().rev())
+        .chain(character.rare_card_pool.iter().rev())
+        .filter(|card| matches!(CardDetails::for_card(**card).type_, CardType::Attack))
+    {
+        println!("{:?}", *card);
+    }
+    println!("\nSkills:");
+    for card in character
+        .common_card_pool
+        .iter()
+        .rev()
+        .chain(character.uncommon_card_pool.iter().rev())
+        .chain(character.rare_card_pool.iter().rev())
+        .filter(|card| matches!(CardDetails::for_card(**card).type_, CardType::Skill))
+    {
+        println!("{:?}", *card);
+    }
+    println!("\nPowers:");
+    for card in character
+        .common_card_pool
+        .iter()
+        .rev()
+        .chain(character.uncommon_card_pool.iter().rev())
+        .chain(character.rare_card_pool.iter().rev())
+        .filter(|card| matches!(CardDetails::for_card(**card).type_, CardType::Power))
+    {
+        println!("{:?}", *card);
+    }
+
     main_input_loop(to_server, from_server)?;
     println!("[Main] Exiting.");
     simulator_handle

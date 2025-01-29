@@ -16,6 +16,8 @@ graph TD
     G -->|Defeat All Enemies| K[Choose Rewards]
     K --> L[Continue Loop]
     G -->|Player Defeated| M[Game Over]
+    H --> L[Continue Loop]
+    J --> L[Continue Loop]
     L -->|Proceed to Next Floor| E
     M -->|End Simulation| N[End of Game]
 ```

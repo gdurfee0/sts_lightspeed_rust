@@ -236,10 +236,7 @@ impl<'a> PlayerInCombat<'a> {
                 .energy
                 .saturating_sub(card_in_combat.cost_this_combat);
             if card_in_combat.details.exhaust {
-                self.state.exhaust_pile.push(card_in_combat);
-                self.player
-                    .comms
-                    .send_notification(Notification::CardExhausted(hand_index, card_in_combat.card))
+                self.exhaust_card(hand_index, card_in_combat)
             } else {
                 self.state.discard_pile.push(card_in_combat);
                 self.player
@@ -249,6 +246,17 @@ impl<'a> PlayerInCombat<'a> {
         } else {
             Ok(())
         }
+    }
+
+    fn exhaust_card(&mut self, hand_index: HandIndex, card: CardInCombat) -> Result<(), Error> {
+        if let Some(_effect) = card.details.on_exhaust.as_ref() {
+            todo!("Need to handle special exhaust effects; perhaps introduce effect queue?");
+        }
+        self.player
+            .comms
+            .send_notification(Notification::CardExhausted(hand_index, card.card))?;
+        self.state.exhaust_pile.push(card);
+        Ok(())
     }
 
     fn discard_hand(&mut self) -> Result<(), Error> {

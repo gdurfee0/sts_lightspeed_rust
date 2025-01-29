@@ -434,6 +434,7 @@ pub struct CardDetails {
     pub exhaust: bool,
     pub innate: bool,
     pub irremovable: bool,
+    pub on_exhaust: Option<PlayerEffect>,
     pub requires_target: bool,
     pub retain: bool,
     pub special_cost: bool,
@@ -462,6 +463,7 @@ impl CardDetails {
             exhaust: false,
             innate: false,
             irremovable: false,
+            on_exhaust: None,
             requires_target: false,
             retain: false,
             special_cost: false,
@@ -524,6 +526,11 @@ impl CardDetails {
         self
     }
 
+    fn on_exhaust(mut self, effect: PlayerEffect) -> Self {
+        self.on_exhaust = Some(effect);
+        self
+    }
+
     fn unplayable(mut self) -> Self {
         self.unplayable = true;
         self
@@ -547,6 +554,14 @@ macro_rules! define_card {
     ) => {
         CardDetails::new(Card::$card($u), CardType::$type, $cost)
             $(.push(PlayerEffect::$effect($($param,)*)))* $(.$extra())*
+    };
+    (
+        ($card:ident($u:expr), $type:ident, $cost:expr),
+        [$($effect:ident($($param:expr),*)),*],
+        $($extra:ident($($eparam:expr),*))*
+    ) => {
+        CardDetails::new(Card::$card($u), CardType::$type, $cost)
+            $(.push(PlayerEffect::$effect($($param,)*)))* $(.$extra($($eparam,)*))*
     };
     (
         ($card:ident($u:expr), $type:ident, $cost:expr),
@@ -1205,6 +1220,16 @@ static ALL_CARDS: Lazy<Vec<CardDetails>> = Lazy::new(|| {
         define_card!(
             (SecondWind(true), Skill, 1),
             [ExhaustCustom(), GainBlockCustom()]
+        ),
+        define_card!(
+            (Sentinel(false), Skill, 1),
+            [GainBlock(5)],
+            on_exhaust(PlayerEffect::GainEnergy(2))
+        ),
+        define_card!(
+            (Sentinel(true), Skill, 1),
+            [GainBlock(8)],
+            on_exhaust(PlayerEffect::GainEnergy(3))
         ),
         define_card!((Slimed(false), Status, 1), [], exhaust),
         define_card!((Slimed(true), Status, 1), [], exhaust),

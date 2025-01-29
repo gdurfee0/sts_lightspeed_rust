@@ -1104,7 +1104,7 @@ mod test {
         let simulator_thread = thread::spawn(move || simulator.run());
         let mut choice_seq = vec![];
         let mut steps = 0;
-        while steps < 700 {
+        while steps < 1000 {
             match from_server.recv_timeout(Duration::from_secs(5)) {
                 Ok(message) => {
                     println!("{:?}", message);

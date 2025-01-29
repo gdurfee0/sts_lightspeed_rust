@@ -1,7 +1,6 @@
 use crate::types::{JustApplied, StackCount};
 
-#[derive(Clone, Debug)]
-#[cfg_attr(test, derive(Eq, Hash, PartialEq))]
+#[derive(Clone, Debug, Eq, Hash, PartialEq)]
 pub enum EnemyCondition {
     /// Upon receiving attack damage, it gains X Block, once per combat.
     CurlUp(StackCount),
@@ -22,8 +21,7 @@ pub enum EnemyCondition {
     Weak(StackCount),
 }
 
-#[derive(Clone, Debug)]
-#[cfg_attr(test, derive(Eq, Hash, PartialEq))]
+#[derive(Clone, Debug, Eq, Hash, PartialEq)]
 pub enum PlayerCondition {
     /// The costs of your cards are randomized on draw, from 0 to 3.
     Confused(),
@@ -37,8 +35,17 @@ pub enum PlayerCondition {
     /// Block gained from cards is reduced by 25%.
     Frail(StackCount),
 
+    /// You may not draw any more cards this turn.
+    NoDraw(),
+
     /// Whenever you play an Attack, gain X Block.
     Rage(StackCount),
+
+    /// Whenever you lose HP from a card, gain X Strength.
+    Rupture(StackCount),
+
+    /// Lose X Strength this turn.
+    StrengthDown(StackCount),
 
     /// You take 50% more damage from attacks.
     Vulnerable(StackCount),
@@ -134,7 +141,6 @@ pub enum Buff {
     Regeneration,    // At the end of your turn, heal X HP and reduce Regeneration by 1.
     Repair,          // At the end of combat, heal X HP.
     Ritual,          // At the end of your/its turn, gain X Stength.
-    Rupture,         // Whenever you lose HP from a card, gain X Strength.
     Rushdown,        // Whenever you enter Wrath, draw X cards.
     Sadistic,        // Whenever you apply a Debuff to an enemy, deal X damage.
     SharpHide,       // Whenever you play an attack, take X damage.

@@ -410,8 +410,7 @@ pub const CURSE_CARD_POOL: &[Card] = &[
     Card::Clumsy(false),
 ];
 
-#[derive(Clone, Copy, Debug)]
-#[cfg_attr(test, derive(Eq, Hash, PartialEq))]
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 pub enum CardType {
     Attack,
     Curse,
@@ -650,10 +649,16 @@ static ALL_CARDS: Lazy<Vec<CardDetails>> = Lazy::new(|| {
         ),
         /*
         define_card!((BattleHymn, Power, 1), [Buff(Buff::BattleHymn, 1)]),
+        */
         define_card!(
-            (BattleTrance, Skill, 0),
-            [Draw(3), DebuffSelf(Debuff::NoDraw, 1)]
+            (BattleTrance(false), Skill, 0),
+            [Draw(3), ApplyToSelf(PlayerCondition::NoDraw())]
         ),
+        define_card!(
+            (BattleTrance(true), Skill, 0),
+            [Draw(4), ApplyToSelf(PlayerCondition::NoDraw())]
+        ),
+        /*
         define_card!(
             (BeamCell, Skill, 0),
             [DealDamage(3), Debuff(Debuff::Vulnerable, 1)],
@@ -698,12 +703,17 @@ static ALL_CARDS: Lazy<Vec<CardDetails>> = Lazy::new(|| {
             [DealDamage(22)],
             [requires_target, special_cost]
         ),
-        /*
         define_card!(
-            (Bloodletting, Skill, 0),
+            (Bloodletting(false), Skill, 0),
             [LoseHp(3), GainEnergy(2)],
             exhaust
         ),
+        define_card!(
+            (Bloodletting(true), Skill, 0),
+            [LoseHp(3), GainEnergy(3)],
+            exhaust
+        ),
+        /*
         define_card!((Bludgeon, Attack, 3), [DealDamage(32)], requires_target),
         define_card!((Blur, Skill, 1), [GainBlock(5), Buff(Buff::Blur, 1)]),
         */
@@ -793,17 +803,27 @@ static ALL_CARDS: Lazy<Vec<CardDetails>> = Lazy::new(|| {
             [ShuffleIntoDrawPileCustom()],
             exhaust
         ),
+        */
         define_card!(
-            (Clash, Attack, 0),
+            (Clash(false), Attack, 0),
             [DealDamage(14)],
             [custom_requirements, requires_target]
         ),
+        define_card!(
+            (Clash(true), Attack, 0),
+            [DealDamage(18)],
+            [custom_requirements, requires_target]
+        ),
+        /*
         define_card!(
             (Claw, Attack, 0),
             [DealDamageCustom(), Buff(Buff::ClawsPlayed, 1)],
             requires_target
         ),
-        define_card!((Cleave, Attack, 1), [DealDamageToAll(8)]),
+        */
+        define_card!((Cleave(false), Attack, 1), [DealDamageToAll(8)]),
+        define_card!((Cleave(true), Attack, 1), [DealDamageToAll(11)]),
+        /*
         define_card!(
             (CloakAndDagger, Skill, 1),
             [GainBlock(6), AddToHand(&[Card::Shiv])]
@@ -969,11 +989,24 @@ static ALL_CARDS: Lazy<Vec<CardDetails>> = Lazy::new(|| {
             [DealDamageToAll(8)],
             [exhaust, innate]
         ),
+        */
         define_card!(
-            (Dropkick, Attack, 1),
-            [DealDamage(5), GainEnergyCustom(), DrawCustom()],
+            (Dropkick(false), Attack, 1),
+            [
+                DealDamage(5),
+                IfEnemyVulnerable(vec![PlayerEffect::GainEnergy(1), PlayerEffect::Draw(1)])
+            ],
             requires_target
         ),
+        define_card!(
+            (Dropkick(true), Attack, 1),
+            [
+                DealDamage(8),
+                IfEnemyVulnerable(vec![PlayerEffect::GainEnergy(1), PlayerEffect::Draw(1)])
+            ],
+            requires_target
+        ),
+        /*
         define_card!((Dualcast, Skill, 1), [EvokeCustom()]),
         */
         define_card!(
@@ -1070,6 +1103,30 @@ static ALL_CARDS: Lazy<Vec<CardDetails>> = Lazy::new(|| {
             [ApplyToSelf(PlayerCondition::FireBreathing(10))]
         ),
         define_card!(
+            (Flex(false), Skill, 0),
+            [
+                GainStrength(2),
+                ApplyToSelfAtEndOfTurn(PlayerCondition::StrengthDown(2))
+            ]
+        ),
+        define_card!(
+            (Flex(true), Skill, 0),
+            [
+                GainStrength(4),
+                ApplyToSelfAtEndOfTurn(PlayerCondition::StrengthDown(4))
+            ]
+        ),
+        define_card!((GhostlyArmor(false), Skill, 1), [GainBlock(10)], ethereal),
+        define_card!((GhostlyArmor(true), Skill, 1), [GainBlock(13)], ethereal),
+        define_card!(
+            (Havoc(false), Skill, 1),
+            [PlayThenExhaustTopCardOfDrawPile()]
+        ),
+        define_card!(
+            (Havoc(true), Skill, 0),
+            [PlayThenExhaustTopCardOfDrawPile()]
+        ),
+        define_card!(
             (Headbutt(false), Attack, 1),
             [DealDamage(9), PutCardFromDiscardPileOnTopOfDrawPile()],
             requires_target
@@ -1109,6 +1166,8 @@ static ALL_CARDS: Lazy<Vec<CardDetails>> = Lazy::new(|| {
             [ApplyToAll(EnemyCondition::Weak(2))],
             exhaust
         ),
+        define_card!((IronWave(false), Attack, 1), [GainBlock(5), DealDamage(5)]),
+        define_card!((IronWave(true), Attack, 1), [GainBlock(7), DealDamage(7)]),
         define_card!(
             (PerfectedStrike(false), Attack, 2),
             [DealDamageCustom()],
@@ -1119,6 +1178,10 @@ static ALL_CARDS: Lazy<Vec<CardDetails>> = Lazy::new(|| {
             [DealDamageCustom()],
             requires_target
         ),
+        define_card!((PommelStrike(false), Attack, 1), [DealDamage(9), Draw(1)]),
+        define_card!((PommelStrike(true), Attack, 1), [DealDamage(10), Draw(2)]),
+        define_card!((ShrugItOff(false), Skill, 1), [GainBlock(8), Draw(1)]),
+        define_card!((ShrugItOff(true), Skill, 1), [GainBlock(11), Draw(1)]),
         define_card!(
             (Rage(false), Skill, 0),
             [ApplyToSelf(PlayerCondition::Rage(3))]
@@ -1126,6 +1189,22 @@ static ALL_CARDS: Lazy<Vec<CardDetails>> = Lazy::new(|| {
         define_card!(
             (Rage(true), Skill, 0),
             [ApplyToSelf(PlayerCondition::Rage(5))]
+        ),
+        define_card!(
+            (Rupture(false), Power, 1),
+            [ApplyToSelf(PlayerCondition::Rupture(1))]
+        ),
+        define_card!(
+            (Rupture(true), Power, 1),
+            [ApplyToSelf(PlayerCondition::Rupture(2))]
+        ),
+        define_card!(
+            (SecondWind(false), Skill, 1),
+            [ExhaustCustom(), GainBlockCustom()]
+        ),
+        define_card!(
+            (SecondWind(true), Skill, 1),
+            [ExhaustCustom(), GainBlockCustom()]
         ),
         define_card!((Slimed(false), Status, 1), [], exhaust),
         define_card!((Slimed(true), Status, 1), [], exhaust),
@@ -1163,6 +1242,50 @@ static ALL_CARDS: Lazy<Vec<CardDetails>> = Lazy::new(|| {
             ]
         ),
         define_card!(
+            (TrueGrit(false), Skill, 1),
+            [GainBlock(7), ExhaustRandomCardInHand()]
+        ),
+        define_card!(
+            (TrueGrit(true), Skill, 1),
+            [GainBlock(9), ExhaustCardInHand()]
+        ),
+        define_card!(
+            (TwinStrike(false), Attack, 1),
+            [DealDamage(5), DealDamage(5)],
+            requires_target
+        ),
+        define_card!(
+            (TwinStrike(true), Attack, 1),
+            [DealDamage(7), DealDamage(7)],
+            requires_target
+        ),
+        define_card!(
+            (Uppercut(false), Attack, 2),
+            [
+                DealDamage(13),
+                Apply(EnemyCondition::Weak(1)),
+                Apply(EnemyCondition::Vulnerable(1))
+            ]
+        ),
+        define_card!(
+            (Uppercut(true), Attack, 2),
+            [
+                DealDamage(13),
+                Apply(EnemyCondition::Weak(2)),
+                Apply(EnemyCondition::Vulnerable(2))
+            ]
+        ),
+        define_card!(
+            (Warcry(false), Skill, 0),
+            [Draw(1), PutCardFromHandOnTopOfDrawPile()],
+            exhaust
+        ),
+        define_card!(
+            (Warcry(true), Skill, 0),
+            [Draw(2), PutCardFromHandOnTopOfDrawPile()],
+            exhaust
+        ),
+        define_card!(
             (WhiteNoise(false), Skill, 1),
             [AddRandomCardThatCostsZeroThisTurnToHand(CardType::Power)],
             exhaust
@@ -1185,8 +1308,19 @@ static ALL_CARDS: Lazy<Vec<CardDetails>> = Lazy::new(|| {
     ]
 });
 
-static CARD_DETAILS: Lazy<HashMap<Card, &'static CardDetails>> =
-    Lazy::new(|| ALL_CARDS.iter().map(|card| (card.card, card)).collect());
+static CARD_DETAILS: Lazy<HashMap<Card, &'static CardDetails>> = Lazy::new(|| {
+    let mut map: HashMap<Card, &'static CardDetails> =
+        ALL_CARDS.iter().map(|card| (card.card, card)).collect();
+    for i in 0..30 {
+        let card_details = Box::leak(Box::new(
+            CardDetails::new(Card::SearingBlow(i), CardType::Attack, 2)
+                .push(PlayerEffect::DealDamage(12 + i * (i + 7) / 2))
+                .requires_target(),
+        ));
+        map.insert(Card::SearingBlow(i), card_details);
+    }
+    map
+});
 
 #[cfg(test)]
 mod test {

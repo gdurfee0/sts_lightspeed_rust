@@ -161,6 +161,7 @@ impl<'a> CombatSimulator<'a> {
                 PlayerEffect::AddToDiscardPile(cards) => {
                     self.player.add_cards_to_discard_pile(cards)?;
                 }
+                PlayerEffect::ApplyToSelfAtEndOfTurn(_) => todo!(),
                 PlayerEffect::Apply(_) => unreachable!(
                     "Debuff should be handled by play_card_against_enemy, {:?}",
                     card
@@ -187,11 +188,26 @@ impl<'a> CombatSimulator<'a> {
                         self.attack_enemy(enemy_index, *amount, 1)?;
                     }
                 }
+                PlayerEffect::Draw(count) => {
+                    for _ in 0..*count {
+                        self.player.draw_card()?;
+                    }
+                }
+                PlayerEffect::ExhaustCardInHand() => todo!(),
+                PlayerEffect::ExhaustCustom() => todo!(),
+                PlayerEffect::ExhaustRandomCardInHand() => todo!(),
                 PlayerEffect::GainBlock(amount) => {
                     self.player
                         .gain_block(Self::incoming_block(&self.player, *amount))?;
                 }
+                PlayerEffect::GainBlockCustom() => todo!(),
+                PlayerEffect::GainEnergy(_) => todo!(),
+                PlayerEffect::GainStrength(_) => todo!(),
+                PlayerEffect::IfEnemyVulnerable(_) => todo!(),
+                PlayerEffect::LoseHp(_) => todo!(),
+                PlayerEffect::PlayThenExhaustTopCardOfDrawPile() => todo!(),
                 PlayerEffect::PutCardFromDiscardPileOnTopOfDrawPile() => todo!(),
+                PlayerEffect::PutCardFromHandOnTopOfDrawPile() => todo!(),
                 PlayerEffect::UpgradeOneCardInHandThisCombat() => todo!(),
                 PlayerEffect::UpgradeAllCardsInHandThisCombat() => todo!(),
                 PlayerEffect::DealDamage(_)

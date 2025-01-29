@@ -1,10 +1,10 @@
-use crate::types::{AttackCount, AttackDamage, Block, Strength};
+use crate::types::{AttackCount, AttackDamage, Block, DrawCount, Energy, Hp, Strength};
 
 use super::card::{Card, CardType};
 use super::condition::{EnemyCondition, PlayerCondition};
 use super::intent::Intent;
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Eq, Hash, PartialEq)]
 pub enum EnemyEffect {
     AddToDiscardPile(&'static [Card]),
     Apply(PlayerCondition),
@@ -26,14 +26,14 @@ pub enum EnemyEffect {
     */
 }
 
-#[derive(Clone, Debug)]
-#[cfg_attr(test, derive(Eq, Hash, PartialEq))]
+#[derive(Clone, Debug, Eq, Hash, PartialEq)]
 pub enum PlayerEffect {
     AddRandomCardThatCostsZeroThisTurnToHand(CardType),
     AddToDiscardPile(&'static [Card]),
     Apply(EnemyCondition),
     ApplyToAll(EnemyCondition),
     ApplyToSelf(PlayerCondition),
+    ApplyToSelfAtEndOfTurn(PlayerCondition),
     CloneSelfIntoDiscardPile(),
     CloneAttackOrPowerCardIntoHand(usize),
     DealDamage(AttackDamage),
@@ -41,8 +41,19 @@ pub enum PlayerEffect {
     DealDamageToAll(AttackDamage),
     DealDamageToRandomEnemy(AttackDamage),
     DealDamageWithStrengthMultiplier(AttackDamage, Strength),
+    Draw(DrawCount),
+    ExhaustCardInHand(),
+    ExhaustCustom(),
+    ExhaustRandomCardInHand(),
     GainBlock(Block),
+    GainBlockCustom(),
+    GainEnergy(Energy),
+    GainStrength(Strength),
+    IfEnemyVulnerable(Vec<PlayerEffect>),
+    LoseHp(Hp),
+    PlayThenExhaustTopCardOfDrawPile(),
     PutCardFromDiscardPileOnTopOfDrawPile(),
+    PutCardFromHandOnTopOfDrawPile(),
     UpgradeAllCardsInHandThisCombat(),
     UpgradeOneCardInHandThisCombat(),
     /*

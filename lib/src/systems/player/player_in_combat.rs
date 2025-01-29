@@ -150,7 +150,10 @@ impl<'a> PlayerInCombat<'a> {
         Ok(())
     }
 
-    fn draw_card(&mut self) -> Result<(), Error> {
+    pub fn draw_card(&mut self) -> Result<(), Error> {
+        if self.state.conditions.contains(&PlayerCondition::NoDraw()) {
+            return Ok(());
+        }
         if let Some(card) = self.state.draw_pile.pop() {
             self.put_card_in_hand(card)
         } else {
@@ -186,7 +189,10 @@ impl<'a> PlayerInCombat<'a> {
                 }
                 PlayerCondition::FireBreathing(_) => todo!(),
                 PlayerCondition::Frail(_) => {}
+                PlayerCondition::NoDraw() => unreachable!(),
                 PlayerCondition::Rage(_) => {}
+                PlayerCondition::Rupture(_) => {}
+                PlayerCondition::StrengthDown(_) => {}
                 PlayerCondition::Vulnerable(_) => {}
                 PlayerCondition::Weak(_) => {}
             }
@@ -210,9 +216,12 @@ impl<'a> PlayerInCombat<'a> {
                 PlayerCondition::Evolve(_) => {}
                 PlayerCondition::FireBreathing(_) => todo!(),
                 PlayerCondition::Frail(_) => {}
+                PlayerCondition::NoDraw() => {}
                 PlayerCondition::Rage(stacks) => {
                     rage_stacks = Some(*stacks);
                 }
+                PlayerCondition::Rupture(_) => {}
+                PlayerCondition::StrengthDown(_) => {}
                 PlayerCondition::Vulnerable(_) => {}
                 PlayerCondition::Weak(_) => {}
             }
@@ -247,6 +256,7 @@ impl<'a> PlayerInCombat<'a> {
         while let Some(card) = self.state.hand.pop() {
             self.state.discard_pile.push(card);
         }
+        // TODO: ethereal cards
         self.player
             .comms
             .send_notification(Notification::HandDiscarded)
@@ -293,6 +303,17 @@ impl<'a> PlayerInCombat<'a> {
                 *stacks = stacks.saturating_add(*additional_stacks);
                 true
             }
+            (PlayerCondition::Rupture(stacks), PlayerCondition::Rupture(additional_stacks)) => {
+                *stacks = stacks.saturating_add(*additional_stacks);
+                true
+            }
+            (
+                PlayerCondition::StrengthDown(amount),
+                PlayerCondition::StrengthDown(additional_amount),
+            ) => {
+                *amount = amount.saturating_add(*additional_amount);
+                true
+            }
             (PlayerCondition::Vulnerable(turns), PlayerCondition::Vulnerable(additional_turns)) => {
                 *turns = turns.saturating_add(*additional_turns);
                 true
@@ -312,7 +333,10 @@ impl<'a> PlayerInCombat<'a> {
                 PlayerCondition::Evolve(_) => {}
                 PlayerCondition::FireBreathing(_) => todo!(),
                 PlayerCondition::Frail(turns) => *turns = turns.saturating_sub(1),
+                PlayerCondition::NoDraw() => {}
                 PlayerCondition::Rage(_) => {}
+                PlayerCondition::Rupture(_) => {}
+                PlayerCondition::StrengthDown(_) => {}
                 PlayerCondition::Vulnerable(turns) => *turns = turns.saturating_sub(1),
                 PlayerCondition::Weak(turns) => *turns = turns.saturating_sub(1),
             }
@@ -321,6 +345,8 @@ impl<'a> PlayerInCombat<'a> {
             !matches!(
                 c,
                 PlayerCondition::Frail(0)
+                    | PlayerCondition::NoDraw()
+                    | PlayerCondition::Rage(_)
                     | PlayerCondition::Vulnerable(0)
                     | PlayerCondition::Weak(0)
             )
@@ -491,6 +517,10 @@ impl<'a> PlayerInCombat<'a> {
                 .filter_map(|(hand_index, card)| {
                     if card.cost_this_combat > self.state.energy {
                         None
+                    } else if card.details.custom_requirements
+                        && !self.custom_requirements_met(&card)
+                    {
+                        None
                     } else {
                         Some(Choice::PlayCardFromHand(
                             hand_index,
@@ -522,6 +552,10 @@ impl<'a> PlayerInCombat<'a> {
                 invalid => unreachable!("{:?}", invalid),
             }
         }
+    }
+
+    fn custom_requirements_met(&self, _card: &CardInCombat) -> bool {
+        todo!()
     }
 
     fn choose_enemy_to_target(&self, enemies: &[Option<EnemyStatus>]) -> Result<EnemyIndex, Error> {

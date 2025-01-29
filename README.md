@@ -13,13 +13,41 @@ graph TD
     F -->|Event Room| H[Event Simulation]
     F -->|Rest Room| I[Rest or Upgrade]
     F -->|Treasure Room| J[Treasure Rewards]
+    G -->|Player Defeated| M[Game Over]
     G -->|Defeat All Enemies| K[Choose Rewards]
     K --> L[Continue Loop]
-    G -->|Player Defeated| M[Game Over]
     H --> L[Continue Loop]
+    I --> L[Continue Loop]
     J --> L[Continue Loop]
     L -->|Proceed to Next Floor| E
     M -->|End Simulation| N[End of Game]
+```
+
+## Sequence Diagram: Client Code Interaction
+
+```mermaid
+sequenceDiagram
+    participant Client
+    participant StsSimulator
+    participant Player
+    participant CombatSimulator
+
+    Client->>StsSimulator: Send game start signal
+    StsSimulator->>Player: Initialize player state
+    StsSimulator->>Client: Send map data
+    loop Game Loop
+        Client->>StsSimulator: Send player action
+        StsSimulator->>Player: Process player action
+        alt Room is Combat
+            StsSimulator->>CombatSimulator: Start combat encounter
+            CombatSimulator->>Player: Resolve player actions
+            Player<<-->>Client: Resolve player actions
+            Player->>CombatSimulator: Resolve player actions
+            CombatSimulator->>StsSimulator: Return combat results
+        end
+        StsSimulator->>Client: Send updated game state
+    end
+    StsSimulator->>Client: Send game over message
 ```
 
 ## Key Components:

@@ -1,5 +1,5 @@
-use crate::data::{Card, CardDetails};
-use crate::types::{DeckIndex, Energy};
+use crate::data::{Card, CardDetails, EnergyCost};
+use crate::types::DeckIndex;
 
 #[derive(Clone, Copy, Debug)]
 #[cfg_attr(test, derive(Eq, Hash, PartialEq))]
@@ -7,8 +7,8 @@ pub struct CardInCombat {
     pub deck_index: Option<DeckIndex>,
     pub card: Card,
     pub details: &'static CardDetails,
-    pub cost_this_combat: Energy,
-    pub cost_this_turn: Energy,
+    pub cost_this_combat: EnergyCost,
+    pub cost_this_turn: EnergyCost,
 }
 
 impl CardInCombat {

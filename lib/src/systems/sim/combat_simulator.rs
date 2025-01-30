@@ -161,7 +161,7 @@ impl<'a> CombatSimulator<'a> {
                 PlayerEffect::AddToDiscardPile(cards) => {
                     self.player.add_cards_to_discard_pile(cards)?;
                 }
-                PlayerEffect::ApplyToSelfAtEndOfTurn(_) => todo!(),
+                PlayerEffect::AtEndOfTurn(_effect_chain) => todo!(),
                 PlayerEffect::Apply(_) => unreachable!(
                     "Debuff should be handled by play_card_against_enemy, {:?}",
                     card
@@ -177,7 +177,6 @@ impl<'a> CombatSimulator<'a> {
                 }
                 PlayerEffect::CloneSelfIntoDiscardPile() => {
                     self.player.add_card_to_discard_pile(card)?;
-                    todo!();
                 }
                 PlayerEffect::DealDamageToAll(amount) => {
                     self.attack_all_enemies(*amount)?;
@@ -212,7 +211,8 @@ impl<'a> CombatSimulator<'a> {
                 PlayerEffect::UpgradeAllCardsInHandThisCombat() => todo!(),
                 PlayerEffect::DealDamage(_)
                 | PlayerEffect::DealDamageCustom()
-                | PlayerEffect::DealDamageWithStrengthMultiplier(_, _) => unreachable!(
+                | PlayerEffect::DealDamageWithStrengthMultiplier(_, _)
+                | PlayerEffect::SapStrength(_) => unreachable!(
                     "DealDamage should be handled by play_card_against_enemy, {:?}",
                     card
                 ),
@@ -284,6 +284,19 @@ impl<'a> CombatSimulator<'a> {
                 PlayerEffect::PutCardFromDiscardPileOnTopOfDrawPile() => {
                     self.player
                         .put_card_from_discard_pile_on_top_of_draw_pile()?;
+                }
+                PlayerEffect::SapStrength(amount) => {
+                    if let Some(enemy) = self.enemy_party[enemy_index].as_mut() {
+                        enemy.state.strength -= *amount;
+                        let enemy_status = EnemyStatus::from(&*enemy);
+                        self.player
+                            .player
+                            .comms
+                            .send_notification(Notification::EnemyStatus(
+                                enemy_index,
+                                enemy_status,
+                            ))?;
+                    }
                 }
                 effect => unreachable!(
                     "Inappropriate card handled by play_card_against_enemy, {:?} {:?}",

@@ -58,7 +58,7 @@ impl fmt::Display for Choice {
             Choice::ObtainGold(gold) => write!(f, "Obtain {} gold", gold),
             Choice::ObtainPotion(potion) => write!(f, "{:?}", potion),
             Choice::PlayCardFromHand(_, card, energy) => {
-                write!(f, "Play \"{:?}\" ({} energy)", card, energy)
+                write!(f, "Play \"{:?}\" ({:?})", card, energy)
             }
             Choice::PutOnTopOfDrawPile(_, card) => write!(f, "{:?}", card),
             Choice::RemoveCard(_, card) => write!(f, "{:?}", card),

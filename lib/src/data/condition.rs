@@ -26,8 +26,17 @@ pub enum PlayerCondition {
     /// The costs of your cards are randomized on draw, from 0 to 3.
     Confused(),
 
+    /// Whenever a card is Exhausted, draw X cards.
+    DarkEmbrace(StackCount),
+
+    /// At the end of your turn, lose 1 HP and deal X damage to ALL enemies.
+    Combust(StackCount),
+
     /// Whenever you draw a Status card, draw X cards.
     Evolve(StackCount),
+
+    /// Whenever a card is Exhausted, gain X Block.
+    FeelNoPain(StackCount),
 
     /// Whenever you draw a Status or Curse card, deal X damage to ALL enemies.
     FireBreathing(StackCount),
@@ -79,11 +88,9 @@ pub enum Buff {
     Burst,           // Your next X Skills are played twice.
     ClawsPlayed,     // Internal: tracks the number of Claws played.
     Collect,         // Put a Miracle+ into your hand at the start of your next X turns.
-    Combust,         // At the end of your turn, lose 1 HP and deal X dammage to ALL enemies.
     Corruption,      // Skills cost 0. Whenever you play a Skill, Exhaust it.
     CreativeAi,      // At the start of your turn, add X random Power cards into your hand.
     Curiosity,       // Whenever you play a Power card, gain X Strength.
-    DarkEmbrace,     // Whenever a card is Exhausted, draw X cards.
     DemonForm,       // At the start of your turn, gain X Strength.
     Deva,            // At the start of your turn gain Energy N times and increase this gain by X.
     Devotion,        // At the start of your turn, gain X Mantra.
@@ -100,7 +107,6 @@ pub enum Buff {
     Evolve,          // Whenever you draw a Status, draw X cards.
     Explosive,       // Explodes in N turns, dealing X damage.
     Fading,          // Dies in X turns.
-    FeelNoPain,      // Whenever a card is Exhausted, gain X Block.
     FireBreathing,   // Whenever you draw a Status or Curse card, deal X damage to ALL enemies.
     FlameBarrier,    // When attacked, deals X damage back. Wears off at the start of next turn.
     Flying,          // Takes 50% less damage on attacks. Removed when attacked X times.

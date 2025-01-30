@@ -1,4 +1,4 @@
-use crate::data::{Card, Enemy, NeowBlessing, Potion};
+use crate::data::{Card, Enemy, EnergyCost, NeowBlessing, Potion};
 use crate::types::{
     ColumnIndex, DeckIndex, DiscardIndex, EnemyIndex, Energy, Gold, HandIndex, PotionIndex,
 };
@@ -51,7 +51,7 @@ pub enum Choice {
     RemoveCard(DeckIndex, Card),
     Rest,
     Upgrade,
-    PlayCardFromHand(HandIndex, Card, Energy),
+    PlayCardFromHand(HandIndex, Card, EnergyCost),
     Skip,
     TargetEnemy(EnemyIndex, Enemy),
 }

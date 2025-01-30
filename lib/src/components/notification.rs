@@ -1,4 +1,4 @@
-use crate::data::{Card, Enemy, PlayerCondition, Potion, Relic};
+use crate::data::{Card, Enemy, EnergyCost, PlayerCondition, Potion, Relic};
 use crate::types::{
     Block, Dexterity, EnemyIndex, Energy, Gold, HandIndex, Health, Hp, PotionIndex, Strength,
 };
@@ -32,7 +32,7 @@ pub enum Notification {
     BlockGained(Block),
     BlockLost(Block),
     CardDiscarded(HandIndex, Card),
-    CardDrawn(HandIndex, Card, Energy),
+    CardDrawn(HandIndex, Card, EnergyCost),
     CardExhausted(HandIndex, Card),
     Conditions(Vec<PlayerCondition>),
     DamageBlocked(Hp),

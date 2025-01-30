@@ -1,7 +1,7 @@
 use anyhow::Error;
 
 use crate::components::{CardInCombat, EnemyStatus, Notification, PlayerCombatState, PotionAction};
-use crate::data::{Card, CardType, PlayerCondition, Potion, Relic};
+use crate::data::{Card, CardType, EnergyCost, PlayerCondition, Potion, Relic};
 use crate::systems::rng::StsRandom;
 use crate::types::{AttackDamage, Block, Dexterity, EnemyIndex, HandIndex, StackCount};
 use crate::{Choice, Prompt, Seed};
@@ -179,7 +179,12 @@ impl<'a> PlayerInCombat<'a> {
         for condition in self.state.conditions.iter() {
             match condition {
                 PlayerCondition::Confused() => {
-                    card.cost_this_combat = self.card_randomizer_rng.gen_range(0..=3);
+                    card.cost_this_combat = *self.card_randomizer_rng.choose(&[
+                        EnergyCost::Zero,
+                        EnergyCost::One,
+                        EnergyCost::Two,
+                        EnergyCost::Three,
+                    ]);
                     card.cost_this_turn = card.cost_this_combat;
                 }
                 PlayerCondition::Evolve(stacks) => {
@@ -188,13 +193,8 @@ impl<'a> PlayerInCombat<'a> {
                     }
                 }
                 PlayerCondition::FireBreathing(_) => todo!(),
-                PlayerCondition::Frail(_) => {}
                 PlayerCondition::NoDraw() => unreachable!(),
-                PlayerCondition::Rage(_) => {}
-                PlayerCondition::Rupture(_) => {}
-                PlayerCondition::StrengthDown(_) => {}
-                PlayerCondition::Vulnerable(_) => {}
-                PlayerCondition::Weak(_) => {}
+                _ => {}
             }
         }
         self.state.hand.push(card);
@@ -204,37 +204,25 @@ impl<'a> PlayerInCombat<'a> {
         self.player.comms.send_notification(Notification::CardDrawn(
             self.state.hand.len() - 1,
             card.card,
-            card.cost_this_combat,
+            card.cost_this_turn,
         ))
     }
 
     pub fn dispose_of_card_just_played(&mut self) -> Result<(), Error> {
-        let mut rage_stacks: Option<StackCount> = None;
+        let mut rage_stacks: StackCount = 0;
         for condition in self.state.conditions.iter() {
-            match condition {
-                PlayerCondition::Confused() => {}
-                PlayerCondition::Evolve(_) => {}
-                PlayerCondition::FireBreathing(_) => todo!(),
-                PlayerCondition::Frail(_) => {}
-                PlayerCondition::NoDraw() => {}
-                PlayerCondition::Rage(stacks) => {
-                    rage_stacks = Some(*stacks);
-                }
-                PlayerCondition::Rupture(_) => {}
-                PlayerCondition::StrengthDown(_) => {}
-                PlayerCondition::Vulnerable(_) => {}
-                PlayerCondition::Weak(_) => {}
+            if let PlayerCondition::Rage(stacks) = condition {
+                rage_stacks += *stacks;
             }
         }
         if let Some(hand_index) = self.card_just_played {
             let card_in_combat = self.state.hand.remove(hand_index);
-            if let (CardType::Attack, Some(stacks)) = (card_in_combat.details.type_, rage_stacks) {
-                self.gain_block(stacks)?;
+            if card_in_combat.details.type_ == CardType::Attack && rage_stacks > 0 {
+                self.gain_block(rage_stacks)?;
             }
-            self.state.energy = self
-                .state
-                .energy
-                .saturating_sub(card_in_combat.cost_this_combat);
+            self.state.energy = card_in_combat
+                .cost_this_turn
+                .leftover(self.state.energy, self.state.hp_loss_count);
             if card_in_combat.details.exhaust {
                 self.exhaust_card(hand_index, card_in_combat)
             } else {
@@ -251,6 +239,25 @@ impl<'a> PlayerInCombat<'a> {
     fn exhaust_card(&mut self, hand_index: HandIndex, card: CardInCombat) -> Result<(), Error> {
         if let Some(_effect) = card.details.on_exhaust.as_ref() {
             todo!("Need to handle special exhaust effects; perhaps introduce effect queue?");
+        }
+        let mut dark_embrace_stacks: StackCount = 0;
+        let mut feel_no_pain_stacks: StackCount = 0;
+        for condition in self.state.conditions.iter() {
+            match condition {
+                PlayerCondition::DarkEmbrace(stacks) => {
+                    dark_embrace_stacks += *stacks;
+                }
+                PlayerCondition::FeelNoPain(stacks) => {
+                    feel_no_pain_stacks += *stacks;
+                }
+                _ => {}
+            }
+        }
+        for _ in 0..dark_embrace_stacks {
+            self.draw_card()?;
+        }
+        if feel_no_pain_stacks > 0 {
+            self.gain_block(feel_no_pain_stacks)?;
         }
         self.player
             .comms
@@ -297,49 +304,111 @@ impl<'a> PlayerInCombat<'a> {
         existing_condition: &mut PlayerCondition,
         incoming_condition: &PlayerCondition,
     ) -> bool {
-        match (existing_condition, incoming_condition) {
-            (PlayerCondition::Confused(), PlayerCondition::Confused()) => true,
-            (PlayerCondition::Evolve(stacks), PlayerCondition::Evolve(additional_stacks)) => {
-                *stacks = stacks.saturating_add(*additional_stacks);
-                true
+        match existing_condition {
+            PlayerCondition::Combust(stacks) => {
+                if let PlayerCondition::Combust(incoming_stacks) = incoming_condition {
+                    *stacks = stacks.saturating_add(*incoming_stacks);
+                    true
+                } else {
+                    false
+                }
             }
-            (PlayerCondition::Frail(turns), PlayerCondition::Frail(additional_turns)) => {
-                *turns = turns.saturating_add(*additional_turns);
-                true
+            PlayerCondition::Confused() => {
+                matches!(incoming_condition, PlayerCondition::Confused())
             }
-            (PlayerCondition::Rage(stacks), PlayerCondition::Rage(additional_stacks)) => {
-                *stacks = stacks.saturating_add(*additional_stacks);
-                true
+            PlayerCondition::DarkEmbrace(stacks) => {
+                if let PlayerCondition::DarkEmbrace(incoming_stacks) = incoming_condition {
+                    *stacks = stacks.saturating_add(*incoming_stacks);
+                    true
+                } else {
+                    false
+                }
             }
-            (PlayerCondition::Rupture(stacks), PlayerCondition::Rupture(additional_stacks)) => {
-                *stacks = stacks.saturating_add(*additional_stacks);
-                true
+            PlayerCondition::Evolve(stacks) => {
+                if let PlayerCondition::Evolve(incoming_stacks) = incoming_condition {
+                    *stacks = stacks.saturating_add(*incoming_stacks);
+                    true
+                } else {
+                    false
+                }
             }
-            (
-                PlayerCondition::StrengthDown(amount),
-                PlayerCondition::StrengthDown(additional_amount),
-            ) => {
-                *amount = amount.saturating_add(*additional_amount);
-                true
+            PlayerCondition::FeelNoPain(stacks) => {
+                if let PlayerCondition::FeelNoPain(incoming_stacks) = incoming_condition {
+                    *stacks = stacks.saturating_add(*incoming_stacks);
+                    true
+                } else {
+                    false
+                }
             }
-            (PlayerCondition::Vulnerable(turns), PlayerCondition::Vulnerable(additional_turns)) => {
-                *turns = turns.saturating_add(*additional_turns);
-                true
+            PlayerCondition::FireBreathing(stacks) => {
+                if let PlayerCondition::FireBreathing(incoming_stacks) = incoming_condition {
+                    *stacks = stacks.saturating_add(*incoming_stacks);
+                    true
+                } else {
+                    false
+                }
             }
-            (PlayerCondition::Weak(turns), PlayerCondition::Weak(additional_turns)) => {
-                *turns = turns.saturating_add(*additional_turns);
-                true
+            PlayerCondition::Frail(turns) => {
+                if let PlayerCondition::Frail(incoming_stacks) = incoming_condition {
+                    *turns = turns.saturating_add(*incoming_stacks);
+                    true
+                } else {
+                    false
+                }
             }
-            _ => false,
+            PlayerCondition::NoDraw() => matches!(incoming_condition, PlayerCondition::NoDraw()),
+            PlayerCondition::Rage(stacks) => {
+                if let PlayerCondition::Rage(incoming_stacks) = incoming_condition {
+                    *stacks = stacks.saturating_add(*incoming_stacks);
+                    true
+                } else {
+                    false
+                }
+            }
+            PlayerCondition::Rupture(stacks) => {
+                if let PlayerCondition::Rupture(incoming_stacks) = incoming_condition {
+                    *stacks = stacks.saturating_add(*incoming_stacks);
+                    true
+                } else {
+                    false
+                }
+            }
+            PlayerCondition::StrengthDown(stacks) => {
+                if let PlayerCondition::StrengthDown(incoming_stacks) = incoming_condition {
+                    *stacks = stacks.saturating_add(*incoming_stacks);
+                    true
+                } else {
+                    false
+                }
+            }
+            PlayerCondition::Vulnerable(turns) => {
+                if let PlayerCondition::Vulnerable(incoming_turns) = incoming_condition {
+                    *turns = turns.saturating_add(*incoming_turns);
+                    true
+                } else {
+                    false
+                }
+            }
+            PlayerCondition::Weak(turns) => {
+                if let PlayerCondition::Weak(incoming_turns) = incoming_condition {
+                    *turns = turns.saturating_add(*incoming_turns);
+                    true
+                } else {
+                    false
+                }
+            }
         }
     }
 
     fn tick_down_conditions(&mut self) -> Result<(), Error> {
         for condition in self.state.conditions.iter_mut() {
             match condition {
+                PlayerCondition::Combust(_) => {}
                 PlayerCondition::Confused() => {}
+                PlayerCondition::DarkEmbrace(_) => {}
                 PlayerCondition::Evolve(_) => {}
-                PlayerCondition::FireBreathing(_) => todo!(),
+                PlayerCondition::FeelNoPain(_) => {}
+                PlayerCondition::FireBreathing(_) => {}
                 PlayerCondition::Frail(turns) => *turns = turns.saturating_sub(1),
                 PlayerCondition::NoDraw() => {}
                 PlayerCondition::Rage(_) => {}
@@ -425,12 +494,6 @@ impl<'a> PlayerInCombat<'a> {
             .send_notification(Notification::DamageTaken(amount))?;
         if amount > 0 {
             self.state.hp_loss_count += 1;
-            // TODO: Lookup instead of linear pass?
-            for card in self.state.cards_iter_mut() {
-                if matches!(card.card, Card::BloodForBlood(_)) {
-                    card.cost_this_combat = card.cost_this_combat.saturating_sub(1);
-                }
-            }
         }
         self.player.decrease_hp(amount)
     }
@@ -523,10 +586,11 @@ impl<'a> PlayerInCombat<'a> {
                 .copied()
                 .enumerate()
                 .filter_map(|(hand_index, card)| {
-                    if card.cost_this_combat > self.state.energy {
-                        None
-                    } else if card.details.custom_requirements
-                        && !self.custom_requirements_met(&card)
+                    if card
+                        .cost_this_combat
+                        .exceeds(self.state.energy, self.state.hp_loss_count)
+                        || (card.details.custom_requirements
+                            && !self.custom_requirements_met(&card))
                     {
                         None
                     } else {
@@ -633,18 +697,7 @@ mod tests {
         let mut player_in_combat = PlayerInCombat::new(&mut player, Seed::from(3));
 
         assert_eq!(
-            4,
-            player_in_combat
-                .state
-                .draw_pile
-                .iter()
-                .find(|card| matches!(card.card, Card::BloodForBlood(false)))
-                .unwrap()
-                .cost_this_combat
-        );
-        player_in_combat.take_blockable_damage(5).unwrap();
-        assert_eq!(
-            3,
+            EnergyCost::FourMinusHpLossCount,
             player_in_combat
                 .state
                 .draw_pile
@@ -658,17 +711,14 @@ mod tests {
         player_in_combat.take_blockable_damage(5).unwrap();
         player_in_combat.take_blockable_damage(5).unwrap();
         player_in_combat.take_blockable_damage(5).unwrap();
-        assert_eq!(
-            0,
-            player_in_combat
-                .state
-                .draw_pile
-                .iter()
-                .find(|card| matches!(card.card, Card::BloodForBlood(false)))
-                .unwrap()
-                .cost_this_combat
-        );
-
+        assert!(!player_in_combat
+            .state
+            .draw_pile
+            .iter()
+            .find(|card| matches!(card.card, Card::BloodForBlood(false)))
+            .unwrap()
+            .cost_this_combat
+            .exceeds(0, player_in_combat.state.hp_loss_count));
         drop(to_server);
         drop(from_server);
     }

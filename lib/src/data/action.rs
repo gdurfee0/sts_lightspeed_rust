@@ -7,11 +7,14 @@ use std::collections::HashMap;
 
 use once_cell::sync::Lazy;
 
-use crate::types::AttackDamage;
+use crate::types::Hp;
 
 use super::card::Card;
 use super::condition::{EnemyCondition, PlayerCondition};
-use super::effect::EnemyEffect;
+use super::damage::Damage;
+use super::effect::{
+    CardDestination, CardPool, CardSelection, CostModifier, EnemyEffect, Resource,
+};
 use super::intent::Intent;
 
 #[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
@@ -25,7 +28,7 @@ pub enum EnemyAction {
     CultistIncantation,
     FungiBeastBite,
     FungiBeastGrow,
-    GreenLouseBite(AttackDamage),
+    GreenLouseBite(Hp),
     GreenLouseSpitWeb,
     GremlinNobBellow,
     GremlinNobRush,
@@ -39,7 +42,7 @@ pub enum EnemyAction {
 }
 
 impl EnemyAction {
-    pub fn effect_chain(&self) -> &[EnemyEffect] {
+    pub fn effect_chain(&self) -> &'static [EnemyEffect] {
         EnemyActionDetails::for_action(*self)
             .effect_chain
             .as_slice()
@@ -89,10 +92,10 @@ impl EnemyActionDetailsBuilder {
 }
 
 macro_rules! define_action {
-    ($variant:ident => [$($effect:ident($($param:expr),*)),*]) => {
+    ($variant:ident => [$($effect:ident $args:tt),*]) => {
         (
             EnemyAction::$variant,
-            EnemyActionDetailsBuilder::new()$(.push(EnemyEffect::$effect($($param),*)))*.build()
+            EnemyActionDetailsBuilder::new()$(.push(EnemyEffect::$effect $args))*.build()
         )
     };
 }
@@ -106,22 +109,38 @@ macro_rules! define_actions {
 }
 
 static ALL_ENEMY_ACTIONS: Lazy<HashMap<EnemyAction, EnemyActionDetails>> = define_actions!(
-    AcidSlimeMCorrosiveSpit => [DealDamage(7), AddToDiscardPile(&[Card::Slimed(false)])],
-    AcidSlimeMLick => [Apply(PlayerCondition::Weak(1))],
-    AcidSlimeMTackle => [DealDamage(10)],
-    AcidSlimeSLick => [Apply(PlayerCondition::Weak(1))],
-    AcidSlimeSTackle => [DealDamage(3)],
-    CultistDarkStrike => [DealDamage(6)],
-    CultistIncantation => [ApplyToSelf(EnemyCondition::Ritual(3, true))],
-    FungiBeastBite => [DealDamage(6)],
-    FungiBeastGrow => [GainStrength(3)],
-    GremlinNobBellow => [ApplyToSelf(EnemyCondition::Enrage(2))],
-    GremlinNobRush => [DealDamage(14)],
-    GremlinNobSkullBash => [DealDamage(6), Apply(PlayerCondition::Vulnerable(2))],
-    JawWormBellow => [GainStrength(3), GainBlock(6)],
-    JawWormChomp => [DealDamage(11)],
-    JawWormThrash => [DealDamage(7), GainBlock(5)],
-    SpikeSlimeMFlameTackle => [DealDamage(8), AddToDiscardPile(&[Card::Slimed(false)])],
-    SpikeSlimeMLick => [Apply(PlayerCondition::Frail(1))],
-    SpikeSlimeSTackle => [DealDamage(5)],
+    AcidSlimeMCorrosiveSpit => [
+        Deal(Damage::Blockable(7)),
+        CreateCards(
+            CardPool::Fixed(&[Card::Slimed]),
+            CardSelection::All,
+            CardDestination::DiscardPile,
+            CostModifier::None,
+        )
+    ],
+    AcidSlimeMLick => [Inflict(PlayerCondition::Weak(1))],
+    AcidSlimeMTackle => [Deal(Damage::Blockable(10))],
+    AcidSlimeSLick => [Inflict(PlayerCondition::Weak(1))],
+    AcidSlimeSTackle => [Deal(Damage::Blockable(3))],
+    CultistDarkStrike => [Deal(Damage::Blockable(6))],
+    CultistIncantation => [Apply(EnemyCondition::Ritual(3, true))],
+    FungiBeastBite => [Deal(Damage::Blockable(6))],
+    FungiBeastGrow => [Gain(Resource::Strength(3))],
+    GremlinNobBellow => [Apply(EnemyCondition::Enrage(2))],
+    GremlinNobRush => [Deal(Damage::Blockable(14))],
+    GremlinNobSkullBash => [Deal(Damage::Blockable(6)), Inflict(PlayerCondition::Vulnerable(2))],
+    JawWormBellow => [Gain(Resource::Strength(3)), Gain(Resource::Block(6))],
+    JawWormChomp => [Deal(Damage::Blockable(11))],
+    JawWormThrash => [Deal(Damage::Blockable(7)), Gain(Resource::Block(5))],
+    SpikeSlimeMFlameTackle => [
+        Deal(Damage::Blockable(8)),
+        CreateCards(
+            CardPool::Fixed(&[Card::Slimed]),
+            CardSelection::All,
+            CardDestination::DiscardPile,
+            CostModifier::None,
+        )
+    ],
+    SpikeSlimeMLick => [Inflict(PlayerCondition::Frail(1))],
+    SpikeSlimeSTackle => [Deal(Damage::Blockable(5))],
 );

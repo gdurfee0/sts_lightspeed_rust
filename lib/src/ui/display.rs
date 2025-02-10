@@ -48,12 +48,7 @@ impl fmt::Display for Choice {
             Choice::EndTurn => write!(f, "(End Turn)"),
             Choice::NeowBlessing(blessing) => write!(f, "{}", blessing),
             Choice::ObtainCard(card) => {
-                write!(
-                    f,
-                    "{:?} {:?}",
-                    card,
-                    CardDetails::for_card(*card).effect_chain
-                )
+                write!(f, "{:?} {:?}", card, CardDetails::for_card(*card).on_play)
             }
             Choice::ObtainGold(gold) => write!(f, "Obtain {} gold", gold),
             Choice::ObtainPotion(potion) => write!(f, "{:?}", potion),

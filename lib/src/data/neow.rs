@@ -1,7 +1,6 @@
 // Source: Slay the Spire wiki (https://slay-the-spire.fandom.com/wiki/Neow)
 
-#[derive(Clone, Copy, Debug, PartialEq)]
-#[cfg_attr(test, derive(Eq, Hash))]
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 pub enum NeowBlessing {
     ChooseCard,
     ChooseColorlessCard,
@@ -18,11 +17,11 @@ pub enum NeowBlessing {
     UpgradeCard,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq)]
-#[cfg_attr(test, derive(Eq, Hash))]
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 pub enum NeowBonus {
     ChooseRareCard,
     ChooseRareColorlessCard,
+
     GainTwoHundredFiftyGold,
     IncreaseMaxHpByTwentyPercent,
     ObtainRandomRareRelic,
@@ -30,8 +29,7 @@ pub enum NeowBonus {
     TransformTwoCards,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq)]
-#[cfg_attr(test, derive(Eq, Hash))]
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 pub enum NeowPenalty {
     DecreaseMaxHpByTenPercent,
     LoseAllGold,

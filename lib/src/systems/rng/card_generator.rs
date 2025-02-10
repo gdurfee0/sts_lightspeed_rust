@@ -1,6 +1,7 @@
-use crate::data::{Act, Card, Character, CURSE_CARD_POOL, UNCOMMON_COLORLESS_CARDS};
+use crate::data::{Act, Card, Character, CURSE_CARD_POOL, UNCOMMON_COLORLESS_CARD_POOL};
 
-use super::{Seed, StsRandom};
+use super::seed::Seed;
+use super::sts_random::StsRandom;
 
 pub struct CardGenerator {
     character: &'static Character,
@@ -30,7 +31,7 @@ impl CardGenerator {
 
     pub fn three_colorless_card_choices(&mut self) -> Vec<Card> {
         self.card_rng
-            .sample_without_replacement(UNCOMMON_COLORLESS_CARDS, 3)
+            .sample_without_replacement(UNCOMMON_COLORLESS_CARD_POOL, 3)
     }
 
     pub fn one_curse(&mut self) -> Card {

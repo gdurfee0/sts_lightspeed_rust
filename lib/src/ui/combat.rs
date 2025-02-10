@@ -4,8 +4,10 @@ use std::sync::mpsc::{Receiver, Sender};
 use anyhow::{anyhow, Error};
 
 use crate::components::{Choice, EnemyStatus, Notification, Prompt, StsMessage};
-use crate::data::{CardDetails, PlayerCondition, PlayerEffect};
-use crate::types::{AttackDamage, Block, Dexterity, EnemyIndex};
+use crate::data::{
+    CardDetails, Damage, PlayerCondition, PlayerEffect, Resource, Target, TargetEffect,
+};
+use crate::types::{Block, Dexterity, EnemyIndex, Hp};
 
 pub struct CombatClient<'a> {
     my_conditions: Vec<PlayerCondition>,
@@ -120,51 +122,6 @@ impl<'a> CombatClient<'a> {
         }
     }
 
-    fn is_frail(&self) -> bool {
-        self.my_conditions
-            .iter()
-            .any(|c| matches!(c, PlayerCondition::Frail(_)))
-    }
-
-    fn is_weak(&self) -> bool {
-        self.my_conditions
-            .iter()
-            .any(|c| matches!(c, PlayerCondition::Weak(_)))
-    }
-
-    fn outgoing_damage(
-        &self,
-        amount: AttackDamage,
-        maybe_enemy_index: Option<EnemyIndex>,
-    ) -> AttackDamage {
-        let caster_modified_mount = if self.is_weak() {
-            (amount as f32 * 0.75).floor() as u32
-        } else {
-            amount
-        };
-        if let Some(enemy_index) = maybe_enemy_index {
-            let enemy = self.enemy_party[enemy_index]
-                .as_ref()
-                .expect("Enemy exists");
-            if enemy.is_vulnerable() {
-                (caster_modified_mount as f32 * 1.5).floor() as u32
-            } else {
-                caster_modified_mount
-            }
-        } else {
-            caster_modified_mount
-        }
-    }
-
-    fn incoming_block(&self, amount: Block) -> Block {
-        let amount = amount.saturating_add_signed(self.my_dexterity);
-        if self.is_frail() {
-            (amount as f32 * 0.75).floor() as u32
-        } else {
-            amount
-        }
-    }
-
     fn modified_card_details(
         &self,
         details: &'static CardDetails,
@@ -172,22 +129,23 @@ impl<'a> CombatClient<'a> {
     ) -> String {
         let mut first = true;
         let mut result = "[".to_string();
-        for effect in details.effect_chain.iter() {
+        for effect in details.on_play.iter() {
             if !first {
                 result.push_str(", ");
             }
             match effect {
-                PlayerEffect::GainBlock(amount) => {
+                PlayerEffect::Gain(Resource::Block(amount)) => {
                     result.push_str(&format!("Gain {} block", self.incoming_block(*amount)))
                 }
-                PlayerEffect::DealDamage(amount) => result.push_str(&format!(
-                    "Deal {} damage",
-                    self.outgoing_damage(*amount, maybe_enemy_index)
-                )),
-                PlayerEffect::DealDamageToAll(amount) => result.push_str(&format!(
-                    "Deal {} damage to ALL enemies",
-                    self.outgoing_damage(*amount, maybe_enemy_index)
-                )),
+                PlayerEffect::Offensive(Target::All, effects) => result.push_str(
+                    &self.modified_target_effects(effects, maybe_enemy_index, " to ALL enemies"),
+                ),
+                PlayerEffect::Offensive(Target::Random, effects) => result.push_str(
+                    &self.modified_target_effects(effects, maybe_enemy_index, " to a random enemy"),
+                ),
+                PlayerEffect::Offensive(Target::Single, effects) => {
+                    result.push_str(&self.modified_target_effects(effects, maybe_enemy_index, ""))
+                }
                 _ => result.push_str(&format!("{:?}", effect)),
             }
             first = false;
@@ -200,5 +158,43 @@ impl<'a> CombatClient<'a> {
             result.push_str(&format!(" (HP: {}/{})", enemy.hp, enemy.hp_max));
         }
         result
+    }
+
+    fn modified_target_effects(
+        &self,
+        effects: &[TargetEffect],
+        maybe_enemy_index: Option<EnemyIndex>,
+        target_suffix: &str,
+    ) -> String {
+        effects
+            .iter()
+            .map(|effect| self.modified_target_effect(effect, maybe_enemy_index, target_suffix))
+            .collect::<Vec<_>>()
+            .join(", ")
+    }
+
+    fn modified_target_effect(
+        &self,
+        effect: &TargetEffect,
+        maybe_enemy_index: Option<EnemyIndex>,
+        target_suffix: &str,
+    ) -> String {
+        match effect {
+            TargetEffect::Deal(damage) => match damage {
+                Damage::Blockable(amount) | Damage::HpLoss(amount) => {
+                    format!(
+                        "Deal {} damage{}",
+                        self.outgoing_damage(*amount, maybe_enemy_index),
+                        target_suffix
+                    )
+                }
+                Damage::BlockableCountingStrikeCards(_, _) => todo!(),
+                Damage::BlockableEqualToDrawPileSize => todo!(),
+                Damage::BlockableEqualToPlayerBlock => todo!(),
+                Damage::BlockableWithStrengthMultiplier(_, _) => todo!(),
+                Damage::HpLossEqualToHandSize => todo!(),
+            },
+            _ => format!("{:?}{}", effect, target_suffix),
+        }
     }
 }

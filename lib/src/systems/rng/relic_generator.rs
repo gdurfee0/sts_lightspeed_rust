@@ -2,7 +2,8 @@ use std::collections::VecDeque;
 
 use crate::data::{Character, Relic};
 
-use super::{Seed, StsRandom};
+use super::seed::Seed;
+use super::sts_random::StsRandom;
 
 pub struct RelicGenerator {
     common_relic_pool: VecDeque<Relic>,

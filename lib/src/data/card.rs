@@ -4,12 +4,12 @@ use std::collections::HashMap;
 
 use once_cell::sync::Lazy;
 
-use crate::{
-    data::{EnemyCondition, PlayerCondition},
-    types::Energy,
+use super::condition::{EnemyCondition, PlayerCondition};
+use super::damage::Damage;
+use super::effect::{
+    CardDestination, CardPool, CardSelection, CardSource, CostModifier, PlayerEffect,
+    PlayerEffectCondition, Resource, TargetCondition, TargetEffect,
 };
-
-use super::effect::PlayerEffect;
 
 #[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
 pub enum Card {
@@ -27,7 +27,7 @@ pub enum Card {
     Apotheosis(bool),
     Apparition(bool),
     Armaments(bool),
-    AscendersBane(bool),
+    AscendersBane,
     AThousandCuts(bool),
     AutoShields(bool),
     Backflip(bool),
@@ -81,7 +81,7 @@ pub enum Card {
     Cleave(bool),
     CloakAndDagger(bool),
     Clothesline(bool),
-    Clumsy(bool),
+    Clumsy,
     ColdSnap(bool),
     Collect(bool),
     Combust(bool),
@@ -99,7 +99,7 @@ pub enum Card {
     Crescendo(bool),
     CripplingCloud(bool),
     CrushJoints(bool),
-    CurseOfTheBell(bool),
+    CurseOfTheBell,
     CutThroughFate(bool),
     DaggerSpray(bool),
     DaggerThrow(bool),
@@ -107,10 +107,10 @@ pub enum Card {
     Darkness(bool),
     DarkShackles(bool),
     Dash(bool),
-    Dazed(bool),
+    Dazed,
     DeadlyPoison(bool),
-    Decay(bool),
-    DeceiveRealiry(bool),
+    Decay,
+    DeceiveReality(bool),
     DeepBreath(bool),
     Defend(bool),
     Deflect(bool),
@@ -128,7 +128,7 @@ pub enum Card {
     Doppelganger(bool),
     DoubleEnergy(bool),
     DoubleTap(bool),
-    Doubt(bool),
+    Doubt,
     DramaticEntrance(bool),
     Dropkick(bool),
     Dualcast(bool),
@@ -201,7 +201,7 @@ pub enum Card {
     InfernalBlade(bool),
     InfiniteBlades(bool),
     Inflame(bool),
-    Injury(bool),
+    Injury,
     InnerPeace(bool),
     Insight(bool),
     Intimidate(bool),
@@ -234,22 +234,22 @@ pub enum Card {
     MindBlast(bool),
     Miracle(bool),
     MultiCast(bool),
-    Necronomicurse(bool),
+    Necronomicurse,
     Neutralize(bool),
     Nightmare(bool),
     Nirvana(bool),
-    Normality(bool),
+    Normality,
     NoxiousFumes(bool),
     Offering(bool),
     Omega(bool),
     Omniscience(bool),
     Outmaneuver(bool),
     Overclock(bool),
-    Pain(bool),
+    Pain,
     Panacea(bool),
     Panache(bool),
     PanicButton(bool),
-    Parasite(bool),
+    Parasite,
     PerfectedStrike(bool),
     Perserverance(bool),
     PhantasmalKiller(bool),
@@ -279,7 +279,7 @@ pub enum Card {
     Recursion(bool),
     Recycle(bool),
     Reflex(bool),
-    Regret(bool),
+    Regret,
     ReinforcedBody(bool),
     Reprogram(bool),
     RiddleWithHoles(bool),
@@ -304,7 +304,7 @@ pub enum Card {
     Sentinel(bool),
     Setup(bool),
     SeverSoul(bool),
-    Shame(bool),
+    Shame,
     SimmeringFury(bool),
     Shiv(bool),
     Shockwave(bool),
@@ -313,7 +313,7 @@ pub enum Card {
     Skewer(bool),
     Skim(bool),
     Slice(bool),
-    Slimed(bool),
+    Slimed,
     Smite(bool),
     SneakyStrike(bool),
     SpiritShield(bool),
@@ -356,7 +356,7 @@ pub enum Card {
     Vault(bool),
     Vigilance(bool),
     Violence(bool),
-    Void(bool),
+    Void,
     Wallop(bool),
     Warcry(bool),
     WaveOfTheHand(bool),
@@ -369,14 +369,14 @@ pub enum Card {
     WindmillStrike(bool),
     Wish(bool),
     Worship(bool),
-    Wound(bool),
+    Wound,
     WraithForm(bool),
     WreathOfFlame(bool),
-    Writhe(bool),
+    Writhe,
     Zap(bool),
 }
 
-pub const UNCOMMON_COLORLESS_CARDS: &[Card] = &[
+pub const UNCOMMON_COLORLESS_CARD_POOL: &[Card] = &[
     Card::BandageUp(false),
     Card::Blind(false),
     Card::DarkShackles(false),
@@ -400,17 +400,26 @@ pub const UNCOMMON_COLORLESS_CARDS: &[Card] = &[
 ];
 
 pub const CURSE_CARD_POOL: &[Card] = &[
-    Card::Regret(false),
-    Card::Injury(false),
-    Card::Shame(false),
-    Card::Parasite(false),
-    Card::Normality(false),
-    Card::Doubt(false),
-    Card::Writhe(false),
-    Card::Pain(false),
-    Card::Decay(false),
-    Card::Clumsy(false),
+    Card::Regret,
+    Card::Injury,
+    Card::Shame,
+    Card::Parasite,
+    Card::Normality,
+    Card::Doubt,
+    Card::Writhe,
+    Card::Pain,
+    Card::Decay,
+    Card::Clumsy,
 ];
+
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
+pub enum CardRarity {
+    Starter,
+    Common,
+    Uncommon,
+    Rare,
+    Special,
+}
 
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 pub enum CardType {
@@ -427,59 +436,36 @@ pub enum EnergyCost {
     One,
     Two,
     Three,
+    ThreeMinusHpLossCount,
     Four,
     FourMinusHpLossCount,
     Five,
     X,
 }
 
-impl EnergyCost {
-    pub fn exceeds(&self, energy: Energy, hp_loss_count: usize) -> bool {
-        match self {
-            EnergyCost::Zero | EnergyCost::X => false,
-            EnergyCost::One => energy < 1,
-            EnergyCost::Two => energy < 2,
-            EnergyCost::Three => energy < 3,
-            EnergyCost::Four => energy < 4,
-            EnergyCost::FourMinusHpLossCount => (energy + hp_loss_count as Energy) < 4,
-            EnergyCost::Five => energy < 5,
-        }
-    }
-
-    pub fn leftover(&self, energy: Energy, hp_loss_count: usize) -> Energy {
-        match self {
-            EnergyCost::Zero => energy,
-            EnergyCost::One => energy.saturating_sub(1),
-            EnergyCost::Two => energy.saturating_sub(2),
-            EnergyCost::Three => energy.saturating_sub(3),
-            EnergyCost::Four => energy.saturating_sub(4),
-            EnergyCost::FourMinusHpLossCount => {
-                energy.saturating_sub(4u32.saturating_sub(hp_loss_count as Energy))
-            }
-            EnergyCost::Five => energy.saturating_sub(5),
-            EnergyCost::X => 0,
-        }
-    }
-}
-
-#[derive(Clone, Debug)]
-#[cfg_attr(test, derive(Eq, Hash, PartialEq))]
+#[derive(Clone, Debug, Eq, Hash, PartialEq)]
 pub struct CardDetails {
     pub card: Card,
     pub type_: CardType,
+    pub rarity: CardRarity,
     pub cost: EnergyCost,
-    pub effect_chain: Vec<PlayerEffect>,
-    pub custom_requirements: bool,
-    pub dup_on_draw: bool,
-    pub enact_on_draw: bool,
-    pub enact_on_turn_end: bool,
+    pub on_draw: Option<PlayerEffect>,
+    pub on_exhaust: Option<PlayerEffect>,
+    pub on_play: Vec<PlayerEffect>,
+    pub if_in_hand_at_end_of_turn: Option<PlayerEffect>,
+
+    // Card properties
     pub ethereal: bool,
     pub exhaust: bool,
+    pub exhaust_when_played: bool,
     pub innate: bool,
     pub irremovable: bool,
-    pub on_exhaust: Option<PlayerEffect>,
+    pub pain: bool,     // Lose 1 HP (unblockable) when other cards are played.
+    pub parasite: bool, // If transformed or removed from your deck, lose 3 max HP.
+    pub playable_only_if_all_cards_in_hand_are_attacks: bool,
     pub requires_target: bool,
     pub retain: bool,
+    pub upgrade: Option<Card>,
     pub unplayable: bool,
 }
 
@@ -491,44 +477,67 @@ impl CardDetails {
             .unwrap_or_else(|| panic!("No details for card {:?}", card))
     }
 
-    fn new(card: Card, type_: CardType, cost: EnergyCost) -> Self {
+    fn new(card: Card, type_: CardType, rarity: CardRarity, cost: EnergyCost) -> Self {
         CardDetails {
             card,
             type_,
+            rarity,
             cost,
-            effect_chain: Vec::new(),
-            custom_requirements: false,
-            dup_on_draw: false,
-            enact_on_draw: false,
-            enact_on_turn_end: false,
+            on_draw: None,
+            on_exhaust: None,
+            on_play: Vec::new(),
+            if_in_hand_at_end_of_turn: None,
             ethereal: false,
             exhaust: false,
+            exhaust_when_played: false,
             innate: false,
             irremovable: false,
-            on_exhaust: None,
+            pain: false,
+            parasite: false,
+            playable_only_if_all_cards_in_hand_are_attacks: false,
             requires_target: false,
             retain: false,
+            upgrade: calculate_upgrade(card),
             unplayable: false,
         }
     }
 
-    fn custom_requirements(mut self) -> Self {
-        self.custom_requirements = true;
+    fn on_draw(mut self, effect: PlayerEffect) -> Self {
+        self.on_draw = Some(effect);
         self
     }
 
-    fn dup_on_draw(mut self) -> Self {
-        self.dup_on_draw = true;
+    fn on_exhaust(mut self, effect: PlayerEffect) -> Self {
+        self.on_exhaust = Some(effect);
         self
     }
 
-    fn enact_on_draw(mut self) -> Self {
-        self.enact_on_draw = true;
+    fn effect_chain_requires_target(effect_chain: &[PlayerEffect]) -> bool {
+        effect_chain
+            .iter()
+            .any(|e| matches!(e, PlayerEffect::ToSingleTarget(_)))
+    }
+
+    fn push_on_play(mut self, effect: PlayerEffect) -> Self {
+        if matches!(effect, PlayerEffect::ToSingleTarget(_)) {
+            self.requires_target = true;
+        }
+        if let PlayerEffect::Conditional(_, effect_chain) = effect {
+            if Self::effect_chain_requires_target(effect_chain) {
+                self.requires_target = true;
+            }
+        }
+        if let PlayerEffect::ForEachExhausted(effect_chain) = effect {
+            if Self::effect_chain_requires_target(effect_chain) {
+                self.requires_target = true;
+            }
+        }
+        self.on_play.push(effect);
         self
     }
 
-    fn enact_on_turn_end(mut self) -> Self {
-        self.enact_on_turn_end = true;
+    fn if_in_hand_at_end_of_turn(mut self, effect: PlayerEffect) -> Self {
+        self.if_in_hand_at_end_of_turn = Some(effect);
         self
     }
 
@@ -542,6 +551,11 @@ impl CardDetails {
         self
     }
 
+    fn exhaust_when_played(mut self) -> Self {
+        self.exhaust_when_played = true;
+        self
+    }
+
     fn irremovable(mut self) -> Self {
         self.irremovable = true;
         self
@@ -552,8 +566,18 @@ impl CardDetails {
         self
     }
 
-    fn requires_target(mut self) -> Self {
-        self.requires_target = true;
+    fn pain(mut self) -> Self {
+        self.pain = true;
+        self
+    }
+
+    fn parasite(mut self) -> Self {
+        self.parasite = true;
+        self
+    }
+
+    fn playable_only_if_all_hand_cards_are_attacks(mut self) -> Self {
+        self.playable_only_if_all_cards_in_hand_are_attacks = true;
         self
     }
 
@@ -562,879 +586,1686 @@ impl CardDetails {
         self
     }
 
-    fn on_exhaust(mut self, effect: PlayerEffect) -> Self {
-        self.on_exhaust = Some(effect);
-        self
-    }
-
     fn unplayable(mut self) -> Self {
         self.unplayable = true;
-        self
-    }
-
-    fn push(mut self, effect: PlayerEffect) -> Self {
-        self.effect_chain.push(effect);
         self
     }
 }
 
 macro_rules! define_card {
-    (($card:ident($u:expr), $type:ident, $cost:ident), [$($effect:ident($($param:expr),*)),*]) => {
-        CardDetails::new(Card::$card($u), CardType::$type, EnergyCost::$cost)
-            $(.push(PlayerEffect::$effect($($param,)*)))*
-    };
     (
-        ($card:ident($u:expr), $type:ident, $cost:ident),
-        [$($effect:ident($($param:expr),*)),*],
-        $($extra:ident)*
+        // First tuple containing card info.
+        ( $card_name:ident ( $($card_args:tt)* ), $card_type:ident, $rarity:ident, $energy_cost:ident ),
+        // Second group: a list of on-play effects.
+        [ $( $on_play:ident $( ( $($on_play_args:tt)* ) )? ),* $(,)? ],
+        // Third group: a list of extra method calls.
+        [ $( $method:ident $( ( $($method_args:tt)* ) )? ),* $(,)? ]
     ) => {
-        CardDetails::new(Card::$card($u), CardType::$type, EnergyCost::$cost)
-            $(.push(PlayerEffect::$effect($($param,)*)))* $(.$extra())*
+        CardDetails::new(
+            Card::$card_name($($card_args)*),
+            CardType::$card_type,
+            CardRarity::$rarity,
+            EnergyCost::$energy_cost,
+        )
+        $(
+            .push_on_play(PlayerEffect::$on_play $( ( $($on_play_args)* ) )? )
+        )*
+        $(
+            .$method( $( $($method_args)* )? )
+        )*
     };
+
     (
-        ($card:ident($u:expr), $type:ident, $cost:ident),
-        [$($effect:ident($($param:expr),*)),*],
-        $($extra:ident($($eparam:expr),*))*
+        // First tuple containing card info (no upgrade bit)
+        ( $card_name:ident, $card_type:ident, $rarity:ident, $energy_cost:ident ),
+        // Second group: a list of on-play effects.
+        [ $( $on_play:ident $( ( $($on_play_args:tt)* ) )? ),* $(,)? ],
+        // Third group: a list of extra method calls.
+        [ $( $method:ident $( ( $($method_args:tt)* ) )? ),* $(,)? ]
     ) => {
-        CardDetails::new(Card::$card($u), CardType::$type, EnergyCost::$cost)
-            $(.push(PlayerEffect::$effect($($param,)*)))* $(.$extra($($eparam,)*))*
+        CardDetails::new(
+            Card::$card_name,
+            CardType::$card_type,
+            CardRarity::$rarity,
+            EnergyCost::$energy_cost,
+        )
+        $(
+            .push_on_play(PlayerEffect::$on_play $( ( $($on_play_args)* ) )? )
+        )*
+        $(
+            .$method( $( $($method_args)* )? )
+        )*
     };
+
+
     (
-        ($card:ident($u:expr), $type:ident, $cost:ident),
-        [$($effect:ident($($param:expr),*)),*],
-        [$($extra:ident),*]
+        // First “tuple” containing card info.
+        ( $card_name:ident ( $($card_args:tt)* ), $card_type:ident, $rarity:ident, $energy_cost:ident ),
+        // Second group: a list of on-play effects.
+        [ $( $on_play:ident $( ( $($on_play_args:tt)* ) )? ),* $(,)? ],
+        // Third group: one extra method call.
+        $( $method:ident $( ( $($method_args:tt)* ) )? ),* $(,)?
     ) => {
-        CardDetails::new(Card::$card($u), CardType::$type, EnergyCost::$cost)
-            $(.push(PlayerEffect::$effect($($param,)*)))* $(.$extra())*
+        CardDetails::new(
+            Card::$card_name($($card_args)*),
+            CardType::$card_type,
+            CardRarity::$rarity,
+            EnergyCost::$energy_cost,
+
+        )
+        $(
+            .push_on_play(PlayerEffect::$on_play $( ( $($on_play_args)* ) )? )
+        )*
+        $(
+            .$method( $( $($method_args)* )? )
+        )*
+    };
+
+    (
+        // First “tuple” containing card info.
+        ( $card_name:ident ( $($card_args:tt)* ), $card_type:ident, $rarity:ident, $energy_cost:ident ),
+        // Second group: a list of on-play effects.
+        [ $( $on_play:ident $( ( $($on_play_args:tt)* ) )? ),* $(,)? ]
+    ) => {
+        CardDetails::new(
+            Card::$card_name($($card_args)*),
+            CardType::$card_type,
+            CardRarity::$rarity,
+            EnergyCost::$energy_cost,
+
+        )
+        $(
+            .push_on_play(PlayerEffect::$on_play $( ( $($on_play_args)* ) )? )
+        )*
     };
 }
 
+// TODO: Fluent API
 static ALL_CARDS: Lazy<Vec<CardDetails>> = Lazy::new(|| {
     vec![
-        /*
-        define_card!((Accuracy, Power, 1), [Buff(Buff::Accuracy, 4)]),
-        define_card!((Acrobatics, Skill, 1), [Draw(3), Discard(1)]),
-        define_card!((Adrenaline, Skill, 1), [GainEnergy(1), Draw(2)], exhaust),
-        define_card!((AfterImage, Power, 1), [Buff(Buff::AfterImage, 1)]),
-        define_card!((Aggregate, Skill, 1), [GainEnergyCustom()]),
-        define_card!((Alchemize, Skill, 1), [ObtainRandomPotion()], exhaust),
         define_card!(
-            (AllForOne, Attack, 2),
-            [DealDamage(10), HandCustom()],
-            requires_target
-        ),
-        define_card!(
-            (AllOutAttack, Attack, 1),
-            [DealDamageToAll(10), DiscardAtRandom()],
-        ),
-        define_card!(
-            (Alpha, Skill, 1),
-            [ShuffleIntoDrawPile(&[Card::Alpha])],
-            exhaust
-        ),
-        define_card!((Amplify, Skill, 1), [Buff(Buff::Amplify, 1)]),
-        */
-        define_card!(
-            (Anger(false), Attack, Zero),
-            [DealDamage(6), CloneSelfIntoDiscardPile()],
-            requires_target
-        ),
-        define_card!(
-            (Anger(true), Attack, Zero),
-            [DealDamage(8), CloneSelfIntoDiscardPile()],
-            requires_target
-        ),
-        /*
-        define_card!((Apotheosis, Skill, 2), [UpgradeAllCardsInCombat()], exhaust),
-        define_card!(
-            (Apparition, Skill, 1),
-            [Buff(Buff::Intangible, 1)],
-            [ethereal, exhaust]
-        ),
-        */
-        define_card!(
-            (Armaments(false), Skill, One),
-            [GainBlock(5), UpgradeOneCardInHandThisCombat()]
-        ),
-        define_card!(
-            (Armaments(true), Skill, One),
-            [GainBlock(5), UpgradeAllCardsInHandThisCombat()]
-        ),
-        /*
-        define_card!(
-            (AscendersBane, Curse, 1),
-            [],
-            [ethereal, irremovable, unplayable]
-        ),
-        define_card!((AThousandCuts, Power, 1), [Buff(Buff::ThousandCuts, 1)]),
-        define_card!((AutoShields, Skill, 1), [GainBlockCustom()]),
-        define_card!((Backflip, Skill, 1), [GainBlock(5), Draw(2)]),
-        define_card!(
-            (Backstab, Attack, 0),
-            [DealDamage(11)],
-            [exhaust, innate, requires_target]
-        ),
-        define_card!(
-            (BallLightning, Attack, 1),
-            [DealDamage(7), Channel(Orb::Lightning, 1)],
-            requires_target
-        ),
-        define_card!((BandageUp, Skill, 0), [Heal(4)], exhaust),
-        define_card!(
-            (Bane, Attack, 1),
-            [DealDamage(7), DealDamageCustom()],
-            requires_target
-        ),
-        define_card!((Barrage, Attack, 1), [DealDamageCustom()], requires_target),
-        define_card!((Barricade, Power, 3), [Buff(Buff::Barricade, 1)]),
-        */
-        define_card!(
-            (Bash(false), Attack, Two),
-            [DealDamage(8), Apply(EnemyCondition::Vulnerable(2))],
-            requires_target
-        ),
-        define_card!(
-            (Bash(true), Attack, Two),
-            [DealDamage(10), Apply(EnemyCondition::Vulnerable(3))],
-            requires_target
-        ),
-        /*
-        define_card!((BattleHymn, Power, 1), [Buff(Buff::BattleHymn, 1)]),
-        */
-        define_card!(
-            (BattleTrance(false), Skill, Zero),
-            [Draw(3), ApplyToSelf(PlayerCondition::NoDraw())]
-        ),
-        define_card!(
-            (BattleTrance(true), Skill, Zero),
-            [Draw(4), ApplyToSelf(PlayerCondition::NoDraw())]
-        ),
-        /*
-        define_card!(
-            (BeamCell, Skill, 0),
-            [DealDamage(3), Debuff(Debuff::Vulnerable, 1)],
-            requires_target
-        ),
-        define_card!(
-            (Berserk, Power, 0),
-            [DebuffSelf(Debuff::Vulnerable, 2), Buff(Buff::Berserk, 1)]
-        ),
-        define_card!(
-            (Beta, Skill, 1),
-            [ShuffleIntoDrawPile(&[Card::Omega])],
-            exhaust
-        ),
-        define_card!(
-            (BiasedCognition, Power, 1),
-            [GainFocus(4), DebuffSelf(Debuff::Bias, 1)]
-        ),
-        define_card!((Bite, Attack, 1), [DealDamage(7), Heal(2)], requires_target),
-        define_card!(
-            (BladeDance, Skill, 1),
-            [AddToHand(&[Card::Shiv, Card::Shiv, Card::Shiv])]
-        ),
-        define_card!(
-            (Blasphemy, Skill, 3),
-            [EnterStance(Stance::Divinity), Buff(Buff::Blasphemer, 1)]
-        ),
-        define_card!(
-            (Blind, Skill, 0),
-            [Debuff(Debuff::Weak, 1)],
-            requires_target
-        ),
-        define_card!((Blizzard, Skill, 1), [DealDamageToAllCustom()]),
-        */
-        define_card!(
-            (BloodForBlood(false), Attack, FourMinusHpLossCount),
-            [DealDamage(18)],
-            requires_target
-        ),
-        define_card!(
-            (BloodForBlood(true), Attack, FourMinusHpLossCount),
-            [DealDamage(22)],
-            requires_target
-        ),
-        define_card!(
-            (Bloodletting(false), Skill, Zero),
-            [LoseHp(3), GainEnergy(2)],
-            exhaust
-        ),
-        define_card!(
-            (Bloodletting(true), Skill, Zero),
-            [LoseHp(3), GainEnergy(3)],
-            exhaust
-        ),
-        /*
-        define_card!((Bludgeon, Attack, 3), [DealDamage(32)], requires_target),
-        define_card!((Blur, Skill, 1), [GainBlock(5), Buff(Buff::Blur, 1)]),
-        */
-        define_card!(
-            (BodySlam(false), Attack, One),
-            [DealDamageCustom()],
-            requires_target
-        ),
-        define_card!(
-            (BodySlam(true), Attack, Zero),
-            [DealDamageCustom()],
-            requires_target
-        ),
-        /*
-        define_card!((BootSequence, Skill, 0), [GainBlock(10)], innate),
-        define_card!((BouncingFlask, Skill, 2), [DealDamageToAllCustom()]),
-        define_card!(
-            (BowlingBash, Attack, 1),
-            [DealDamageCustom()],
-            requires_target
-        ),
-        define_card!(
-            (Brilliance, Skill, 1),
-            [DealDamageCustom()],
-            requires_target
-        ),
-        define_card!((Brutality, Power, 0), [Buff(Buff::Brutality, 1)]),
-        define_card!((Buffer, Skill, 2), [Buff(Buff::Buffer, 1)]),
-        define_card!(
-            (BulletTime, Skill, 3),
-            [HandCustom(), DebuffSelf(Debuff::NoDraw, 1)]
-        ),
-        define_card!(
-            (Bullseye, Attack, 1),
-            [DealDamage(8), Debuff(Debuff::LockOn, 2)],
-            requires_target
-        ),
-        define_card!(
-            (Burn, Status, 1),
-            [TakeDamage(2)],
-            [enact_on_turn_end, unplayable]
-        ),
-        define_card!((BurningPact, Skill, 1), [ExhaustCard(), Draw(2)]),
-        define_card!((Burst, Skill, 1), [Buff(Buff::Burst, 1)]),
-        define_card!(
-            (CalculatedGamble, Skill, 0),
-            [DiscardCustom(), DrawCustom()],
-            exhaust
-        ),
-        define_card!((Caltrops, Power, 1), [Buff(Buff::Thorns, 3)]),
-        define_card!((Capacitor, Power, 1), [GainOrbSlots(2)]),
-        */
-        define_card!(
-            (Carnage(false), Attack, Two),
-            [DealDamage(20)],
-            [ethereal, requires_target]
-        ),
-        define_card!(
-            (Carnage(true), Attack, Two),
-            [DealDamage(28)],
-            [ethereal, requires_target]
-        ),
-        /*
-        define_card!(
-            (CarveReality, Attack, 1),
-            [DealDamage(6), AddToHand(&[Card::Smite])],
-            requires_target
-        ),
-        define_card!(
-            (Catalyst, Skill, 1),
-            [DebuffCustom()],
-            [exhaust, requires_target]
-        ),
-        define_card!((Chaos, Skill, 1), [ChannelRandom(1)]),
-        define_card!(
-            (ChargeBattery, Skill, 1),
-            [GainBlock(7), Buff(Buff::Energized, 1)]
-        ),
-        define_card!((Chill, Skill, 0), [ChannelCustom()], exhaust),
-        define_card!(
-            (Choke, Attack, 2),
-            [DealDamage(12), Debuff(Debuff::Choked, 3)],
-            requires_target
-        ),
-        define_card!(
-            (Chrysalis, Skill, 2),
-            [ShuffleIntoDrawPileCustom()],
-            exhaust
-        ),
-        */
-        define_card!(
-            (Clash(false), Attack, Zero),
-            [DealDamage(14)],
-            [custom_requirements, requires_target]
-        ),
-        define_card!(
-            (Clash(true), Attack, Zero),
-            [DealDamage(18)],
-            [custom_requirements, requires_target]
-        ),
-        /*
-        define_card!(
-            (Claw, Attack, 0),
-            [DealDamageCustom(), Buff(Buff::ClawsPlayed, 1)],
-            requires_target
-        ),
-        */
-        define_card!((Cleave(false), Attack, One), [DealDamageToAll(8)]),
-        define_card!((Cleave(true), Attack, One), [DealDamageToAll(11)]),
-        /*
-        define_card!(
-            (CloakAndDagger, Skill, 1),
-            [GainBlock(6), AddToHand(&[Card::Shiv])]
-        ),
-        */
-        define_card!(
-            (Clothesline(false), Attack, Two),
-            [DealDamage(12), Apply(EnemyCondition::Weak(2))],
-            requires_target
-        ),
-        define_card!(
-            (Clothesline(true), Attack, Two),
-            [DealDamage(14), Apply(EnemyCondition::Weak(3))],
-            requires_target
-        ),
-        /*
-        define_card!((Clumsy, Curse, 1), [], [ethereal, unplayable]),
-        define_card!(
-            (ColdSnap, Attack, 1),
-            [DealDamage(6), Channel(Orb::Frost, 1)],
-            requires_target
-        ),
-        define_card!((Collect, Power, 0), [BuffCustom()], exhaust),
-        */
-        define_card!(
-            (Combust(false), Power, One),
-            [ApplyToSelf(PlayerCondition::Combust(5))]
-        ),
-        define_card!(
-            (Combust(true), Power, One),
-            [ApplyToSelf(PlayerCondition::Combust(7))]
-        ),
-        /*
-        define_card!(
-            (CompileDriver, Attack, One),
-            [DealDamage(7), DrawCustom()],
-            requires_target
-        ),
-        define_card!((Concentrate, Skill, 0), [Discard(3), GainEnergy(2)]),
-        define_card!((Conclude, Attack, 1), [DealDamageToAll(12), EndTurn()]),
-        define_card!(
-            (ConjureBlade, Skill, 0),
-            [ShuffleIntoDrawPileCustom()],
-            exhaust
-        ),
-        define_card!((Consecrate, Attack, 0), [DealDamageToAll(5)]),
-        define_card!((Consume, Skill, 2), [GainFocus(2), LoseOrbSlots(1)]),
-        define_card!((Coolheaded, Skill, 1), [Channel(Orb::Frost, 1), Draw(1)]),
-        define_card!(
-            (CoreSurge, Attack, 1),
-            [DealDamage(11), Buff(Buff::Artifact, 1)],
-            [exhaust, requires_target]
-        ),
-        define_card!(
-            (CorpseExplosion, Attack, 2),
+            (Anger(false), Attack, Common, Zero),
             [
-                Debuff(Debuff::Poison, 6),
-                Debuff(Debuff::CorpseExplosion, 1)
-            ],
-            requires_target
+                ToSingleTarget(TargetEffect::Deal(Damage::Blockable(6))),
+                CreateCards(
+                    CardPool::CardInPlay,
+                    CardSelection::All,
+                    CardDestination::DiscardPile,
+                    CostModifier::None
+                )
+            ]
         ),
-        define_card!((Corruption, Power, 3), [Buff(Buff::Corruption, 1)]),
-        define_card!((CreativeAi, Power, 3), [Buff(Buff::CreativeAi, 1)]),
-        define_card!((Crescendo, Skill, 1), [EnterStance(Stance::Wrath)], retain),
         define_card!(
-            (CripplingCloud, Skill, 2),
-            [DebuffAll(Debuff::Poison, 4), DebuffAll(Debuff::Weak, 2)],
+            (Anger(true), Attack, Common, Zero),
+            [
+                ToSingleTarget(TargetEffect::Deal(Damage::Blockable(8))),
+                CreateCards(
+                    CardPool::CardInPlay,
+                    CardSelection::All,
+                    CardDestination::DiscardPile,
+                    CostModifier::None
+                )
+            ]
+        ),
+        define_card!(
+            (Apotheosis(false), Skill, Rare, Two),
+            [Upgrade(CardSource::AllCardsInCombat, CardSelection::All)],
             exhaust
         ),
         define_card!(
-            (CrushJoints, Attack, 1),
-            [DealDamage(8), DebuffCustom()],
-            requires_target
-        ),
-        define_card!((CurseOfTheBell, Curse, 1), [], [irremovable, unplayable]),
-        define_card!(
-            (CutThroughFate, Attack, 1),
-            [DealDamage(7), Scry(2), Draw(1)],
-            requires_target
-        ),
-        define_card!(
-            (DaggerSpray, Attack, 1),
-            [DealDamageToAll(4), DealDamageToAll(4)]
-        ),
-        define_card!(
-            (DaggerThrow, Attack, 1),
-            [DealDamage(9), Draw(1), Discard(1)],
-            requires_target
-        ),
-        */
-        define_card!(
-            (DarkEmbrace(false), Power, Two),
-            [ApplyToSelf(PlayerCondition::DarkEmbrace(1))]
-        ),
-        define_card!(
-            (DarkEmbrace(true), Power, One),
-            [ApplyToSelf(PlayerCondition::DarkEmbrace(1))]
-        ),
-        /*
-        define_card!((Darkness, Skill, 1), [Channel(Orb::Dark, 1)]),
-        define_card!(
-            (DarkShackles, Skill, 0),
-            [Debuff(Debuff::StrengthLossThisTurn, 9)],
-            [exhaust, requires_target]
-        ),
-        define_card!(
-            (Dash, Attack, 2),
-            [DealDamage(10), GainBlock(10)],
-            requires_target
-        ),
-        define_card!((Dazed, Status, 1), [], [ethereal, unplayable]),
-        define_card!(
-            (DeadlyPoison, Skill, 1),
-            [Debuff(Debuff::Poison, 5)],
-            requires_target
-        ),
-        define_card!(
-            (Decay, Curse, 1),
-            [TakeDamage(2)],
-            [enact_on_turn_end, unplayable]
-        ),
-        define_card!(
-            (DeceiveRealiry, Skill, 1),
-            [GainBlock(4), AddToHand(&[Card::Safety])]
-        ),
-        define_card!(
-            (DeepBreath, Skill, 0),
-            [ShuffleIntoDrawPileCustom(), Draw(1)]
-        ),
-        */
-        define_card!((Defend(false), Skill, One), [GainBlock(5)]),
-        define_card!((Defend(true), Skill, One), [GainBlock(8)]),
-        /*
-        define_card!((Deflect, Skill, 0), [GainBlock(4)]),
-        define_card!((Defragment, Power, 1), [GainFocus(1)]),
-        define_card!((DemonForm, Power, 3), [Buff(Buff::DemonForm, 2)]),
-        define_card!(
-            (DeusExMachina, Skill, 0),
-            [AddToHand(&[Card::Miracle, Card::Miracle])],
-            [exhaust, enact_on_draw]
-        ),
-        define_card!((DevaForm, Power, 3), [Buff(Buff::Deva, 1)]),
-        define_card!((Devotion, Power, 1), [Buff(Buff::Devotion, 2)]),
-        define_card!((DieDieDie, Attack, 1), [DealDamageToAll(13)], exhaust),
-        */
-        define_card!(
-            (Disarm(false), Skill, One),
-            [SapStrength(2)],
-            [exhaust, requires_target]
-        ),
-        define_card!(
-            (Disarm(true), Skill, One),
-            [SapStrength(3)],
-            [exhaust, requires_target]
-        ),
-        /*
-        define_card!((Discovery, Skill, 1), [HandCustom()], exhaust),
-        */
-        define_card!(
-            (Distraction(false), Skill, One),
-            [AddRandomCardThatCostsZeroThisTurnToHand(CardType::Skill)],
+            (Apotheosis(true), Skill, Rare, One),
+            [Upgrade(CardSource::AllCardsInCombat, CardSelection::All)],
             exhaust
         ),
         define_card!(
-            (Distraction(true), Skill, Zero),
-            [AddRandomCardThatCostsZeroThisTurnToHand(CardType::Skill)],
+            (Armaments(false), Skill, Common, One),
+            [
+                Gain(Resource::Block(5)),
+                Upgrade(CardSource::Hand, CardSelection::PlayerChoice(1))
+            ]
+        ),
+        define_card!(
+            (Armaments(true), Skill, Common, One),
+            [
+                Gain(Resource::Block(5)),
+                Upgrade(CardSource::Hand, CardSelection::All)
+            ]
+        ),
+        define_card!(
+            (BandageUp(false), Skill, Uncommon, Zero),
+            [Gain(Resource::Hp(4))],
             exhaust
         ),
-        /*
         define_card!(
-            (DodgeAndRoll, Skill, 1),
-            [GainBlock(4), Buff(Buff::BlockNextTurn, 4)]
+            (BandageUp(true), Skill, Uncommon, Zero),
+            [Gain(Resource::Hp(6))],
+            exhaust
         ),
         define_card!(
-            (DoomAndGloom, Attack, 2),
-            [DealDamageToAll(10), Channel(Orb::Dark, 1)]
-        ),
-        define_card!((Doppelganger, Skill, 0), [DrawCustom(), GainEnergyCustom()]),
-        define_card!((DoubleEnergy, Skill, 1), [GainEnergyCustom()]),
-        define_card!((DoubleTap, Skill, 1), [Buff(Buff::DoubleTap, 1)]),
-        define_card!(
-            (Doubt, Curse, 1),
-            [DebuffSelf(Debuff::Weak, 1)],
-            [enact_on_turn_end, unplayable]
+            (Barricade(false), Power, Rare, Three),
+            [Apply(PlayerCondition::Barricade)]
         ),
         define_card!(
-            (DramaticEntrance, Skill, 0),
-            [DealDamageToAll(8)],
+            (Barricade(true), Power, Rare, Two),
+            [Apply(PlayerCondition::Barricade)]
+        ),
+        define_card!(
+            (Bash(false), Attack, Starter, Two),
+            [
+                ToSingleTarget(TargetEffect::Deal(Damage::Blockable(8))),
+                ToSingleTarget(TargetEffect::Inflict(EnemyCondition::Vulnerable(2)))
+            ]
+        ),
+        define_card!(
+            (Bash(true), Attack, Starter, Two),
+            [
+                ToSingleTarget(TargetEffect::Deal(Damage::Blockable(10))),
+                ToSingleTarget(TargetEffect::Inflict(EnemyCondition::Vulnerable(3)))
+            ]
+        ),
+        define_card!(
+            (BattleTrance(false), Skill, Uncommon, Zero),
+            [Draw(3), Apply(PlayerCondition::NoDraw)]
+        ),
+        define_card!(
+            (BattleTrance(true), Skill, Uncommon, Zero),
+            [Draw(4), Apply(PlayerCondition::NoDraw)]
+        ),
+        define_card!(
+            (Berserk(false), Power, Rare, Zero),
+            [
+                Apply(PlayerCondition::Vulnerable(2)),
+                Apply(PlayerCondition::Berserk(1))
+            ]
+        ),
+        define_card!(
+            (Berserk(true), Power, Rare, Zero),
+            [
+                Apply(PlayerCondition::Vulnerable(1)),
+                Apply(PlayerCondition::Berserk(1))
+            ]
+        ),
+        define_card!(
+            (Blind(false), Skill, Uncommon, Zero),
+            [ToSingleTarget(TargetEffect::Inflict(EnemyCondition::Weak(
+                1
+            )))]
+        ),
+        define_card!(
+            (Blind(true), Skill, Uncommon, Zero),
+            [ToAllEnemies(TargetEffect::Inflict(EnemyCondition::Weak(1)))]
+        ),
+        define_card!(
+            (BloodForBlood(false), Attack, Uncommon, FourMinusHpLossCount),
+            [ToSingleTarget(TargetEffect::Deal(Damage::Blockable(18)))]
+        ),
+        define_card!(
+            (BloodForBlood(true), Attack, Uncommon, ThreeMinusHpLossCount),
+            [ToSingleTarget(TargetEffect::Deal(Damage::Blockable(22)))]
+        ),
+        define_card!(
+            (Bloodletting(false), Skill, Uncommon, Zero),
+            [TakeDamage(Damage::HpLoss(3)), Gain(Resource::Energy(2))],
+            exhaust
+        ),
+        define_card!(
+            (Bloodletting(true), Skill, Uncommon, Zero),
+            [TakeDamage(Damage::HpLoss(3)), Gain(Resource::Energy(3))],
+            exhaust
+        ),
+        define_card!(
+            (Bludgeon(false), Attack, Rare, Three),
+            [ToSingleTarget(TargetEffect::Deal(Damage::Blockable(32)))]
+        ),
+        define_card!(
+            (Bludgeon(true), Attack, Rare, Three),
+            [ToSingleTarget(TargetEffect::Deal(Damage::Blockable(42)))]
+        ),
+        define_card!(
+            (BodySlam(false), Attack, Common, One),
+            [ToSingleTarget(TargetEffect::Deal(
+                Damage::BlockableEqualToPlayerBlock
+            ))],
+        ),
+        define_card!(
+            (BodySlam(true), Attack, Common, One),
+            [ToSingleTarget(TargetEffect::Deal(
+                Damage::BlockableEqualToPlayerBlock
+            ))]
+        ),
+        define_card!(
+            (Brutality(false), Power, Rare, Zero),
+            [Apply(PlayerCondition::Brutality(1))]
+        ),
+        define_card!(
+            (Brutality(true), Power, Rare, Zero),
+            [Apply(PlayerCondition::Brutality(1))],
+            innate
+        ),
+        define_card!(
+            (Burn(false), Status, Special, Zero),
+            [],
+            [
+                if_in_hand_at_end_of_turn(PlayerEffect::TakeDamage(Damage::Blockable(2))),
+                unplayable
+            ]
+        ),
+        define_card!(
+            (Burn(true), Status, Special, Zero),
+            [],
+            [
+                if_in_hand_at_end_of_turn(PlayerEffect::TakeDamage(Damage::Blockable(4))),
+                unplayable
+            ]
+        ),
+        define_card!(
+            (BurningPact(false), Skill, Uncommon, One),
+            [
+                ManipulateCards(
+                    CardSource::Hand,
+                    CardSelection::PlayerChoice(1),
+                    CardDestination::ExhaustPile,
+                    CostModifier::None
+                ),
+                Draw(2)
+            ]
+        ),
+        define_card!(
+            (BurningPact(true), Skill, Uncommon, One),
+            [
+                ManipulateCards(
+                    CardSource::Hand,
+                    CardSelection::PlayerChoice(1),
+                    CardDestination::ExhaustPile,
+                    CostModifier::None
+                ),
+                Draw(3)
+            ]
+        ),
+        define_card!(
+            (Carnage(false), Attack, Uncommon, Two),
+            [ToSingleTarget(TargetEffect::Deal(Damage::Blockable(20)))],
+            ethereal
+        ),
+        define_card!(
+            (Carnage(true), Attack, Uncommon, Two),
+            [ToSingleTarget(TargetEffect::Deal(Damage::Blockable(28)))],
+            ethereal
+        ),
+        define_card!(
+            (Chrysalis(false), Skill, Rare, Two),
+            [CreateCards(
+                CardPool::CharacterSkillPool,
+                CardSelection::Random(3),
+                CardDestination::ShuffledIntoDrawPile,
+                CostModifier::ZeroThisCombat
+            )],
+            exhaust
+        ),
+        define_card!(
+            (Chrysalis(true), Skill, Rare, Two),
+            [CreateCards(
+                CardPool::CharacterSkillPool,
+                CardSelection::Random(5),
+                CardDestination::ShuffledIntoDrawPile,
+                CostModifier::ZeroThisCombat
+            )],
+            exhaust
+        ),
+        define_card!(
+            (Clash(false), Attack, Common, Zero),
+            [ToSingleTarget(TargetEffect::Deal(Damage::Blockable(14)))],
+            playable_only_if_all_hand_cards_are_attacks
+        ),
+        define_card!(
+            (Clash(true), Attack, Common, Zero),
+            [ToSingleTarget(TargetEffect::Deal(Damage::Blockable(18)))],
+            playable_only_if_all_hand_cards_are_attacks
+        ),
+        define_card!(
+            (Cleave(false), Attack, Common, One),
+            [ToAllEnemies(TargetEffect::Deal(Damage::Blockable(8)))]
+        ),
+        define_card!(
+            (Cleave(true), Attack, Common, One),
+            [ToAllEnemies(TargetEffect::Deal(Damage::Blockable(11)))]
+        ),
+        define_card!(
+            (Clothesline(false), Attack, Common, Two),
+            [
+                ToSingleTarget(TargetEffect::Deal(Damage::Blockable(12))),
+                ToSingleTarget(TargetEffect::Inflict(EnemyCondition::Weak(2)))
+            ]
+        ),
+        define_card!(
+            (Clothesline(true), Attack, Common, Two),
+            [
+                ToSingleTarget(TargetEffect::Deal(Damage::Blockable(14))),
+                ToSingleTarget(TargetEffect::Inflict(EnemyCondition::Weak(3)))
+            ]
+        ),
+        define_card!((Clumsy, Curse, Special, Zero), [], [ethereal, unplayable]),
+        define_card!(
+            (Combust(false), Power, Uncommon, One),
+            [Apply(PlayerCondition::Combust(1, 5))]
+        ),
+        define_card!(
+            (Combust(true), Power, Uncommon, One),
+            [Apply(PlayerCondition::Combust(1, 7))]
+        ),
+        define_card!(
+            (Corruption(false), Power, Rare, Three),
+            [Apply(PlayerCondition::Corruption)]
+        ),
+        define_card!(
+            (Corruption(true), Power, Rare, Two),
+            [Apply(PlayerCondition::Corruption)]
+        ),
+        define_card!(
+            (CurseOfTheBell, Curse, Special, Zero),
+            [],
+            [irremovable, unplayable]
+        ),
+        define_card!(
+            (DarkEmbrace(false), Power, Uncommon, Two),
+            [Apply(PlayerCondition::DarkEmbrace(1))]
+        ),
+        define_card!(
+            (DarkEmbrace(true), Power, Uncommon, One),
+            [Apply(PlayerCondition::DarkEmbrace(1))]
+        ),
+        define_card!(
+            (DarkShackles(false), Skill, Uncommon, Zero),
+            [ToSingleTarget(TargetEffect::Inflict(
+                EnemyCondition::StrengthLossThisTurn(9)
+            ))],
+            exhaust
+        ),
+        define_card!(
+            (DarkShackles(true), Skill, Uncommon, Zero),
+            [ToSingleTarget(TargetEffect::Inflict(
+                EnemyCondition::StrengthLossThisTurn(15)
+            ))],
+            exhaust
+        ),
+        define_card!((Dazed, Status, Special, Zero), [], [ethereal, unplayable]),
+        define_card!(
+            (Decay, Curse, Special, Zero),
+            [],
+            [
+                if_in_hand_at_end_of_turn(PlayerEffect::TakeDamage(Damage::Blockable(2))),
+                unplayable
+            ]
+        ),
+        define_card!(
+            (DeepBreath(false), Skill, Uncommon, Zero),
+            [
+                ManipulateCards(
+                    CardSource::DiscardPile,
+                    CardSelection::All,
+                    CardDestination::ShuffledIntoDrawPile,
+                    CostModifier::None
+                ),
+                Draw(1)
+            ]
+        ),
+        define_card!(
+            (DeepBreath(true), Skill, Uncommon, Zero),
+            [
+                ManipulateCards(
+                    CardSource::DiscardPile,
+                    CardSelection::All,
+                    CardDestination::ShuffledIntoDrawPile,
+                    CostModifier::None
+                ),
+                Draw(2)
+            ]
+        ),
+        define_card!(
+            (Defend(false), Skill, Starter, One),
+            [Gain(Resource::Block(5))]
+        ),
+        define_card!(
+            (Defend(true), Skill, Starter, One),
+            [Gain(Resource::Block(8))]
+        ),
+        define_card!(
+            (DemonForm(false), Power, Rare, Three),
+            [Apply(PlayerCondition::DemonForm(2))]
+        ),
+        define_card!(
+            (DemonForm(true), Power, Rare, Three),
+            [Apply(PlayerCondition::DemonForm(3))]
+        ),
+        define_card!(
+            (Disarm(false), Skill, Uncommon, One),
+            [ToSingleTarget(TargetEffect::SapStrength(2))],
+            exhaust
+        ),
+        define_card!(
+            (Disarm(true), Skill, Uncommon, One),
+            [ToSingleTarget(TargetEffect::SapStrength(3))],
+            exhaust
+        ),
+        define_card!(
+            (Discovery(false), Skill, Uncommon, One),
+            [CreateCards(
+                CardPool::CharacterCardPool,
+                CardSelection::RandomThenPlayerChoice(3, 1),
+                CardDestination::Hand,
+                CostModifier::ZeroThisTurn
+            )],
+            exhaust
+        ),
+        define_card!(
+            (Discovery(true), Skill, Uncommon, One),
+            [CreateCards(
+                CardPool::CharacterCardPool,
+                CardSelection::RandomThenPlayerChoice(3, 1),
+                CardDestination::Hand,
+                CostModifier::ZeroThisTurn
+            )]
+        ),
+        define_card!(
+            (DoubleTap(false), Skill, Rare, One),
+            [Apply(PlayerCondition::DoubleTap(1))]
+        ),
+        define_card!(
+            (DoubleTap(true), Skill, Rare, One),
+            [Apply(PlayerCondition::DoubleTap(2))]
+        ),
+        define_card!(
+            (Doubt, Curse, Special, Zero),
+            [],
+            [
+                if_in_hand_at_end_of_turn(PlayerEffect::Apply(PlayerCondition::Weak(1))),
+                unplayable
+            ]
+        ),
+        define_card!(
+            (DramaticEntrance(false), Skill, Uncommon, Zero),
+            [ToAllEnemies(TargetEffect::Deal(Damage::Blockable(8)))],
             [exhaust, innate]
         ),
-        */
         define_card!(
-            (Dropkick(false), Attack, One),
+            (DramaticEntrance(true), Skill, Uncommon, Zero),
+            [ToAllEnemies(TargetEffect::Deal(Damage::Blockable(12)))],
+            [exhaust, innate]
+        ),
+        define_card!(
+            (Dropkick(false), Attack, Uncommon, One),
             [
-                DealDamage(5),
-                IfEnemyVulnerable(vec![PlayerEffect::GainEnergy(1), PlayerEffect::Draw(1)])
-            ],
-            requires_target
-        ),
-        define_card!(
-            (Dropkick(true), Attack, One),
-            [
-                DealDamage(8),
-                IfEnemyVulnerable(vec![PlayerEffect::GainEnergy(1), PlayerEffect::Draw(1)])
-            ],
-            requires_target
-        ),
-        /*
-        define_card!((Dualcast, Skill, 1), [EvokeCustom()]),
-        */
-        define_card!(
-            (DualWield(false), Skill, One),
-            [CloneAttackOrPowerCardIntoHand(1)]
-        ),
-        define_card!(
-            (DualWield(true), Skill, One),
-            [CloneAttackOrPowerCardIntoHand(2)]
-        ),
-        /*
-        define_card!((EchoForm, Power, 3), [Buff(Buff::EchoForm, 1)]),
-        define_card!(
-            (Electrodynamics, Power, 2),
-            [Buff(Buff::Electro, 1), Channel(Orb::Lightning, 2)]
-        ),
-        define_card!((EmptyBody, Skill, 1), [GainBlock(7), ExitStance()]),
-        define_card!(
-            (EmptyFist, Attack, 1),
-            [DealDamage(9), ExitStance()],
-            requires_target
-        ),
-        define_card!((EmptyMind, Skill, 1), [Draw(2), ExitStance()]),
-        define_card!(
-            (EndlessAgony, Attack, 0),
-            [DealDamage(4)],
-            [dup_on_draw, exhaust, requires_target]
-        ),
-        define_card!((Enlightenment, Skill, 0), [HandCustom()]),
-        */
-        define_card!((Entrench(false), Skill, Two), [GainBlockCustom()]),
-        define_card!((Entrench(true), Skill, One), [GainBlockCustom()]),
-        /*
-        define_card!((Envenom, Power, 1), [Buff(Buff::Envenom, 1)]),
-        define_card!((Equilibrium, Skill, 2), [GainBlock(13), HandCustom()]),
-        define_card!(
-            (Eruption, Attack, 2),
-            [DealDamage(9), EnterStance(Stance::Wrath)],
-            requires_target
-        ),
-        define_card!((EscapePlan, Skill, 0), [DrawCustom()]),
-        define_card!((Establishment, Power, 1), [Buff(Buff::Establishment, 1)]),
-        define_card!(
-            (Evaluate, Skill, 1),
-            [GainBlock(6), ShuffleIntoDrawPile(&[Card::Insight])]
-        ),
-        define_card!(
-            (Eviscerate, Attack, 3),
-            [DealDamage(7), DealDamage(7), DealDamage(7)],
-            [requires_target, special_cost]
-        ),
-        */
-        define_card!(
-            (Evolve(false), Power, One),
-            [ApplyToSelf(PlayerCondition::Evolve(1))]
-        ),
-        define_card!(
-            (Evolve(true), Power, One),
-            [ApplyToSelf(PlayerCondition::Evolve(2))]
-        ),
-        /*
-        define_card!((Exhume, Skill, 1), [Exhume()], exhaust),
-        define_card!((Expertise, Skill, 1), [DrawCustom()]),
-        define_card!((Expunger, Attack, 1), [DealDamageCustom()], requires_target),
-        define_card!(
-            (Fasting, Power, 2),
-            [
-                GainStrength(3),
-                GainDexterity(3),
-                DebuffSelf(Debuff::Fasting, 1)
+                ToSingleTarget(TargetEffect::Deal(Damage::Blockable(5))),
+                ToSingleTarget(TargetEffect::Conditional(
+                    TargetCondition::IsVulnerable,
+                    &[
+                        PlayerEffect::Gain(Resource::Energy(1)),
+                        PlayerEffect::Draw(1)
+                    ]
+                ))
             ]
         ),
         define_card!(
-            (FearNoEvil, Attack, 1),
-            [DealDamage(8), StanceCustom()],
-            requires_target
-        ),
-        define_card!(
-            (Feed, Attack, 1),
-            [DealDamage(10), HealCustom()],
-            [exhaust, requires_target]
-        ),
-        */
-        define_card!(
-            (FeelNoPain(false), Power, One),
-            [ApplyToSelf(PlayerCondition::FeelNoPain(3))]
-        ),
-        define_card!(
-            (FeelNoPain(true), Power, One),
-            [ApplyToSelf(PlayerCondition::FeelNoPain(4))]
-        ),
-        /*
-        define_card!(
-            (FiendFire, Attack, 2),
-            [DealDamageCustom()],
-            [exhaust, requires_target]
-        ),
-        define_card!((Finesse, Skill, 0), [GainBlock(2), Draw(1)]),
-        */
-        define_card!(
-            (FireBreathing(false), Power, One),
-            [ApplyToSelf(PlayerCondition::FireBreathing(6))]
-        ),
-        define_card!(
-            (FireBreathing(true), Power, One),
-            [ApplyToSelf(PlayerCondition::FireBreathing(10))]
-        ),
-        define_card!(
-            (Flex(false), Skill, Zero),
+            (Dropkick(true), Attack, Uncommon, One),
             [
-                GainStrength(2),
-                AtEndOfTurn(vec![PlayerEffect::ApplyToSelf(
-                    PlayerCondition::StrengthDown(2)
-                )])
+                ToSingleTarget(TargetEffect::Deal(Damage::Blockable(8))),
+                ToSingleTarget(TargetEffect::Conditional(
+                    TargetCondition::IsVulnerable,
+                    &[
+                        PlayerEffect::Gain(Resource::Energy(1)),
+                        PlayerEffect::Draw(1)
+                    ]
+                ))
             ]
         ),
         define_card!(
-            (Flex(true), Skill, Zero),
+            (DualWield(false), Skill, Uncommon, One),
+            [CreateCards(
+                CardPool::AttacksAndPowersInHand,
+                CardSelection::PlayerChoice(1),
+                CardDestination::Hand,
+                CostModifier::None
+            )]
+        ),
+        define_card!(
+            (DualWield(true), Skill, Uncommon, One),
+            [CreateCards(
+                CardPool::AttacksAndPowersInHand,
+                CardSelection::PlayerChoice(1),
+                CardDestination::TwoCopiesInHand,
+                CostModifier::None
+            )]
+        ),
+        define_card!(
+            (Enlightenment(false), Skill, Uncommon, Zero),
+            [ManipulateCards(
+                CardSource::Hand,
+                CardSelection::All,
+                CardDestination::Hand,
+                CostModifier::ZeroThisTurn
+            )]
+        ),
+        define_card!(
+            (Enlightenment(true), Skill, Uncommon, Zero),
+            [ManipulateCards(
+                CardSource::Hand,
+                CardSelection::All,
+                CardDestination::Hand,
+                CostModifier::ZeroThisCombat
+            )]
+        ),
+        define_card!(
+            (Entrench(false), Skill, Uncommon, Two),
+            [Gain(Resource::CurrentBlockIsDoubled)]
+        ),
+        define_card!(
+            (Entrench(true), Skill, Uncommon, One),
+            [Gain(Resource::CurrentBlockIsDoubled)]
+        ),
+        define_card!(
+            (Evolve(false), Power, Uncommon, One),
+            [Apply(PlayerCondition::Evolve(1))]
+        ),
+        define_card!(
+            (Evolve(true), Power, Uncommon, One),
+            [Apply(PlayerCondition::Evolve(2))]
+        ),
+        define_card!(
+            (Exhume(false), Skill, Rare, One),
+            [ManipulateCards(
+                CardSource::ExhaustPile,
+                CardSelection::PlayerChoice(1),
+                CardDestination::Hand,
+                CostModifier::None
+            )],
+            exhaust
+        ),
+        define_card!(
+            (Exhume(true), Skill, Rare, Zero),
+            [ManipulateCards(
+                CardSource::ExhaustPile,
+                CardSelection::PlayerChoice(1),
+                CardDestination::Hand,
+                CostModifier::None
+            )],
+            exhaust
+        ),
+        define_card!(
+            (Feed(false), Attack, Rare, One),
             [
-                GainStrength(4),
-                AtEndOfTurn(vec![PlayerEffect::ApplyToSelf(
-                    PlayerCondition::StrengthDown(4)
-                )])
-            ]
-        ),
-        define_card!((GhostlyArmor(false), Skill, One), [GainBlock(10)], ethereal),
-        define_card!((GhostlyArmor(true), Skill, One), [GainBlock(13)], ethereal),
-        define_card!(
-            (Havoc(false), Skill, One),
-            [PlayThenExhaustTopCardOfDrawPile()]
-        ),
-        define_card!(
-            (Havoc(true), Skill, Zero),
-            [PlayThenExhaustTopCardOfDrawPile()]
-        ),
-        define_card!(
-            (Headbutt(false), Attack, One),
-            [DealDamage(9), PutCardFromDiscardPileOnTopOfDrawPile()],
-            requires_target
-        ),
-        define_card!(
-            (Headbutt(true), Attack, One),
-            [DealDamage(12), PutCardFromDiscardPileOnTopOfDrawPile()],
-            requires_target
-        ),
-        define_card!(
-            (HeavyBlade(false), Attack, Two),
-            [DealDamageWithStrengthMultiplier(14, 3)],
-            requires_target
-        ),
-        define_card!(
-            (HeavyBlade(true), Attack, Two),
-            [DealDamageWithStrengthMultiplier(14, 5)],
-            requires_target
-        ),
-        define_card!(
-            (InfernalBlade(false), Skill, One),
-            [AddRandomCardThatCostsZeroThisTurnToHand(CardType::Attack)],
-            exhaust
-        ),
-        define_card!(
-            (InfernalBlade(true), Skill, Zero),
-            [AddRandomCardThatCostsZeroThisTurnToHand(CardType::Attack)],
-            exhaust
-        ),
-        define_card!(
-            (Intimidate(false), Skill, Zero),
-            [ApplyToAll(EnemyCondition::Weak(1))],
-            exhaust
-        ),
-        define_card!(
-            (Intimidate(true), Skill, Zero),
-            [ApplyToAll(EnemyCondition::Weak(2))],
-            exhaust
-        ),
-        define_card!(
-            (IronWave(false), Attack, One),
-            [GainBlock(5), DealDamage(5)],
-            requires_target
-        ),
-        define_card!(
-            (IronWave(true), Attack, One),
-            [GainBlock(7), DealDamage(7)],
-            requires_target
-        ),
-        define_card!(
-            (PerfectedStrike(false), Attack, Two),
-            [DealDamageCustom()],
-            requires_target
-        ),
-        define_card!(
-            (PerfectedStrike(true), Attack, Two),
-            [DealDamageCustom()],
-            requires_target
-        ),
-        define_card!(
-            (PommelStrike(false), Attack, One),
-            [DealDamage(9), Draw(1)],
-            requires_target
-        ),
-        define_card!(
-            (PommelStrike(true), Attack, One),
-            [DealDamage(10), Draw(2)],
-            requires_target
-        ),
-        define_card!((ShrugItOff(false), Skill, One), [GainBlock(8), Draw(1)]),
-        define_card!((ShrugItOff(true), Skill, One), [GainBlock(11), Draw(1)]),
-        define_card!(
-            (Rage(false), Skill, Zero),
-            [ApplyToSelf(PlayerCondition::Rage(3))]
-        ),
-        define_card!(
-            (Rage(true), Skill, Zero),
-            [ApplyToSelf(PlayerCondition::Rage(5))]
-        ),
-        define_card!(
-            (Rupture(false), Power, One),
-            [ApplyToSelf(PlayerCondition::Rupture(1))]
-        ),
-        define_card!(
-            (Rupture(true), Power, One),
-            [ApplyToSelf(PlayerCondition::Rupture(2))]
-        ),
-        define_card!(
-            (SecondWind(false), Skill, One),
-            [ExhaustCustom(), GainBlockCustom()]
-        ),
-        define_card!(
-            (SecondWind(true), Skill, One),
-            [ExhaustCustom(), GainBlockCustom()]
-        ),
-        define_card!((SeeingRed(false), Skill, One), [GainEnergy(2)], exhaust),
-        define_card!((SeeingRed(true), Skill, Zero), [GainEnergy(2)], exhaust),
-        define_card!(
-            (Sentinel(false), Skill, One),
-            [GainBlock(5)],
-            on_exhaust(PlayerEffect::GainEnergy(2))
-        ),
-        define_card!(
-            (Sentinel(true), Skill, One),
-            [GainBlock(8)],
-            on_exhaust(PlayerEffect::GainEnergy(3))
-        ),
-        define_card!((Slimed(false), Status, One), [], exhaust),
-        define_card!((Slimed(true), Status, One), [], exhaust),
-        define_card!(
-            (Strike(false), Attack, One),
-            [DealDamage(6)],
-            requires_target
-        ),
-        define_card!(
-            (Strike(true), Attack, One),
-            [DealDamage(9)],
-            requires_target
-        ),
-        define_card!(
-            (SwordBoomerang(false), Attack, One),
-            [
-                DealDamageToRandomEnemy(3),
-                DealDamageToRandomEnemy(3),
-                DealDamageToRandomEnemy(3)
+                ToSingleTarget(TargetEffect::Deal(Damage::Blockable(10))),
+                ToSingleTarget(TargetEffect::Conditional(
+                    TargetCondition::AttackWasFatal,
+                    &[PlayerEffect::Gain(Resource::HpMax(3))]
+                ))
             ],
+            exhaust
         ),
         define_card!(
-            (SwordBoomerang(true), Attack, One),
+            (Feed(true), Attack, Rare, One),
             [
-                DealDamageToRandomEnemy(3),
-                DealDamageToRandomEnemy(3),
-                DealDamageToRandomEnemy(3),
-                DealDamageToRandomEnemy(3)
+                ToSingleTarget(TargetEffect::Deal(Damage::Blockable(12))),
+                ToSingleTarget(TargetEffect::Conditional(
+                    TargetCondition::AttackWasFatal,
+                    &[PlayerEffect::Gain(Resource::HpMax(4))]
+                ))
             ],
+            exhaust
         ),
         define_card!(
-            (Thunderclap(false), Attack, One),
+            (FeelNoPain(false), Power, Uncommon, One),
+            [Apply(PlayerCondition::FeelNoPain(3))]
+        ),
+        define_card!(
+            (FeelNoPain(true), Power, Uncommon, One),
+            [Apply(PlayerCondition::FeelNoPain(4))]
+        ),
+        define_card!(
+            (FiendFire(false), Attack, Rare, Two),
             [
-                DealDamageToAll(4),
-                ApplyToAll(EnemyCondition::Vulnerable(1))
+                ManipulateCards(
+                    CardSource::Hand,
+                    CardSelection::All,
+                    CardDestination::ExhaustPile,
+                    CostModifier::None
+                ),
+                ForEachExhausted(&[PlayerEffect::ToSingleTarget(TargetEffect::Deal(
+                    Damage::Blockable(7)
+                ))])
+            ],
+            exhaust
+        ),
+        define_card!(
+            (FiendFire(true), Attack, Rare, Two),
+            [
+                ManipulateCards(
+                    CardSource::Hand,
+                    CardSelection::All,
+                    CardDestination::ExhaustPile,
+                    CostModifier::None
+                ),
+                ForEachExhausted(&[PlayerEffect::ToSingleTarget(TargetEffect::Deal(
+                    Damage::Blockable(10)
+                ))])
+            ],
+            exhaust
+        ),
+        define_card!(
+            (Finesse(false), Skill, Uncommon, Zero),
+            [Gain(Resource::Block(2)), Draw(1)]
+        ),
+        define_card!(
+            (Finesse(true), Skill, Uncommon, Zero),
+            [Gain(Resource::Block(4)), Draw(1)]
+        ),
+        define_card!(
+            (FireBreathing(false), Power, Uncommon, One),
+            [Apply(PlayerCondition::FireBreathing(6))]
+        ),
+        define_card!(
+            (FireBreathing(true), Power, Uncommon, One),
+            [Apply(PlayerCondition::FireBreathing(10))]
+        ),
+        define_card!(
+            (FlameBarrier(false), Skill, Uncommon, Two),
+            [
+                Gain(Resource::Block(12)),
+                Apply(PlayerCondition::FlameBarrier(4))
             ]
         ),
         define_card!(
-            (Thunderclap(true), Attack, One),
+            (FlameBarrier(true), Skill, Uncommon, One),
             [
-                DealDamageToAll(7),
-                ApplyToAll(EnemyCondition::Vulnerable(1))
+                Gain(Resource::Block(16)),
+                Apply(PlayerCondition::FlameBarrier(6))
             ]
         ),
         define_card!(
-            (TrueGrit(false), Skill, One),
-            [GainBlock(7), ExhaustRandomCardInHand()]
-        ),
-        define_card!(
-            (TrueGrit(true), Skill, One),
-            [GainBlock(9), ExhaustCardInHand()]
-        ),
-        define_card!(
-            (TwinStrike(false), Attack, One),
-            [DealDamage(5), DealDamage(5)],
-            requires_target
-        ),
-        define_card!(
-            (TwinStrike(true), Attack, One),
-            [DealDamage(7), DealDamage(7)],
-            requires_target
-        ),
-        define_card!(
-            (Uppercut(false), Attack, Two),
+            (FlashOfSteel(false), Attack, Uncommon, Zero),
             [
-                DealDamage(13),
-                Apply(EnemyCondition::Weak(1)),
-                Apply(EnemyCondition::Vulnerable(1))
-            ],
-            requires_target
+                ToSingleTarget(TargetEffect::Deal(Damage::Blockable(3))),
+                Draw(1)
+            ]
         ),
         define_card!(
-            (Uppercut(true), Attack, Two),
+            (FlashOfSteel(true), Attack, Uncommon, Zero),
             [
-                DealDamage(13),
-                Apply(EnemyCondition::Weak(2)),
-                Apply(EnemyCondition::Vulnerable(2))
+                ToSingleTarget(TargetEffect::Deal(Damage::Blockable(6))),
+                Draw(1)
+            ]
+        ),
+        define_card!(
+            (Flex(false), Skill, Common, Zero),
+            [
+                Gain(Resource::Strength(2)),
+                Apply(PlayerCondition::StrengthDown(2))
             ],
-            requires_target
         ),
         define_card!(
-            (Warcry(false), Skill, Zero),
-            [Draw(1), PutCardFromHandOnTopOfDrawPile()],
+            (Flex(true), Skill, Common, Zero),
+            [
+                Gain(Resource::Strength(4)),
+                Apply(PlayerCondition::StrengthDown(4))
+            ],
+        ),
+        define_card!(
+            (Forethought(false), Skill, Uncommon, Zero),
+            [ManipulateCards(
+                CardSource::Hand,
+                CardSelection::PlayerChoice(1),
+                CardDestination::BottomOfDrawPile,
+                CostModifier::ZeroUntilPlayed
+            )]
+        ),
+        define_card!(
+            (Forethought(true), Skill, Uncommon, Zero),
+            [ManipulateCards(
+                CardSource::Hand,
+                CardSelection::PlayerChoiceUnlimited,
+                CardDestination::BottomOfDrawPile,
+                CostModifier::ZeroUntilPlayed
+            )]
+        ),
+        define_card!(
+            (GhostlyArmor(false), Skill, Uncommon, One),
+            [Gain(Resource::Block(10))],
+            ethereal
+        ),
+        define_card!(
+            (GhostlyArmor(true), Skill, Uncommon, One),
+            [Gain(Resource::Block(13))],
+            ethereal
+        ),
+        define_card!(
+            (GoodInstincts(false), Skill, Uncommon, Zero),
+            [Gain(Resource::Block(6))]
+        ),
+        define_card!(
+            (GoodInstincts(true), Skill, Uncommon, Zero),
+            [Gain(Resource::Block(9))]
+        ),
+        define_card!(
+            (HandOfGreed(false), Attack, Rare, Two),
+            [
+                ToSingleTarget(TargetEffect::Deal(Damage::Blockable(20))),
+                ToSingleTarget(TargetEffect::Conditional(
+                    TargetCondition::AttackWasFatal,
+                    &[PlayerEffect::Gain(Resource::Gold(20))]
+                ))
+            ]
+        ),
+        define_card!(
+            (HandOfGreed(true), Attack, Rare, Two),
+            [
+                ToSingleTarget(TargetEffect::Deal(Damage::Blockable(25))),
+                ToSingleTarget(TargetEffect::Conditional(
+                    TargetCondition::AttackWasFatal,
+                    &[PlayerEffect::Gain(Resource::Gold(25))]
+                ))
+            ]
+        ),
+        define_card!(
+            (Havoc(false), Skill, Common, One),
+            [PlayThenExhaustTopCardOfDrawPile]
+        ),
+        define_card!(
+            (Havoc(true), Skill, Common, Zero),
+            [PlayThenExhaustTopCardOfDrawPile]
+        ),
+        define_card!(
+            (Headbutt(false), Attack, Common, One),
+            [
+                ToSingleTarget(TargetEffect::Deal(Damage::Blockable(9))),
+                ManipulateCards(
+                    CardSource::DiscardPile,
+                    CardSelection::PlayerChoice(1),
+                    CardDestination::TopOfDrawPile,
+                    CostModifier::None
+                )
+            ]
+        ),
+        define_card!(
+            (Headbutt(true), Attack, Common, One),
+            [
+                ToSingleTarget(TargetEffect::Deal(Damage::Blockable(12))),
+                ManipulateCards(
+                    CardSource::DiscardPile,
+                    CardSelection::PlayerChoice(1),
+                    CardDestination::TopOfDrawPile,
+                    CostModifier::None
+                )
+            ]
+        ),
+        define_card!(
+            (HeavyBlade(false), Attack, Common, Two),
+            [ToSingleTarget(TargetEffect::Deal(
+                Damage::BlockableWithStrengthMultiplier(14, 3)
+            ))]
+        ),
+        define_card!(
+            (HeavyBlade(true), Attack, Common, Two),
+            [ToSingleTarget(TargetEffect::Deal(
+                Damage::BlockableWithStrengthMultiplier(14, 5)
+            ))]
+        ),
+        define_card!(
+            (Hemokinesis(false), Attack, Uncommon, One),
+            [
+                TakeDamage(Damage::HpLoss(2)),
+                ToSingleTarget(TargetEffect::Deal(Damage::Blockable(15)))
+            ]
+        ),
+        define_card!(
+            (Hemokinesis(true), Attack, Uncommon, One),
+            [
+                TakeDamage(Damage::HpLoss(2)),
+                ToSingleTarget(TargetEffect::Deal(Damage::Blockable(20)))
+            ]
+        ),
+        define_card!(
+            (Immolate(false), Attack, Rare, Two),
+            [
+                ToAllEnemies(TargetEffect::Deal(Damage::Blockable(21))),
+                CreateCards(
+                    CardPool::Fixed(&[Card::Burn(false)]),
+                    CardSelection::All,
+                    CardDestination::DiscardPile,
+                    CostModifier::None
+                )
+            ]
+        ),
+        define_card!(
+            (Immolate(true), Attack, Rare, Two),
+            [
+                ToAllEnemies(TargetEffect::Deal(Damage::Blockable(28))),
+                CreateCards(
+                    CardPool::Fixed(&[Card::Burn(false)]),
+                    CardSelection::All,
+                    CardDestination::DiscardPile,
+                    CostModifier::None
+                )
+            ]
+        ),
+        define_card!(
+            (Impatience(false), Skill, Uncommon, Zero),
+            [Conditional(
+                PlayerEffectCondition::IfHandContainsNoAttackCards,
+                &[PlayerEffect::Draw(2)]
+            )]
+        ),
+        define_card!(
+            (Impatience(true), Skill, Uncommon, Zero),
+            [Conditional(
+                PlayerEffectCondition::IfHandContainsNoAttackCards,
+                &[PlayerEffect::Draw(3)]
+            )]
+        ),
+        define_card!(
+            (Impervious(false), Skill, Rare, Two),
+            [Gain(Resource::Block(30))],
             exhaust
         ),
         define_card!(
-            (Warcry(true), Skill, Zero),
-            [Draw(2), PutCardFromHandOnTopOfDrawPile()],
+            (Impervious(true), Skill, Rare, Two),
+            [Gain(Resource::Block(40))],
             exhaust
         ),
         define_card!(
-            (WhiteNoise(false), Skill, One),
-            [AddRandomCardThatCostsZeroThisTurnToHand(CardType::Power)],
+            (InfernalBlade(false), Skill, Uncommon, One),
+            [CreateCards(
+                CardPool::CharacterAttackPool,
+                CardSelection::Random(1),
+                CardDestination::Hand,
+                CostModifier::ZeroThisTurn
+            )],
             exhaust
         ),
         define_card!(
-            (WhiteNoise(true), Skill, Zero),
-            [AddRandomCardThatCostsZeroThisTurnToHand(CardType::Power)],
+            (InfernalBlade(true), Skill, Uncommon, Zero),
+            [CreateCards(
+                CardPool::CharacterAttackPool,
+                CardSelection::Random(1),
+                CardDestination::Hand,
+                CostModifier::ZeroThisTurn
+            )],
             exhaust
         ),
         define_card!(
-            (WildStrike(false), Attack, One),
-            [DealDamage(12), AddToDiscardPile(&[Card::Wound(false)])],
-            requires_target
+            (Inflame(false), Power, Uncommon, One),
+            [Gain(Resource::Strength(2))]
         ),
         define_card!(
-            (WildStrike(true), Attack, One),
-            [DealDamage(17), AddToDiscardPile(&[Card::Wound(false)])],
-            requires_target
+            (Inflame(true), Power, Uncommon, One),
+            [Gain(Resource::Strength(3))]
         ),
+        define_card!((Injury, Curse, Special, Zero), [], [unplayable]),
+        define_card!(
+            (Intimidate(false), Skill, Uncommon, Zero),
+            [ToAllEnemies(TargetEffect::Inflict(EnemyCondition::Weak(1)))],
+            exhaust
+        ),
+        define_card!(
+            (Intimidate(true), Skill, Uncommon, Zero),
+            [ToAllEnemies(TargetEffect::Inflict(EnemyCondition::Weak(2)))],
+            exhaust
+        ),
+        define_card!(
+            (IronWave(false), Attack, Common, One),
+            [
+                Gain(Resource::Block(5)),
+                ToSingleTarget(TargetEffect::Deal(Damage::Blockable(5)))
+            ]
+        ),
+        define_card!(
+            (IronWave(true), Attack, Common, One),
+            [
+                Gain(Resource::Block(7)),
+                ToSingleTarget(TargetEffect::Deal(Damage::Blockable(7)))
+            ]
+        ),
+        define_card!(
+            (JackOfAllTrades(false), Skill, Uncommon, Zero),
+            [CreateCards(
+                CardPool::ColorlessCardPool,
+                CardSelection::Random(1),
+                CardDestination::Hand,
+                CostModifier::None
+            )],
+            exhaust
+        ),
+        define_card!(
+            (JackOfAllTrades(true), Skill, Uncommon, Zero),
+            [CreateCards(
+                CardPool::ColorlessCardPool,
+                CardSelection::Random(2),
+                CardDestination::Hand,
+                CostModifier::None
+            )],
+            exhaust
+        ),
+        define_card!(
+            (Juggernaut(false), Power, Rare, Two),
+            [Apply(PlayerCondition::Juggernaut(5))],
+        ),
+        define_card!(
+            (Juggernaut(true), Power, Rare, Two),
+            [Apply(PlayerCondition::Juggernaut(7))],
+        ),
+        define_card!(
+            (LimitBreak(false), Skill, Rare, One),
+            [Gain(Resource::CurrentStrengthIsDoubled)],
+            exhaust
+        ),
+        define_card!(
+            (LimitBreak(true), Skill, Rare, One),
+            [Gain(Resource::CurrentStrengthIsDoubled)]
+        ),
+        define_card!(
+            (Madness(false), Skill, Uncommon, One),
+            [ManipulateCards(
+                CardSource::Hand,
+                CardSelection::Random(1),
+                CardDestination::Hand,
+                CostModifier::ZeroThisCombat
+            )],
+            exhaust
+        ),
+        define_card!(
+            (Madness(true), Skill, Uncommon, Zero),
+            [ManipulateCards(
+                CardSource::Hand,
+                CardSelection::Random(1),
+                CardDestination::Hand,
+                CostModifier::ZeroThisCombat
+            )],
+            exhaust
+        ),
+        define_card!(
+            (Magnetism(false), Power, Rare, Two),
+            [Apply(PlayerCondition::Magnetism(1))]
+        ),
+        define_card!(
+            (Magnetism(true), Power, Rare, One),
+            [Apply(PlayerCondition::Magnetism(1))]
+        ),
+        define_card!(
+            (MasterOfStrategy(false), Skill, Rare, Zero),
+            [Draw(3)],
+            exhaust
+        ),
+        define_card!(
+            (MasterOfStrategy(true), Skill, Rare, Zero),
+            [Draw(4)],
+            exhaust
+        ),
+        define_card!(
+            (Mayhem(false), Power, Rare, Two),
+            [Apply(PlayerCondition::Mayhem(1))]
+        ),
+        define_card!(
+            (Mayhem(true), Power, Rare, One),
+            [Apply(PlayerCondition::Mayhem(1))]
+        ),
+        define_card!(
+            (Metallicize(false), Power, Uncommon, One),
+            [Apply(PlayerCondition::Metallicize(3))]
+        ),
+        define_card!(
+            (Metallicize(true), Power, Uncommon, One),
+            [Apply(PlayerCondition::Metallicize(4))]
+        ),
+        define_card!(
+            (Metamorphosis(false), Skill, Rare, Two),
+            [CreateCards(
+                CardPool::CharacterAttackPool,
+                CardSelection::Random(3),
+                CardDestination::ShuffledIntoDrawPile,
+                CostModifier::ZeroThisCombat
+            )],
+            exhaust
+        ),
+        define_card!(
+            (Metamorphosis(true), Skill, Rare, Two),
+            [CreateCards(
+                CardPool::CharacterAttackPool,
+                CardSelection::Random(5),
+                CardDestination::ShuffledIntoDrawPile,
+                CostModifier::ZeroThisCombat
+            )],
+            exhaust
+        ),
+        define_card!(
+            (MindBlast(false), Attack, Uncommon, Two),
+            [ToSingleTarget(TargetEffect::Deal(
+                Damage::BlockableEqualToDrawPileSize
+            ))],
+            innate
+        ),
+        define_card!(
+            (MindBlast(true), Attack, Uncommon, One),
+            [ToSingleTarget(TargetEffect::Deal(
+                Damage::BlockableEqualToDrawPileSize
+            ))],
+            innate
+        ),
+        define_card!(
+            (Necronomicurse, Curse, Special, Zero),
+            [],
+            [
+                on_exhaust(PlayerEffect::CreateCards(
+                    CardPool::Fixed(&[Card::Necronomicurse]),
+                    CardSelection::All,
+                    CardDestination::Hand,
+                    CostModifier::None
+                )),
+                unplayable
+            ]
+        ),
+        define_card!((Normality, Curse, Special, Zero), [], [unplayable]),
+        define_card!(
+            (Offering(false), Skill, Rare, Zero),
+            [
+                TakeDamage(Damage::HpLoss(6)),
+                Gain(Resource::Energy(2)),
+                Draw(3)
+            ],
+            exhaust
+        ),
+        define_card!(
+            (Offering(true), Skill, Rare, Zero),
+            [
+                TakeDamage(Damage::HpLoss(6)),
+                Gain(Resource::Energy(2)),
+                Draw(5)
+            ],
+            exhaust
+        ),
+        define_card!((Pain, Curse, Special, Zero), [], [pain, unplayable]),
+        define_card!(
+            (Panacea(false), Skill, Uncommon, Zero),
+            [Apply(PlayerCondition::Artifact(1))],
+            exhaust
+        ),
+        define_card!(
+            (Panacea(true), Skill, Uncommon, Zero),
+            [Apply(PlayerCondition::Artifact(2))],
+            exhaust
+        ),
+        define_card!(
+            (Panache(false), Power, Rare, Zero),
+            [Apply(PlayerCondition::Panache(5, 10))],
+        ),
+        define_card!(
+            (Panache(true), Power, Rare, Zero),
+            [Apply(PlayerCondition::Panache(5, 14))],
+        ),
+        define_card!(
+            (PanicButton(false), Skill, Uncommon, Zero),
+            [Gain(Resource::Block(30))],
+            exhaust
+        ),
+        define_card!(
+            (PanicButton(true), Skill, Uncommon, Zero),
+            [Gain(Resource::Block(40))],
+            exhaust
+        ),
+        define_card!((Parasite, Curse, Special, Zero), [], [parasite, unplayable]),
+        define_card!(
+            (PerfectedStrike(false), Attack, Common, Two),
+            [ToSingleTarget(TargetEffect::Deal(
+                Damage::BlockableCountingStrikeCards(6, 2)
+            ))]
+        ),
+        define_card!(
+            (PerfectedStrike(true), Attack, Common, Two),
+            [ToSingleTarget(TargetEffect::Deal(
+                Damage::BlockableCountingStrikeCards(6, 3)
+            ))]
+        ),
+        define_card!(
+            (PommelStrike(false), Attack, Common, One),
+            [
+                ToSingleTarget(TargetEffect::Deal(Damage::Blockable(9))),
+                Draw(1)
+            ]
+        ),
+        define_card!(
+            (PommelStrike(true), Attack, Common, One),
+            [
+                ToSingleTarget(TargetEffect::Deal(Damage::Blockable(10))),
+                Draw(2)
+            ]
+        ),
+        define_card!(
+            (PowerThrough(false), Skill, Uncommon, One),
+            [
+                CreateCards(
+                    CardPool::Fixed(&[Card::Wound, Card::Wound]),
+                    CardSelection::All,
+                    CardDestination::Hand,
+                    CostModifier::None
+                ),
+                Gain(Resource::Block(15))
+            ]
+        ),
+        define_card!(
+            (PowerThrough(true), Skill, Uncommon, One),
+            [
+                CreateCards(
+                    CardPool::Fixed(&[Card::Wound, Card::Wound]),
+                    CardSelection::All,
+                    CardDestination::Hand,
+                    CostModifier::None
+                ),
+                Gain(Resource::Block(20))
+            ]
+        ),
+        define_card!(
+            (Pummel(false), Attack, Uncommon, One),
+            [
+                ToSingleTarget(TargetEffect::Deal(Damage::Blockable(2))),
+                ToSingleTarget(TargetEffect::Deal(Damage::Blockable(2))),
+                ToSingleTarget(TargetEffect::Deal(Damage::Blockable(2))),
+                ToSingleTarget(TargetEffect::Deal(Damage::Blockable(2))),
+            ]
+        ),
+        define_card!(
+            (Pummel(true), Attack, Uncommon, One),
+            [
+                ToSingleTarget(TargetEffect::Deal(Damage::Blockable(2))),
+                ToSingleTarget(TargetEffect::Deal(Damage::Blockable(2))),
+                ToSingleTarget(TargetEffect::Deal(Damage::Blockable(2))),
+                ToSingleTarget(TargetEffect::Deal(Damage::Blockable(2))),
+                ToSingleTarget(TargetEffect::Deal(Damage::Blockable(2))),
+            ]
+        ),
+        define_card!(
+            (Purity(false), Skill, Uncommon, Zero),
+            [ManipulateCards(
+                CardSource::Hand,
+                CardSelection::PlayerChoiceUpTo(3),
+                CardDestination::ExhaustPile,
+                CostModifier::None
+            )],
+            exhaust
+        ),
+        define_card!(
+            (Purity(true), Skill, Uncommon, Zero),
+            [ManipulateCards(
+                CardSource::Hand,
+                CardSelection::PlayerChoiceUpTo(5),
+                CardDestination::ExhaustPile,
+                CostModifier::None
+            )],
+            exhaust
+        ),
+        define_card!(
+            (Rage(false), Skill, Uncommon, Zero),
+            [Apply(PlayerCondition::Rage(3))]
+        ),
+        define_card!(
+            (Rage(true), Skill, Uncommon, Zero),
+            [Apply(PlayerCondition::Rage(5))]
+        ),
+        define_card!(
+            (Regret, Curse, Special, Zero),
+            [],
+            [
+                if_in_hand_at_end_of_turn(PlayerEffect::TakeDamage(Damage::HpLossEqualToHandSize)),
+                unplayable
+            ]
+        ),
+        define_card!(
+            (Rampage(false), Attack, Uncommon, One),
+            [
+                ToSingleTarget(TargetEffect::Deal(Damage::Blockable(8))),
+                RampUpCardDamage(5)
+            ]
+        ),
+        define_card!(
+            (Rampage(true), Attack, Uncommon, One),
+            [
+                ToSingleTarget(TargetEffect::Deal(Damage::Blockable(8))),
+                RampUpCardDamage(8)
+            ]
+        ),
+        define_card!(
+            (Reaper(false), Attack, Rare, Two),
+            [
+                ToAllEnemies(TargetEffect::Deal(Damage::Blockable(4))),
+                Gain(Resource::HpEqualToUnblockedDamage)
+            ],
+            exhaust
+        ),
+        define_card!(
+            (Reaper(true), Attack, Rare, Two),
+            [
+                ToAllEnemies(TargetEffect::Deal(Damage::Blockable(5))),
+                Gain(Resource::HpEqualToUnblockedDamage)
+            ],
+            exhaust
+        ),
+        define_card!(
+            (RecklessCharge(false), Attack, Uncommon, Zero),
+            [
+                ToSingleTarget(TargetEffect::Deal(Damage::Blockable(7))),
+                CreateCards(
+                    CardPool::Fixed(&[Card::Dazed]),
+                    CardSelection::All,
+                    CardDestination::ShuffledIntoDrawPile,
+                    CostModifier::None
+                )
+            ]
+        ),
+        define_card!(
+            (RecklessCharge(true), Attack, Uncommon, Zero),
+            [
+                ToSingleTarget(TargetEffect::Deal(Damage::Blockable(10))),
+                CreateCards(
+                    CardPool::Fixed(&[Card::Dazed]),
+                    CardSelection::All,
+                    CardDestination::ShuffledIntoDrawPile,
+                    CostModifier::None
+                )
+            ]
+        ),
+        define_card!(
+            (Rupture(false), Power, Uncommon, One),
+            [Apply(PlayerCondition::Rupture(1))]
+        ),
+        define_card!(
+            (Rupture(true), Power, Uncommon, One),
+            [Apply(PlayerCondition::Rupture(2))]
+        ),
+        define_card!(
+            (SadisticNature(false), Power, Rare, Zero),
+            [Apply(PlayerCondition::Sadistic(5))]
+        ),
+        define_card!(
+            (SadisticNature(true), Power, Rare, Zero),
+            [Apply(PlayerCondition::Sadistic(7))]
+        ),
+        // SearingBlow defined in the lazy constructor of CARD_DETAILS
+        define_card!(
+            (SecondWind(false), Skill, Uncommon, One),
+            [
+                ManipulateCards(
+                    CardSource::NonAttackCardsInHand,
+                    CardSelection::All,
+                    CardDestination::ExhaustPile,
+                    CostModifier::None
+                ),
+                ForEachExhausted(&[PlayerEffect::Gain(Resource::Block(5))])
+            ]
+        ),
+        define_card!(
+            (SecondWind(true), Skill, Uncommon, One),
+            [
+                ManipulateCards(
+                    CardSource::NonAttackCardsInHand,
+                    CardSelection::All,
+                    CardDestination::ExhaustPile,
+                    CostModifier::None
+                ),
+                ForEachExhausted(&[PlayerEffect::Gain(Resource::Block(7))])
+            ]
+        ),
+        define_card!(
+            (SecretWeapon(false), Skill, Rare, Zero),
+            [ManipulateCards(
+                CardSource::AttacksInDrawPile,
+                CardSelection::PlayerChoice(1),
+                CardDestination::Hand,
+                CostModifier::None
+            )],
+            exhaust
+        ),
+        define_card!(
+            (SecretWeapon(true), Skill, Rare, Zero),
+            [ManipulateCards(
+                CardSource::AttacksInDrawPile,
+                CardSelection::PlayerChoice(1),
+                CardDestination::Hand,
+                CostModifier::None
+            )],
+            exhaust
+        ),
+        define_card!(
+            (SeeingRed(false), Skill, Uncommon, One),
+            [Gain(Resource::Energy(2))],
+            exhaust
+        ),
+        define_card!(
+            (SeeingRed(true), Skill, Uncommon, Zero),
+            [Gain(Resource::Energy(2))],
+            exhaust
+        ),
+        define_card!(
+            (Sentinel(false), Skill, Uncommon, One),
+            [Gain(Resource::Block(5))],
+            on_exhaust(PlayerEffect::Gain(Resource::Energy(2)))
+        ),
+        define_card!(
+            (Sentinel(true), Skill, Uncommon, One),
+            [Gain(Resource::Block(8))],
+            on_exhaust(PlayerEffect::Gain(Resource::Energy(3)))
+        ),
+        define_card!(
+            (SeverSoul(false), Attack, Uncommon, Two),
+            [
+                ManipulateCards(
+                    CardSource::NonAttackCardsInHand,
+                    CardSelection::All,
+                    CardDestination::ExhaustPile,
+                    CostModifier::None
+                ),
+                ToSingleTarget(TargetEffect::Deal(Damage::Blockable(16)))
+            ]
+        ),
+        define_card!(
+            (SeverSoul(true), Attack, Uncommon, Two),
+            [
+                ManipulateCards(
+                    CardSource::NonAttackCardsInHand,
+                    CardSelection::All,
+                    CardDestination::ExhaustPile,
+                    CostModifier::None
+                ),
+                ToSingleTarget(TargetEffect::Deal(Damage::Blockable(22)))
+            ]
+        ),
+        define_card!(
+            (Shame, Curse, Special, Zero),
+            [],
+            [
+                if_in_hand_at_end_of_turn(PlayerEffect::Apply(PlayerCondition::Frail(1))),
+                unplayable
+            ]
+        ),
+        define_card!(
+            (Shockwave(false), Skill, Uncommon, Two),
+            [
+                ToAllEnemies(TargetEffect::Inflict(EnemyCondition::Weak(3))),
+                ToAllEnemies(TargetEffect::Inflict(EnemyCondition::Vulnerable(3)))
+            ]
+        ),
+        define_card!(
+            (Shockwave(true), Skill, Uncommon, Two),
+            [
+                ToAllEnemies(TargetEffect::Inflict(EnemyCondition::Weak(5))),
+                ToAllEnemies(TargetEffect::Inflict(EnemyCondition::Vulnerable(5)))
+            ]
+        ),
+        define_card!(
+            (ShrugItOff(false), Skill, Common, One),
+            [Gain(Resource::Block(8)), Draw(1)]
+        ),
+        define_card!(
+            (ShrugItOff(true), Skill, Common, One),
+            [Gain(Resource::Block(11)), Draw(1)]
+        ),
+        define_card!((Slimed, Status, Common, One), [], [exhaust_when_played]),
+        define_card!(
+            (SpotWeakness(false), Skill, Uncommon, One),
+            [ToSingleTarget(TargetEffect::Conditional(
+                TargetCondition::IntendsToAttack,
+                &[PlayerEffect::Gain(Resource::Strength(3))]
+            ))]
+        ),
+        define_card!(
+            (SpotWeakness(true), Skill, Uncommon, One),
+            [ToSingleTarget(TargetEffect::Conditional(
+                TargetCondition::IntendsToAttack,
+                &[PlayerEffect::Gain(Resource::Strength(4))]
+            ))]
+        ),
+        define_card!(
+            (Strike(false), Attack, Starter, One),
+            [ToSingleTarget(TargetEffect::Deal(Damage::Blockable(6)))]
+        ),
+        define_card!(
+            (Strike(true), Attack, Starter, One),
+            [ToSingleTarget(TargetEffect::Deal(Damage::Blockable(9)))]
+        ),
+        define_card!(
+            (SwiftStrike(false), Attack, Common, Zero),
+            [ToSingleTarget(TargetEffect::Deal(Damage::Blockable(7)))]
+        ),
+        define_card!(
+            (SwiftStrike(true), Attack, Common, Zero),
+            [ToSingleTarget(TargetEffect::Deal(Damage::Blockable(10)))]
+        ),
+        define_card!(
+            (SwordBoomerang(false), Attack, Common, One),
+            [
+                ToRandomEnemy(TargetEffect::Deal(Damage::Blockable(3))),
+                ToRandomEnemy(TargetEffect::Deal(Damage::Blockable(3))),
+                ToRandomEnemy(TargetEffect::Deal(Damage::Blockable(3))),
+            ],
+        ),
+        define_card!(
+            (SwordBoomerang(true), Attack, Common, One),
+            [
+                ToRandomEnemy(TargetEffect::Deal(Damage::Blockable(3))),
+                ToRandomEnemy(TargetEffect::Deal(Damage::Blockable(3))),
+                ToRandomEnemy(TargetEffect::Deal(Damage::Blockable(3))),
+                ToRandomEnemy(TargetEffect::Deal(Damage::Blockable(3))),
+            ],
+        ),
+        define_card!(
+            (ThinkingAhead(false), Skill, Rare, Zero),
+            [
+                Draw(2),
+                ManipulateCards(
+                    CardSource::Hand,
+                    CardSelection::PlayerChoice(1),
+                    CardDestination::TopOfDrawPile,
+                    CostModifier::None
+                )
+            ],
+            exhaust
+        ),
+        define_card!(
+            (ThinkingAhead(true), Skill, Rare, Zero),
+            [
+                Draw(2),
+                ManipulateCards(
+                    CardSource::Hand,
+                    CardSelection::PlayerChoice(1),
+                    CardDestination::TopOfDrawPile,
+                    CostModifier::None
+                )
+            ]
+        ),
+        define_card!(
+            (Thunderclap(false), Attack, Common, One),
+            [
+                ToAllEnemies(TargetEffect::Deal(Damage::Blockable(4))),
+                ToAllEnemies(TargetEffect::Inflict(EnemyCondition::Vulnerable(1)))
+            ]
+        ),
+        define_card!(
+            (Thunderclap(true), Attack, Common, One),
+            [
+                ToAllEnemies(TargetEffect::Deal(Damage::Blockable(7))),
+                ToAllEnemies(TargetEffect::Inflict(EnemyCondition::Vulnerable(1)))
+            ]
+        ),
+        define_card!(
+            (Transmutation(false), Skill, Rare, X),
+            [CreateCards(
+                CardPool::ColorlessCardPool,
+                CardSelection::RandomX,
+                CardDestination::Hand,
+                CostModifier::ZeroThisTurn
+            )],
+            exhaust
+        ),
+        define_card!(
+            (Transmutation(true), Skill, Rare, X),
+            [CreateCards(
+                CardPool::UpgradedColorlessCardPool,
+                CardSelection::RandomX,
+                CardDestination::Hand,
+                CostModifier::ZeroThisTurn
+            )],
+            exhaust
+        ),
+        define_card!(
+            (Trip(false), Skill, Uncommon, Zero),
+            [ToSingleTarget(TargetEffect::Inflict(
+                EnemyCondition::Vulnerable(2)
+            ))]
+        ),
+        define_card!(
+            (Trip(true), Skill, Uncommon, Zero),
+            [ToAllEnemies(TargetEffect::Inflict(
+                EnemyCondition::Vulnerable(2)
+            ))]
+        ),
+        define_card!(
+            (TrueGrit(false), Skill, Common, One),
+            [
+                Gain(Resource::Block(7)),
+                ManipulateCards(
+                    CardSource::Hand,
+                    CardSelection::Random(1),
+                    CardDestination::ExhaustPile,
+                    CostModifier::None
+                )
+            ]
+        ),
+        define_card!(
+            (TrueGrit(true), Skill, Common, One),
+            [
+                Gain(Resource::Block(9)),
+                ManipulateCards(
+                    CardSource::Hand,
+                    CardSelection::PlayerChoice(1),
+                    CardDestination::ExhaustPile,
+                    CostModifier::None
+                )
+            ]
+        ),
+        define_card!(
+            (TwinStrike(false), Attack, Common, One),
+            [
+                ToSingleTarget(TargetEffect::Deal(Damage::Blockable(5))),
+                ToSingleTarget(TargetEffect::Deal(Damage::Blockable(5)))
+            ]
+        ),
+        define_card!(
+            (TwinStrike(true), Attack, Common, One),
+            [
+                ToSingleTarget(TargetEffect::Deal(Damage::Blockable(7))),
+                ToSingleTarget(TargetEffect::Deal(Damage::Blockable(7)))
+            ]
+        ),
+        define_card!(
+            (Uppercut(false), Attack, Uncommon, Two),
+            [
+                ToSingleTarget(TargetEffect::Deal(Damage::Blockable(13))),
+                ToSingleTarget(TargetEffect::Inflict(EnemyCondition::Weak(1))),
+                ToSingleTarget(TargetEffect::Inflict(EnemyCondition::Vulnerable(1)))
+            ]
+        ),
+        define_card!(
+            (Uppercut(true), Attack, Uncommon, Two),
+            [
+                ToSingleTarget(TargetEffect::Deal(Damage::Blockable(13))),
+                ToSingleTarget(TargetEffect::Inflict(EnemyCondition::Weak(2))),
+                ToSingleTarget(TargetEffect::Inflict(EnemyCondition::Vulnerable(2)))
+            ]
+        ),
+        define_card!(
+            (Violence(false), Skill, Rare, Zero),
+            [ManipulateCards(
+                CardSource::AttacksInDrawPile,
+                CardSelection::Random(3),
+                CardDestination::Hand,
+                CostModifier::None
+            )],
+            exhaust
+        ),
+        define_card!(
+            (Violence(true), Skill, Rare, Zero),
+            [ManipulateCards(
+                CardSource::AttacksInDrawPile,
+                CardSelection::Random(4),
+                CardDestination::Hand,
+                CostModifier::None
+            )],
+            exhaust
+        ),
+        define_card!(
+            (Void, Status, Special, Zero),
+            [],
+            [
+                ethereal,
+                on_draw(PlayerEffect::Lose(Resource::Energy(1))),
+                unplayable
+            ]
+        ),
+        define_card!(
+            (Warcry(false), Skill, Common, Zero),
+            [
+                Draw(1),
+                ManipulateCards(
+                    CardSource::Hand,
+                    CardSelection::PlayerChoice(1),
+                    CardDestination::TopOfDrawPile,
+                    CostModifier::None
+                )
+            ],
+            exhaust
+        ),
+        define_card!(
+            (Warcry(true), Skill, Common, Zero),
+            [
+                Draw(2),
+                ManipulateCards(
+                    CardSource::Hand,
+                    CardSelection::PlayerChoice(1),
+                    CardDestination::TopOfDrawPile,
+                    CostModifier::None
+                )
+            ],
+            exhaust
+        ),
+        define_card!(
+            (Whirlwind(false), Attack, Uncommon, X),
+            [ToAllEnemies(TargetEffect::DealXTimes(Damage::Blockable(5)))]
+        ),
+        define_card!(
+            (Whirlwind(true), Attack, Uncommon, X),
+            [ToAllEnemies(TargetEffect::DealXTimes(Damage::Blockable(8)))]
+        ),
+        define_card!(
+            (WildStrike(false), Attack, Common, One),
+            [
+                ToSingleTarget(TargetEffect::Deal(Damage::Blockable(12))),
+                CreateCards(
+                    CardPool::Fixed(&[Card::Wound]),
+                    CardSelection::All,
+                    CardDestination::DiscardPile,
+                    CostModifier::None
+                )
+            ]
+        ),
+        define_card!(
+            (WildStrike(true), Attack, Common, One),
+            [
+                ToSingleTarget(TargetEffect::Deal(Damage::Blockable(17))),
+                CreateCards(
+                    CardPool::Fixed(&[Card::Wound]),
+                    CardSelection::All,
+                    CardDestination::DiscardPile,
+                    CostModifier::None
+                )
+            ]
+        ),
+        define_card!((Wound, Status, Special, Zero), [], [unplayable]),
+        define_card!((Writhe, Curse, Special, Zero), [], [innate, unplayable]),
     ]
 });
 
@@ -1443,42 +2274,423 @@ static CARD_DETAILS: Lazy<HashMap<Card, &'static CardDetails>> = Lazy::new(|| {
         ALL_CARDS.iter().map(|card| (card.card, card)).collect();
     for i in 0..30 {
         let card_details = Box::leak(Box::new(
-            CardDetails::new(Card::SearingBlow(i), CardType::Attack, EnergyCost::Two)
-                .push(PlayerEffect::DealDamage(12 + i * (i + 7) / 2))
-                .requires_target(),
+            CardDetails::new(
+                Card::SearingBlow(i),
+                CardType::Attack,
+                CardRarity::Uncommon,
+                EnergyCost::Two,
+            )
+            .push_on_play(PlayerEffect::ToSingleTarget(TargetEffect::Deal(
+                Damage::Blockable(12 + i * (i + 7) / 2),
+            ))),
         ));
         map.insert(Card::SearingBlow(i), card_details);
     }
     map
 });
 
+fn calculate_upgrade(card: Card) -> Option<Card> {
+    match card {
+        Card::Accuracy(false) => Some(Card::Accuracy(true)),
+        Card::Acrobatics(false) => Some(Card::Acrobatics(true)),
+        Card::Adrenaline(false) => Some(Card::Adrenaline(true)),
+        Card::AfterImage(false) => Some(Card::AfterImage(true)),
+        Card::Aggregate(false) => Some(Card::Aggregate(true)),
+        Card::Alchemize(false) => Some(Card::Alchemize(true)),
+        Card::AllForOne(false) => Some(Card::AllForOne(true)),
+        Card::AllOutAttack(false) => Some(Card::AllOutAttack(true)),
+        Card::Alpha(false) => Some(Card::Alpha(true)),
+        Card::Amplify(false) => Some(Card::Amplify(true)),
+        Card::Anger(false) => Some(Card::Anger(true)),
+        Card::Apotheosis(false) => Some(Card::Apotheosis(true)),
+        Card::Apparition(false) => Some(Card::Apparition(true)),
+        Card::Armaments(false) => Some(Card::Armaments(true)),
+        Card::AscendersBane => None,
+        Card::AThousandCuts(false) => Some(Card::AThousandCuts(true)),
+        Card::AutoShields(false) => Some(Card::AutoShields(true)),
+        Card::Backflip(false) => Some(Card::Backflip(true)),
+        Card::Backstab(false) => Some(Card::Backstab(true)),
+        Card::BallLightning(false) => Some(Card::BallLightning(true)),
+        Card::BandageUp(false) => Some(Card::BandageUp(true)),
+        Card::Bane(false) => Some(Card::Bane(true)),
+        Card::Barrage(false) => Some(Card::Barrage(true)),
+        Card::Barricade(false) => Some(Card::Barricade(true)),
+        Card::Bash(false) => Some(Card::Bash(true)),
+        Card::BattleHymn(false) => Some(Card::BattleHymn(true)),
+        Card::BattleTrance(false) => Some(Card::BattleTrance(true)),
+        Card::BeamCell(false) => Some(Card::BeamCell(true)),
+        Card::Berserk(false) => Some(Card::Berserk(true)),
+        Card::Beta(false) => Some(Card::Beta(true)),
+        Card::BiasedCognition(false) => Some(Card::BiasedCognition(true)),
+        Card::Bite(false) => Some(Card::Bite(true)),
+        Card::BladeDance(false) => Some(Card::BladeDance(true)),
+        Card::Blasphemy(false) => Some(Card::Blasphemy(true)),
+        Card::Blind(false) => Some(Card::Blind(true)),
+        Card::Blizzard(false) => Some(Card::Blizzard(true)),
+        Card::BloodForBlood(false) => Some(Card::BloodForBlood(true)),
+        Card::Bloodletting(false) => Some(Card::Bloodletting(true)),
+        Card::Bludgeon(false) => Some(Card::Bludgeon(true)),
+        Card::Blur(false) => Some(Card::Blur(true)),
+        Card::BodySlam(false) => Some(Card::BodySlam(true)),
+        Card::BootSequence(false) => Some(Card::BootSequence(true)),
+        Card::BouncingFlask(false) => Some(Card::BouncingFlask(true)),
+        Card::BowlingBash(false) => Some(Card::BowlingBash(true)),
+        Card::Brilliance(false) => Some(Card::Brilliance(true)),
+        Card::Brutality(false) => Some(Card::Brutality(true)),
+        Card::Buffer(false) => Some(Card::Buffer(true)),
+        Card::BulletTime(false) => Some(Card::BulletTime(true)),
+        Card::Bullseye(false) => Some(Card::Bullseye(true)),
+        Card::Burn(false) => Some(Card::Burn(true)),
+        Card::BurningPact(false) => Some(Card::BurningPact(true)),
+        Card::Burst(false) => Some(Card::Burst(true)),
+        Card::CalculatedGamble(false) => Some(Card::CalculatedGamble(true)),
+        Card::Caltrops(false) => Some(Card::Caltrops(true)),
+        Card::Capacitor(false) => Some(Card::Capacitor(true)),
+        Card::Carnage(false) => Some(Card::Carnage(true)),
+        Card::CarveReality(false) => Some(Card::CarveReality(true)),
+        Card::Catalyst(false) => Some(Card::Catalyst(true)),
+        Card::Chaos(false) => Some(Card::Chaos(true)),
+        Card::ChargeBattery(false) => Some(Card::ChargeBattery(true)),
+        Card::Chill(false) => Some(Card::Chill(true)),
+        Card::Choke(false) => Some(Card::Choke(true)),
+        Card::Chrysalis(false) => Some(Card::Chrysalis(true)),
+        Card::Clash(false) => Some(Card::Clash(true)),
+        Card::Claw(false) => Some(Card::Claw(true)),
+        Card::Cleave(false) => Some(Card::Cleave(true)),
+        Card::CloakAndDagger(false) => Some(Card::CloakAndDagger(true)),
+        Card::Clothesline(false) => Some(Card::Clothesline(true)),
+        Card::Clumsy => None,
+        Card::ColdSnap(false) => Some(Card::ColdSnap(true)),
+        Card::Collect(false) => Some(Card::Collect(true)),
+        Card::Combust(false) => Some(Card::Combust(true)),
+        Card::CompileDriver(false) => Some(Card::CompileDriver(true)),
+        Card::Concentrate(false) => Some(Card::Concentrate(true)),
+        Card::Conclude(false) => Some(Card::Conclude(true)),
+        Card::ConjureBlade(false) => Some(Card::ConjureBlade(true)),
+        Card::Consecrate(false) => Some(Card::Consecrate(true)),
+        Card::Consume(false) => Some(Card::Consume(true)),
+        Card::Coolheaded(false) => Some(Card::Coolheaded(true)),
+        Card::CoreSurge(false) => Some(Card::CoreSurge(true)),
+        Card::CorpseExplosion(false) => Some(Card::CorpseExplosion(true)),
+        Card::Corruption(false) => Some(Card::Corruption(true)),
+        Card::CreativeAi(false) => Some(Card::CreativeAi(true)),
+        Card::Crescendo(false) => Some(Card::Crescendo(true)),
+        Card::CripplingCloud(false) => Some(Card::CripplingCloud(true)),
+        Card::CrushJoints(false) => Some(Card::CrushJoints(true)),
+        Card::CurseOfTheBell => None,
+        Card::CutThroughFate(false) => Some(Card::CutThroughFate(true)),
+        Card::DaggerSpray(false) => Some(Card::DaggerSpray(true)),
+        Card::DaggerThrow(false) => Some(Card::DaggerThrow(true)),
+        Card::DarkEmbrace(false) => Some(Card::DarkEmbrace(true)),
+        Card::Darkness(false) => Some(Card::Darkness(true)),
+        Card::DarkShackles(false) => Some(Card::DarkShackles(true)),
+        Card::Dash(false) => Some(Card::Dash(true)),
+        Card::Dazed => None,
+        Card::DeadlyPoison(false) => Some(Card::DeadlyPoison(true)),
+        Card::Decay => None,
+        Card::DeceiveReality(false) => Some(Card::DeceiveReality(true)),
+        Card::DeepBreath(false) => Some(Card::DeepBreath(true)),
+        Card::Defend(false) => Some(Card::Defend(true)),
+        Card::Deflect(false) => Some(Card::Deflect(true)),
+        Card::Defragment(false) => Some(Card::Defragment(true)),
+        Card::DemonForm(false) => Some(Card::DemonForm(true)),
+        Card::DeusExMachina(false) => Some(Card::DeusExMachina(true)),
+        Card::DevaForm(false) => Some(Card::DevaForm(true)),
+        Card::Devotion(false) => Some(Card::Devotion(true)),
+        Card::DieDieDie(false) => Some(Card::DieDieDie(true)),
+        Card::Disarm(false) => Some(Card::Disarm(true)),
+        Card::Discovery(false) => Some(Card::Discovery(true)),
+        Card::Distraction(false) => Some(Card::Distraction(true)),
+        Card::DodgeAndRoll(false) => Some(Card::DodgeAndRoll(true)),
+        Card::DoomAndGloom(false) => Some(Card::DoomAndGloom(true)),
+        Card::Doppelganger(false) => Some(Card::Doppelganger(true)),
+        Card::DoubleEnergy(false) => Some(Card::DoubleEnergy(true)),
+        Card::DoubleTap(false) => Some(Card::DoubleTap(true)),
+        Card::Doubt => None,
+        Card::DramaticEntrance(false) => Some(Card::DramaticEntrance(true)),
+        Card::Dropkick(false) => Some(Card::Dropkick(true)),
+        Card::Dualcast(false) => Some(Card::Dualcast(true)),
+        Card::DualWield(false) => Some(Card::DualWield(true)),
+        Card::EchoForm(false) => Some(Card::EchoForm(true)),
+        Card::Electrodynamics(false) => Some(Card::Electrodynamics(true)),
+        Card::EmptyBody(false) => Some(Card::EmptyBody(true)),
+        Card::EmptyFist(false) => Some(Card::EmptyFist(true)),
+        Card::EmptyMind(false) => Some(Card::EmptyMind(true)),
+        Card::EndlessAgony(false) => Some(Card::EndlessAgony(true)),
+        Card::Enlightenment(false) => Some(Card::Enlightenment(true)),
+        Card::Entrench(false) => Some(Card::Entrench(true)),
+        Card::Envenom(false) => Some(Card::Envenom(true)),
+        Card::Equilibrium(false) => Some(Card::Equilibrium(true)),
+        Card::Eruption(false) => Some(Card::Eruption(true)),
+        Card::EscapePlan(false) => Some(Card::EscapePlan(true)),
+        Card::Establishment(false) => Some(Card::Establishment(true)),
+        Card::Evaluate(false) => Some(Card::Evaluate(true)),
+        Card::Eviscerate(false) => Some(Card::Eviscerate(true)),
+        Card::Evolve(false) => Some(Card::Evolve(true)),
+        Card::Exhume(false) => Some(Card::Exhume(true)),
+        Card::Expertise(false) => Some(Card::Expertise(true)),
+        Card::Expunger(false) => Some(Card::Expunger(true)),
+        Card::Fasting(false) => Some(Card::Fasting(true)),
+        Card::FearNoEvil(false) => Some(Card::FearNoEvil(true)),
+        Card::Feed(false) => Some(Card::Feed(true)),
+        Card::FeelNoPain(false) => Some(Card::FeelNoPain(true)),
+        Card::FiendFire(false) => Some(Card::FiendFire(true)),
+        Card::Finesse(false) => Some(Card::Finesse(true)),
+        Card::Finisher(false) => Some(Card::Finisher(true)),
+        Card::FireBreathing(false) => Some(Card::FireBreathing(true)),
+        Card::Fission(false) => Some(Card::Fission(true)),
+        Card::FlameBarrier(false) => Some(Card::FlameBarrier(true)),
+        Card::FlashOfSteel(false) => Some(Card::FlashOfSteel(true)),
+        Card::Flechettes(false) => Some(Card::Flechettes(true)),
+        Card::Flex(false) => Some(Card::Flex(true)),
+        Card::FlurryOfBlows(false) => Some(Card::FlurryOfBlows(true)),
+        Card::FlyingKnee(false) => Some(Card::FlyingKnee(true)),
+        Card::FlyingSleeves(false) => Some(Card::FlyingSleeves(true)),
+        Card::FollowUp(false) => Some(Card::FollowUp(true)),
+        Card::Footwork(false) => Some(Card::Footwork(true)),
+        Card::ForceField(false) => Some(Card::ForceField(true)),
+        Card::ForeignInfluence(false) => Some(Card::ForeignInfluence(true)),
+        Card::Foresight(false) => Some(Card::Foresight(true)),
+        Card::Forethought(false) => Some(Card::Forethought(true)),
+        Card::Ftl(false) => Some(Card::Ftl(true)),
+        Card::Fusion(false) => Some(Card::Fusion(true)),
+        Card::GeneticAlgorithm(false) => Some(Card::GeneticAlgorithm(true)),
+        Card::GhostlyArmor(false) => Some(Card::GhostlyArmor(true)),
+        Card::Glacier(false) => Some(Card::Glacier(true)),
+        Card::GlassKnife(false) => Some(Card::GlassKnife(true)),
+        Card::GoForTheEyes(false) => Some(Card::GoForTheEyes(true)),
+        Card::GoodInstincts(false) => Some(Card::GoodInstincts(true)),
+        Card::GrandFinale(false) => Some(Card::GrandFinale(true)),
+        Card::Halt(false) => Some(Card::Halt(true)),
+        Card::HandOfGreed(false) => Some(Card::HandOfGreed(true)),
+        Card::Havoc(false) => Some(Card::Havoc(true)),
+        Card::Headbutt(false) => Some(Card::Headbutt(true)),
+        Card::Heatsinks(false) => Some(Card::Heatsinks(true)),
+        Card::HeavyBlade(false) => Some(Card::HeavyBlade(true)),
+        Card::HeelHook(false) => Some(Card::HeelHook(true)),
+        Card::HelloWorld(false) => Some(Card::HelloWorld(true)),
+        Card::Hemokinesis(false) => Some(Card::Hemokinesis(true)),
+        Card::Hologram(false) => Some(Card::Hologram(true)),
+        Card::Hyperbeam(false) => Some(Card::Hyperbeam(true)),
+        Card::Immolate(false) => Some(Card::Immolate(true)),
+        Card::Impatience(false) => Some(Card::Impatience(true)),
+        Card::Impervious(false) => Some(Card::Impervious(true)),
+        Card::Indignation(false) => Some(Card::Indignation(true)),
+        Card::InfernalBlade(false) => Some(Card::InfernalBlade(true)),
+        Card::InfiniteBlades(false) => Some(Card::InfiniteBlades(true)),
+        Card::Inflame(false) => Some(Card::Inflame(true)),
+        Card::Injury => None,
+        Card::InnerPeace(false) => Some(Card::InnerPeace(true)),
+        Card::Insight(false) => Some(Card::Insight(true)),
+        Card::Intimidate(false) => Some(Card::Intimidate(true)),
+        Card::IronWave(false) => Some(Card::IronWave(true)),
+        Card::JackOfAllTrades(false) => Some(Card::JackOfAllTrades(true)),
+        Card::Jax(false) => Some(Card::Jax(true)),
+        Card::Judgment(false) => Some(Card::Judgment(true)),
+        Card::Juggernaut(false) => Some(Card::Juggernaut(true)),
+        Card::JustLucky(false) => Some(Card::JustLucky(true)),
+        Card::Leap(false) => Some(Card::Leap(true)),
+        Card::LegSweep(false) => Some(Card::LegSweep(true)),
+        Card::LessonLearned(false) => Some(Card::LessonLearned(true)),
+        Card::LikeWater(false) => Some(Card::LikeWater(true)),
+        Card::LimitBreak(false) => Some(Card::LimitBreak(true)),
+        Card::Loop(false) => Some(Card::Loop(true)),
+        Card::MachineLearning(false) => Some(Card::MachineLearning(true)),
+        Card::Madness(false) => Some(Card::Madness(true)),
+        Card::Magnetism(false) => Some(Card::Magnetism(true)),
+        Card::Malaise(false) => Some(Card::Malaise(true)),
+        Card::MasterfulStab(false) => Some(Card::MasterfulStab(true)),
+        Card::MasterOfStrategy(false) => Some(Card::MasterOfStrategy(true)),
+        Card::MasterReality(false) => Some(Card::MasterReality(true)),
+        Card::Mayhem(false) => Some(Card::Mayhem(true)),
+        Card::Meditate(false) => Some(Card::Meditate(true)),
+        Card::Melter(false) => Some(Card::Melter(true)),
+        Card::MentalFortress(false) => Some(Card::MentalFortress(true)),
+        Card::Metallicize(false) => Some(Card::Metallicize(true)),
+        Card::Metamorphosis(false) => Some(Card::Metamorphosis(true)),
+        Card::MeteorStrike(false) => Some(Card::MeteorStrike(true)),
+        Card::MindBlast(false) => Some(Card::MindBlast(true)),
+        Card::Miracle(false) => Some(Card::Miracle(true)),
+        Card::MultiCast(false) => Some(Card::MultiCast(true)),
+        Card::Necronomicurse => None,
+        Card::Neutralize(false) => Some(Card::Neutralize(true)),
+        Card::Nightmare(false) => Some(Card::Nightmare(true)),
+        Card::Nirvana(false) => Some(Card::Nirvana(true)),
+        Card::Normality => None,
+        Card::NoxiousFumes(false) => Some(Card::NoxiousFumes(true)),
+        Card::Offering(false) => Some(Card::Offering(true)),
+        Card::Omega(false) => Some(Card::Omega(true)),
+        Card::Omniscience(false) => Some(Card::Omniscience(true)),
+        Card::Outmaneuver(false) => Some(Card::Outmaneuver(true)),
+        Card::Overclock(false) => Some(Card::Overclock(true)),
+        Card::Pain => None,
+        Card::Panacea(false) => Some(Card::Panacea(true)),
+        Card::Panache(false) => Some(Card::Panache(true)),
+        Card::PanicButton(false) => Some(Card::PanicButton(true)),
+        Card::Parasite => None,
+        Card::PerfectedStrike(false) => Some(Card::PerfectedStrike(true)),
+        Card::Perserverance(false) => Some(Card::Perserverance(true)),
+        Card::PhantasmalKiller(false) => Some(Card::PhantasmalKiller(true)),
+        Card::PiercingWail(false) => Some(Card::PiercingWail(true)),
+        Card::PoisonedStab(false) => Some(Card::PoisonedStab(true)),
+        Card::PommelStrike(false) => Some(Card::PommelStrike(true)),
+        Card::PowerThrough(false) => Some(Card::PowerThrough(true)),
+        Card::Pray(false) => Some(Card::Pray(true)),
+        Card::Predator(false) => Some(Card::Predator(true)),
+        Card::Prepared(false) => Some(Card::Prepared(true)),
+        Card::PressurePoints(false) => Some(Card::PressurePoints(true)),
+        Card::Pride(false) => Some(Card::Pride(true)),
+        Card::Prostrate(false) => Some(Card::Prostrate(true)),
+        Card::Protect(false) => Some(Card::Protect(true)),
+        Card::Pummel(false) => Some(Card::Pummel(true)),
+        Card::Purity(false) => Some(Card::Purity(true)),
+        Card::QuickSlash(false) => Some(Card::QuickSlash(true)),
+        Card::Rage(false) => Some(Card::Rage(true)),
+        Card::Ragnarok(false) => Some(Card::Ragnarok(true)),
+        Card::Rainbow(false) => Some(Card::Rainbow(true)),
+        Card::Rampage(false) => Some(Card::Rampage(true)),
+        Card::ReachHeaven(false) => Some(Card::ReachHeaven(true)),
+        Card::Reaper(false) => Some(Card::Reaper(true)),
+        Card::Reboot(false) => Some(Card::Reboot(true)),
+        Card::Rebound(false) => Some(Card::Rebound(true)),
+        Card::RecklessCharge(false) => Some(Card::RecklessCharge(true)),
+        Card::Recursion(false) => Some(Card::Recursion(true)),
+        Card::Recycle(false) => Some(Card::Recycle(true)),
+        Card::Reflex(false) => Some(Card::Reflex(true)),
+        Card::Regret => None,
+        Card::ReinforcedBody(false) => Some(Card::ReinforcedBody(true)),
+        Card::Reprogram(false) => Some(Card::Reprogram(true)),
+        Card::RiddleWithHoles(false) => Some(Card::RiddleWithHoles(true)),
+        Card::RipAndTear(false) => Some(Card::RipAndTear(true)),
+        Card::RitualDagger(false) => Some(Card::RitualDagger(true)),
+        Card::Rupture(false) => Some(Card::Rupture(true)),
+        Card::Rushdown(false) => Some(Card::Rushdown(true)),
+        Card::SadisticNature(false) => Some(Card::SadisticNature(true)),
+        Card::Safety(false) => Some(Card::Safety(true)),
+        Card::Sanctity(false) => Some(Card::Sanctity(true)),
+        Card::SandsOfTime(false) => Some(Card::SandsOfTime(true)),
+        Card::SashWhip(false) => Some(Card::SashWhip(true)),
+        Card::Scrape(false) => Some(Card::Scrape(true)),
+        Card::Scrawl(false) => Some(Card::Scrawl(true)),
+        Card::SearingBlow(i) => Some(Card::SearingBlow(i + 1)),
+        Card::SecondWind(false) => Some(Card::SecondWind(true)),
+        Card::SecretTechnique(false) => Some(Card::SecretTechnique(true)),
+        Card::SecretWeapon(false) => Some(Card::SecretWeapon(true)),
+        Card::SeeingRed(false) => Some(Card::SeeingRed(true)),
+        Card::Seek(false) => Some(Card::Seek(true)),
+        Card::SelfRepair(false) => Some(Card::SelfRepair(true)),
+        Card::Sentinel(false) => Some(Card::Sentinel(true)),
+        Card::Setup(false) => Some(Card::Setup(true)),
+        Card::SeverSoul(false) => Some(Card::SeverSoul(true)),
+        Card::Shame => None,
+        Card::SimmeringFury(false) => Some(Card::SimmeringFury(true)),
+        Card::Shiv(false) => Some(Card::Shiv(true)),
+        Card::Shockwave(false) => Some(Card::Shockwave(true)),
+        Card::ShrugItOff(false) => Some(Card::ShrugItOff(true)),
+        Card::SignatureMove(false) => Some(Card::SignatureMove(true)),
+        Card::Skewer(false) => Some(Card::Skewer(true)),
+        Card::Skim(false) => Some(Card::Skim(true)),
+        Card::Slice(false) => Some(Card::Slice(true)),
+        Card::Slimed => None,
+        Card::Smite(false) => Some(Card::Smite(true)),
+        Card::SneakyStrike(false) => Some(Card::SneakyStrike(true)),
+        Card::SpiritShield(false) => Some(Card::SpiritShield(true)),
+        Card::SpotWeakness(false) => Some(Card::SpotWeakness(true)),
+        Card::Stack(false) => Some(Card::Stack(true)),
+        Card::StaticDischarge(false) => Some(Card::StaticDischarge(true)),
+        Card::SteamBarrier(false) => Some(Card::SteamBarrier(true)),
+        Card::Storm(false) => Some(Card::Storm(true)),
+        Card::StormOfSteel(false) => Some(Card::StormOfSteel(true)),
+        Card::Streamline(false) => Some(Card::Streamline(true)),
+        Card::Strike(false) => Some(Card::Strike(true)),
+        Card::Study(false) => Some(Card::Study(true)),
+        Card::SuckerPunch(false) => Some(Card::SuckerPunch(true)),
+        Card::Sunder(false) => Some(Card::Sunder(true)),
+        Card::Survivor(false) => Some(Card::Survivor(true)),
+        Card::SweepingBeam(false) => Some(Card::SweepingBeam(true)),
+        Card::SwiftStrike(false) => Some(Card::SwiftStrike(true)),
+        Card::Swivel(false) => Some(Card::Swivel(true)),
+        Card::SwordBoomerang(false) => Some(Card::SwordBoomerang(true)),
+        Card::Tactician(false) => Some(Card::Tactician(true)),
+        Card::TalkToTheHand(false) => Some(Card::TalkToTheHand(true)),
+        Card::Tantrum(false) => Some(Card::Tantrum(true)),
+        Card::Tempest(false) => Some(Card::Tempest(true)),
+        Card::Terror(false) => Some(Card::Terror(true)),
+        Card::TheBomb(false) => Some(Card::TheBomb(true)),
+        Card::ThinkingAhead(false) => Some(Card::ThinkingAhead(true)),
+        Card::ThirdEye(false) => Some(Card::ThirdEye(true)),
+        Card::ThroughViolence(false) => Some(Card::ThroughViolence(true)),
+        Card::Thunderclap(false) => Some(Card::Thunderclap(true)),
+        Card::ThunderStrike(false) => Some(Card::ThunderStrike(true)),
+        Card::ToolsOfTheTrade(false) => Some(Card::ToolsOfTheTrade(true)),
+        Card::Tranquility(false) => Some(Card::Tranquility(true)),
+        Card::Transmutation(false) => Some(Card::Transmutation(true)),
+        Card::Trip(false) => Some(Card::Trip(true)),
+        Card::TrueGrit(false) => Some(Card::TrueGrit(true)),
+        Card::Turbo(false) => Some(Card::Turbo(true)),
+        Card::TwinStrike(false) => Some(Card::TwinStrike(true)),
+        Card::Unload(false) => Some(Card::Unload(true)),
+        Card::Uppercut(false) => Some(Card::Uppercut(true)),
+        Card::Vault(false) => Some(Card::Vault(true)),
+        Card::Vigilance(false) => Some(Card::Vigilance(true)),
+        Card::Violence(false) => Some(Card::Violence(true)),
+        Card::Void => None,
+        Card::Wallop(false) => Some(Card::Wallop(true)),
+        Card::Warcry(false) => Some(Card::Warcry(true)),
+        Card::WaveOfTheHand(false) => Some(Card::WaveOfTheHand(true)),
+        Card::Weave(false) => Some(Card::Weave(true)),
+        Card::WellLaidPlans(false) => Some(Card::WellLaidPlans(true)),
+        Card::WheelKick(false) => Some(Card::WheelKick(true)),
+        Card::Whirlwind(false) => Some(Card::Whirlwind(true)),
+        Card::WhiteNoise(false) => Some(Card::WhiteNoise(true)),
+        Card::WildStrike(false) => Some(Card::WildStrike(true)),
+        Card::WindmillStrike(false) => Some(Card::WindmillStrike(true)),
+        Card::Wish(false) => Some(Card::Wish(true)),
+        Card::Worship(false) => Some(Card::Worship(true)),
+        Card::Wound => None,
+        Card::WraithForm(false) => Some(Card::WraithForm(true)),
+        Card::WreathOfFlame(false) => Some(Card::WreathOfFlame(true)),
+        Card::Writhe => None,
+        Card::Zap(false) => Some(Card::Zap(true)),
+        _ => None,
+    }
+}
+
 #[cfg(test)]
 mod test {
+    use std::collections::HashSet;
+
     use super::*;
 
+    fn has_x_effect(card: &CardDetails) -> bool {
+        card.on_play.iter().any(|effect| {
+            matches!(
+                effect,
+                PlayerEffect::ToAllEnemies(TargetEffect::DealXTimes(_))
+                    | PlayerEffect::CreateCards(_, CardSelection::RandomX, _, _)
+                    | PlayerEffect::ManipulateCards(_, CardSelection::RandomX, _, _)
+            )
+        })
+    }
+
     #[test]
-    fn test_requires_target_properly_set() {
+    fn test_cost_x_cards() {
         for card in ALL_CARDS.iter() {
-            let should_require_target = card.effect_chain.iter().any(|effect| {
-                matches!(
-                    effect,
-                    PlayerEffect::Apply(_)
-                        | PlayerEffect::DealDamage(_)
-                        | PlayerEffect::DealDamageWithStrengthMultiplier(_, _)
-                        | PlayerEffect::SapStrength(_)
-                )
-            });
-            if card
-                .effect_chain
-                .iter()
-                .any(|effect| matches!(effect, PlayerEffect::DealDamageCustom()))
-            {
-                continue;
+            if card.cost == EnergyCost::X {
+                assert!(has_x_effect(card));
             }
-            assert_eq!(
-                (card.card, card.requires_target),
-                (card.card, should_require_target)
-            );
+
+            if has_x_effect(card) {
+                assert_eq!(card.cost, EnergyCost::X);
+            }
+        }
+    }
+
+    #[test]
+    fn test_no_duplicates() {
+        let mut seen = HashSet::new();
+        for card in ALL_CARDS.iter() {
+            assert!(seen.insert(card.card), "Duplicate card: {:?}", card.card);
         }
     }
 }

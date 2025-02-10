@@ -1,39 +1,78 @@
 use anyhow::{anyhow, Error};
 
 use crate::components::map::{ExitBits, Map, MapHighlighter, ROW_COUNT};
-use crate::components::Room;
+use crate::components::{Choice, Interaction, Notification, PlayerPersistentState, Prompt, Room};
 use crate::data::Act;
+use crate::systems::base::PotionSystem;
 use crate::systems::map::MapBuilder;
-use crate::systems::player::Player;
 use crate::systems::rng::Seed;
 use crate::types::{ColumnIndex, RowIndex};
-use crate::Notification;
 
-pub struct MapSimulator {
+pub struct MapNavigationSimulator<'a, I: Interaction> {
     // Current player location (row, column) in the map
     player_location: Option<(RowIndex, ColumnIndex)>,
 
     // Computed map for this act
     map: Map,
+
+    // Player I/O
+    comms: &'a I,
 }
 
-impl MapSimulator {
-    pub fn new(seed: Seed) -> Self {
+impl<'a, I: Interaction> MapNavigationSimulator<'a, I> {
+    pub fn new(seed: Seed, comms: &'a I) -> Self {
         let map = MapBuilder::from(seed, Act::get(1)).build();
         Self {
             player_location: None,
             map,
+            comms,
         }
     }
 
-    pub fn send_map_to_player(&self, player: &mut Player) -> Result<(), Error> {
-        player
-            .comms
+    pub fn send_map_to_player(&self) -> Result<(), Error> {
+        self.comms
             .send_notification(Notification::Map(self.map_string()))?;
         Ok(())
     }
 
-    pub fn advance(&mut self, player: &mut Player) -> Result<Room, Error> {
+    fn climb_floor(
+        &self,
+        player_persistent_state: &mut PlayerPersistentState,
+        climb_options: &[ColumnIndex],
+    ) -> Result<ColumnIndex, Error> {
+        loop {
+            let mut choices = climb_options
+                .iter()
+                .copied()
+                .map(Choice::ClimbFloor)
+                .collect();
+            let prompt = if PotionSystem::extend_with_potion_actions(
+                &player_persistent_state.potions,
+                false,
+                &mut choices,
+            ) {
+                Prompt::ClimbFloorHasPotion
+            } else {
+                Prompt::ClimbFloor
+            };
+            match self.comms.prompt_for_choice(prompt, &choices)? {
+                Choice::ClimbFloor(column_index) => return Ok(*column_index),
+                Choice::ExpendPotion(potion_action) => PotionSystem::expend_potion_out_of_combat(
+                    self.comms,
+                    &mut player_persistent_state.potions,
+                    &potion_action,
+                    &mut player_persistent_state.health,
+                )?,
+
+                invalid => unreachable!("{:?}", invalid),
+            }
+        }
+    }
+
+    pub fn advance(
+        &mut self,
+        player_persistent_state: &mut PlayerPersistentState,
+    ) -> Result<Room, Error> {
         let (next_row_index, movement_options) = match self.player_location {
             // Player is not yet on the map, so may select any room in the bottom row.
             None => (
@@ -47,8 +86,7 @@ impl MapSimulator {
             Some((row_index, _)) if row_index == ROW_COUNT - 1 => {
                 self.player_location = None;
                 // TODO: something about advancing to the next Act
-                player
-                    .comms
+                self.comms
                     .send_notification(Notification::Map(self.map_string()))?;
                 return Ok(Room::Boss);
             }
@@ -73,7 +111,7 @@ impl MapSimulator {
                 (row_index + 1, columns.into_iter().collect::<Vec<_>>())
             }
         };
-        player.comms.send_notification(Notification::Map(
+        self.comms.send_notification(Notification::Map(
             self.highlighted_map_string(
                 &movement_options
                     .iter()
@@ -81,11 +119,10 @@ impl MapSimulator {
                     .collect::<Vec<_>>(),
             ),
         ))?;
-        let next_column_index = player.climb_floor(&movement_options)?;
+        let next_column_index = self.climb_floor(player_persistent_state, &movement_options)?;
         self.player_location = Some((next_row_index, next_column_index));
         if let Some(node) = self.map.get(next_row_index, next_column_index) {
-            player
-                .comms
+            self.comms
                 .send_notification(Notification::Map(self.map_string()))?;
             Ok(node.room)
         } else {

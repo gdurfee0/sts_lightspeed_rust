@@ -35,7 +35,7 @@ pub enum Relic {
     /// At the start of each combat, heal 2 HP.
     BloodVial,
 
-    /// Whenever you gain Gold, heal 5 HP.
+    /// [Done] Whenever you gain Gold, heal 5 HP.
     BloodyIdol,
 
     /// Curse cards can now be played. Playing a Curse will make you lose 1 HP & Exhausts the card.
@@ -135,7 +135,7 @@ pub enum Relic {
     /// Whenever you play an Attack, gain 1 temporary Dexterity.
     Duality,
 
-    /// Gain 1 Energy at the start of each turn. You can no longer gain Gold.
+    /// [1/2 Done] Gain 1 Energy at the start of each turn. You can no longer gain Gold.
     Ectoplasm,
 
     /// If you lost HP during the previous turn, trigger the passive ability of all Orbs

@@ -1,5 +1,3 @@
-mod player;
-mod player_in_combat;
+mod player_interaction;
 
-pub use player::Player;
-pub use player_in_combat::{CombatAction, PlayerInCombat};
+pub use player_interaction::PlayerInteraction;

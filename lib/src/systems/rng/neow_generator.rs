@@ -3,7 +3,11 @@ use crate::data::{
     THIRD_NEOW_POOL,
 };
 
-use super::{CardGenerator, PotionGenerator, RelicGenerator, Seed, StsRandom};
+use super::card_generator::CardGenerator;
+use super::potion_generator::PotionGenerator;
+use super::relic_generator::RelicGenerator;
+use super::seed::Seed;
+use super::sts_random::StsRandom;
 
 pub struct NeowGenerator<'a> {
     character: &'static Character,
@@ -237,16 +241,16 @@ mod test {
     fn test_one_curse() {
         let mut nge = NeowGeneratorEnvironment::new(2.into());
         let mut generator = nge.generator(IRONCLAD);
-        assert_eq!(generator.one_curse(), Card::Clumsy(false));
+        assert_eq!(generator.one_curse(), Card::Clumsy);
         let mut nge = NeowGeneratorEnvironment::new(11.into());
         let mut generator = nge.generator(IRONCLAD);
-        assert_eq!(generator.one_curse(), Card::Clumsy(false));
+        assert_eq!(generator.one_curse(), Card::Clumsy);
         let mut nge = NeowGeneratorEnvironment::new(12.into());
         let mut generator = nge.generator(IRONCLAD);
-        assert_eq!(generator.one_curse(), Card::Decay(false)); // TODO: Writhe?
+        assert_eq!(generator.one_curse(), Card::Decay); // TODO: Writhe?
         let mut nge = NeowGeneratorEnvironment::new(13.into());
         let mut generator = nge.generator(IRONCLAD);
-        assert_eq!(generator.one_curse(), Card::Parasite(false));
+        assert_eq!(generator.one_curse(), Card::Parasite);
     }
 
     #[test]

@@ -1,12 +1,11 @@
 use std::fmt;
 
-use crate::components::EnemyState;
 use crate::data::{Enemy, EnemyAction, EnemyCondition};
 use crate::systems::rng::StsRandom;
-use crate::types::{AttackDamage, HpMax, StackCount};
+use crate::types::{Hp, HpMax, StackCount};
 
 pub trait EnemyCharacteristics: fmt::Debug {
-    fn on_spawn(&self, ai_rng: &mut StsRandom) -> EnemyState;
+    fn on_spawn(&self, ai_rng: &mut StsRandom) -> (HpMax, Vec<EnemyCondition>, EnemyAction);
     fn next_action(
         &mut self,
         ai_rng: &mut StsRandom,
@@ -15,7 +14,7 @@ pub trait EnemyCharacteristics: fmt::Debug {
     ) -> EnemyAction;
 }
 
-pub fn create_enemy(enemy: Enemy, hp_rng: &mut StsRandom) -> Box<dyn EnemyCharacteristics> {
+pub fn gen_characteristics(enemy: Enemy, hp_rng: &mut StsRandom) -> Box<dyn EnemyCharacteristics> {
     match enemy {
         Enemy::AcidSlimeM => Box::new(AcidSlimeM::new(hp_rng)),
         Enemy::AcidSlimeS => Box::new(AcidSlimeS::new(hp_rng)),
@@ -67,7 +66,7 @@ impl AcidSlimeM {
         last_action: Option<EnemyAction>,
         run_length: usize,
     ) -> EnemyAction {
-        let result = match ai_rng.gen_range(0..100) {
+        match ai_rng.gen_range(0..100) {
             0..30
                 if last_action != Some(EnemyAction::AcidSlimeMCorrosiveSpit) || run_length < 2 =>
             {
@@ -94,20 +93,13 @@ impl AcidSlimeM {
                 (EnemyAction::AcidSlimeMCorrosiveSpit, 0.4),
                 (EnemyAction::AcidSlimeMTackle, 0.6),
             ]),
-        };
-        println!(
-            "AcidSlimeM ai_rng {} next_action: {:?}",
-            ai_rng.get_counter(),
-            result
-        );
-        result
+        }
     }
 }
 
 impl EnemyCharacteristics for AcidSlimeM {
-    fn on_spawn(&self, ai_rng: &mut StsRandom) -> EnemyState {
-        EnemyState::new(
-            Enemy::AcidSlimeM,
+    fn on_spawn(&self, ai_rng: &mut StsRandom) -> (HpMax, Vec<EnemyCondition>, EnemyAction) {
+        (
             self.hp_max,
             vec![],
             Self::next_action_helper(ai_rng, None, 0),
@@ -146,14 +138,14 @@ impl AcidSlimeS {
 }
 
 impl EnemyCharacteristics for AcidSlimeS {
-    fn on_spawn(&self, ai_rng: &mut StsRandom) -> EnemyState {
+    fn on_spawn(&self, ai_rng: &mut StsRandom) -> (HpMax, Vec<EnemyCondition>, EnemyAction) {
         let _ = ai_rng.gen_range(0..100);
         let first_action = if ai_rng.next_bool() {
             EnemyAction::AcidSlimeSTackle
         } else {
             EnemyAction::AcidSlimeSLick
         };
-        EnemyState::new(Enemy::AcidSlimeS, self.hp_max, vec![], first_action)
+        (self.hp_max, vec![], first_action)
     }
 
     fn next_action(
@@ -191,13 +183,8 @@ impl Cultist {
 }
 
 impl EnemyCharacteristics for Cultist {
-    fn on_spawn(&self, _: &mut StsRandom) -> EnemyState {
-        EnemyState::new(
-            Enemy::Cultist,
-            self.hp_max,
-            vec![],
-            EnemyAction::CultistIncantation,
-        )
+    fn on_spawn(&self, _: &mut StsRandom) -> (HpMax, Vec<EnemyCondition>, EnemyAction) {
+        (self.hp_max, vec![], EnemyAction::CultistIncantation)
     }
 
     fn next_action(&mut self, _: &mut StsRandom, _: EnemyAction, _: usize) -> EnemyAction {
@@ -248,10 +235,9 @@ impl FungiBeast {
 }
 
 impl EnemyCharacteristics for FungiBeast {
-    fn on_spawn(&self, ai_rng: &mut StsRandom) -> EnemyState {
+    fn on_spawn(&self, ai_rng: &mut StsRandom) -> (HpMax, Vec<EnemyCondition>, EnemyAction) {
         let first_action = Self::next_action_helper(ai_rng, None, 0);
-        EnemyState::new(
-            Enemy::FungiBeast,
+        (
             self.hp_max,
             vec![EnemyCondition::SporeCloud(2)],
             first_action,
@@ -279,7 +265,7 @@ impl EnemyCharacteristics for FungiBeast {
 #[derive(Debug)]
 struct GreenLouse {
     hp_max: HpMax,
-    bite_damage: AttackDamage,
+    bite_damage: Hp,
     curl_up_stacks: StackCount,
 }
 
@@ -312,10 +298,9 @@ impl GreenLouse {
 }
 
 impl EnemyCharacteristics for GreenLouse {
-    fn on_spawn(&self, ai_rng: &mut StsRandom) -> EnemyState {
+    fn on_spawn(&self, ai_rng: &mut StsRandom) -> (HpMax, Vec<EnemyCondition>, EnemyAction) {
         let first_action = self.next_action_helper(ai_rng, None, 0);
-        EnemyState::new(
-            Enemy::GreenLouse,
+        (
             self.hp_max,
             vec![EnemyCondition::CurlUp(self.curl_up_stacks)],
             first_action,
@@ -356,13 +341,8 @@ impl GremlinNob {
 }
 
 impl EnemyCharacteristics for GremlinNob {
-    fn on_spawn(&self, _: &mut StsRandom) -> EnemyState {
-        EnemyState::new(
-            Enemy::GremlinNob,
-            self.hp_max,
-            vec![],
-            EnemyAction::GremlinNobBellow,
-        )
+    fn on_spawn(&self, _: &mut StsRandom) -> (HpMax, Vec<EnemyCondition>, EnemyAction) {
+        (self.hp_max, vec![], EnemyAction::GremlinNobBellow)
     }
 
     fn next_action(
@@ -403,13 +383,8 @@ impl JawWorm {
 }
 
 impl EnemyCharacteristics for JawWorm {
-    fn on_spawn(&self, _: &mut StsRandom) -> EnemyState {
-        EnemyState::new(
-            Enemy::JawWorm,
-            self.hp_max,
-            vec![],
-            EnemyAction::JawWormChomp,
-        )
+    fn on_spawn(&self, _: &mut StsRandom) -> (HpMax, Vec<EnemyCondition>, EnemyAction) {
+        (self.hp_max, vec![], EnemyAction::JawWormChomp)
     }
 
     fn next_action(
@@ -482,9 +457,8 @@ impl SpikeSlimeM {
 }
 
 impl EnemyCharacteristics for SpikeSlimeM {
-    fn on_spawn(&self, ai_rng: &mut StsRandom) -> EnemyState {
-        EnemyState::new(
-            Enemy::SpikeSlimeM,
+    fn on_spawn(&self, ai_rng: &mut StsRandom) -> (HpMax, Vec<EnemyCondition>, EnemyAction) {
+        (
             self.hp_max,
             vec![],
             Self::next_action_helper(ai_rng, None, 0),
@@ -522,154 +496,13 @@ impl SpikeSlimeS {
 }
 
 impl EnemyCharacteristics for SpikeSlimeS {
-    fn on_spawn(&self, ai_rng: &mut StsRandom) -> EnemyState {
+    fn on_spawn(&self, ai_rng: &mut StsRandom) -> (HpMax, Vec<EnemyCondition>, EnemyAction) {
         let _ = ai_rng.gen_range(0..100); // Burn a random number for consistency with the game
-        EnemyState::new(
-            Enemy::SpikeSlimeS,
-            self.hp_max,
-            vec![],
-            EnemyAction::SpikeSlimeSTackle,
-        )
+        (self.hp_max, vec![], EnemyAction::SpikeSlimeSTackle)
     }
 
     fn next_action(&mut self, ai_rng: &mut StsRandom, _: EnemyAction, _: usize) -> EnemyAction {
         let _ = ai_rng.gen_range(0..100); // Burn a random number for consistency with the game
         EnemyAction::SpikeSlimeSTackle
-    }
-}
-
-#[cfg(test)]
-mod test {
-    use super::super::super::rng::Seed;
-
-    use crate::components::EnemyStatus;
-    use crate::data::Enemy;
-    use crate::systems::enemy::EnemyInCombat;
-
-    use super::*;
-
-    #[test]
-    fn test_acid_slime() {
-        let seed: Seed = 3u64.into();
-        let mut hp_rng = StsRandom::from(seed.with_offset(1));
-        let mut ai_rng = StsRandom::from(seed.with_offset(1));
-        let mut enemy =
-            EnemyInCombat::new(create_enemy(Enemy::AcidSlimeS, &mut hp_rng), &mut ai_rng);
-        let status = EnemyStatus::from(&enemy.state);
-        assert_eq!(status.enemy_type, Enemy::AcidSlimeS);
-        assert_eq!(status.hp, 12);
-        assert_eq!(status.hp_max, 12);
-        assert_eq!(status.conditions, Vec::new());
-        assert_eq!(enemy.next_action(&mut ai_rng), EnemyAction::AcidSlimeSLick);
-        assert_eq!(
-            enemy.next_action(&mut ai_rng),
-            EnemyAction::AcidSlimeSTackle
-        );
-        assert_eq!(enemy.next_action(&mut ai_rng), EnemyAction::AcidSlimeSLick);
-        assert_eq!(
-            enemy.next_action(&mut ai_rng),
-            EnemyAction::AcidSlimeSTackle
-        );
-        assert_eq!(enemy.next_action(&mut ai_rng), EnemyAction::AcidSlimeSLick);
-        assert_eq!(
-            enemy.next_action(&mut ai_rng),
-            EnemyAction::AcidSlimeSTackle
-        );
-        assert_eq!(enemy.next_action(&mut ai_rng), EnemyAction::AcidSlimeSLick);
-        assert_eq!(
-            enemy.next_action(&mut ai_rng),
-            EnemyAction::AcidSlimeSTackle
-        );
-
-        let mut hp_rng = StsRandom::from(seed.with_offset(1));
-        let mut ai_rng = StsRandom::from(seed.with_offset(1));
-        let mut enemy =
-            EnemyInCombat::new(create_enemy(Enemy::AcidSlimeM, &mut hp_rng), &mut ai_rng);
-        let status = EnemyStatus::from(&enemy.state);
-        assert_eq!(status.enemy_type, Enemy::AcidSlimeM);
-        assert_eq!(status.hp, 32);
-        assert_eq!(status.hp_max, 32);
-        assert_eq!(
-            enemy.next_action(&mut ai_rng),
-            EnemyAction::AcidSlimeMCorrosiveSpit
-        );
-        assert_eq!(
-            enemy.next_action(&mut ai_rng),
-            EnemyAction::AcidSlimeMTackle
-        );
-        assert_eq!(enemy.next_action(&mut ai_rng), EnemyAction::AcidSlimeMLick);
-        assert_eq!(
-            enemy.next_action(&mut ai_rng),
-            EnemyAction::AcidSlimeMCorrosiveSpit
-        );
-        assert_eq!(
-            enemy.next_action(&mut ai_rng),
-            EnemyAction::AcidSlimeMTackle
-        );
-        assert_eq!(
-            enemy.next_action(&mut ai_rng),
-            EnemyAction::AcidSlimeMCorrosiveSpit
-        );
-        assert_eq!(
-            enemy.next_action(&mut ai_rng),
-            EnemyAction::AcidSlimeMTackle
-        );
-        assert_eq!(enemy.next_action(&mut ai_rng), EnemyAction::AcidSlimeMLick);
-    }
-
-    #[test]
-    fn test_spike_slime() {
-        let seed: Seed = 8u64.into();
-        let mut hp_rng = StsRandom::from(seed.with_offset(1));
-        let mut ai_rng = StsRandom::from(seed.with_offset(1));
-        let mut enemy =
-            EnemyInCombat::new(create_enemy(Enemy::SpikeSlimeS, &mut hp_rng), &mut ai_rng);
-        let status = EnemyStatus::from(&enemy.state);
-        assert_eq!(status.enemy_type, Enemy::SpikeSlimeS);
-        assert_eq!(status.hp, 13);
-        assert_eq!(status.hp_max, 13);
-        assert_eq!(
-            enemy.next_action(&mut ai_rng),
-            EnemyAction::SpikeSlimeSTackle
-        );
-        assert_eq!(
-            enemy.next_action(&mut ai_rng),
-            EnemyAction::SpikeSlimeSTackle
-        );
-        assert_eq!(
-            enemy.next_action(&mut ai_rng),
-            EnemyAction::SpikeSlimeSTackle
-        );
-
-        let mut hp_rng = StsRandom::from(seed.with_offset(1));
-        let mut ai_rng = StsRandom::from(seed.with_offset(1));
-        let mut enemy =
-            EnemyInCombat::new(create_enemy(Enemy::SpikeSlimeM, &mut hp_rng), &mut ai_rng);
-        let status = EnemyStatus::from(&enemy.state);
-        assert_eq!(status.enemy_type, Enemy::SpikeSlimeM);
-        assert_eq!(status.hp, 31);
-        assert_eq!(enemy.next_action(&mut ai_rng), EnemyAction::SpikeSlimeMLick);
-        assert_eq!(enemy.next_action(&mut ai_rng), EnemyAction::SpikeSlimeMLick);
-        assert_eq!(
-            enemy.next_action(&mut ai_rng),
-            EnemyAction::SpikeSlimeMFlameTackle
-        );
-        assert_eq!(enemy.next_action(&mut ai_rng), EnemyAction::SpikeSlimeMLick);
-        assert_eq!(enemy.next_action(&mut ai_rng), EnemyAction::SpikeSlimeMLick);
-        assert_eq!(
-            enemy.next_action(&mut ai_rng),
-            EnemyAction::SpikeSlimeMFlameTackle
-        );
-        assert_eq!(enemy.next_action(&mut ai_rng), EnemyAction::SpikeSlimeMLick);
-        assert_eq!(enemy.next_action(&mut ai_rng), EnemyAction::SpikeSlimeMLick);
-        assert_eq!(
-            enemy.next_action(&mut ai_rng),
-            EnemyAction::SpikeSlimeMFlameTackle
-        );
-        assert_eq!(enemy.next_action(&mut ai_rng), EnemyAction::SpikeSlimeMLick);
-        assert_eq!(
-            enemy.next_action(&mut ai_rng),
-            EnemyAction::SpikeSlimeMFlameTackle
-        );
     }
 }

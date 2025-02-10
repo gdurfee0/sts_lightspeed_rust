@@ -2,25 +2,25 @@ use std::iter::once;
 
 use anyhow::Error;
 
+use crate::components::{Choice, Interaction, PlayerPersistentState, Prompt};
 use crate::data::{Card, Character, NeowBlessing, NeowBonus, NeowPenalty, Relic};
-use crate::systems::player::Player;
+use crate::systems::base::{DeckSystem, GoldSystem};
 use crate::systems::rng::{CardGenerator, NeowGenerator, PotionGenerator, RelicGenerator, Seed};
-use crate::{Choice, Prompt};
 
-pub struct NeowSimulator<'a> {
+pub struct NeowSimulator<'a, I: Interaction> {
     neow_generator: NeowGenerator<'a>,
     starting_relic: Relic,
-    player: &'a mut Player,
+    comms: &'a I,
 }
 
-impl<'a> NeowSimulator<'a> {
+impl<'a, I: Interaction> NeowSimulator<'a, I> {
     pub fn new(
         seed: Seed,
         character: &'static Character,
         card_generator: &'a mut CardGenerator,
         potion_generator: &'a mut PotionGenerator,
         relic_generator: &'a mut RelicGenerator,
-        player: &'a mut Player,
+        comms: &'a I,
     ) -> Self {
         let neow_generator = NeowGenerator::new(
             seed,
@@ -33,11 +33,11 @@ impl<'a> NeowSimulator<'a> {
         Self {
             starting_relic,
             neow_generator,
-            player,
+            comms,
         }
     }
 
-    pub fn run(mut self) -> Result<(), Error> {
+    pub fn run(mut self, player_persistent_state: &mut PlayerPersistentState) -> Result<(), Error> {
         let choices = self
             .neow_generator
             .blessing_choices()
@@ -45,27 +45,39 @@ impl<'a> NeowSimulator<'a> {
             .copied()
             .map(Choice::NeowBlessing)
             .collect::<Vec<_>>();
-        match self
-            .player
-            .comms
-            .prompt_for_choice(Prompt::ChooseNeow, &choices)?
-        {
-            Choice::NeowBlessing(blessing) => self.handle_neow_blessing(*blessing),
+        match self.comms.prompt_for_choice(Prompt::ChooseNeow, &choices)? {
+            Choice::NeowBlessing(blessing) => {
+                self.handle_neow_blessing(*blessing, player_persistent_state)
+            }
             invalid => unreachable!("{:?}", invalid),
         }
     }
 
-    fn handle_neow_blessing(&mut self, blessing: NeowBlessing) -> Result<(), Error> {
+    fn handle_neow_blessing(
+        &mut self,
+        blessing: NeowBlessing,
+        player_persistent_state: &mut PlayerPersistentState,
+    ) -> Result<(), Error> {
         match blessing {
             NeowBlessing::ChooseCard => {
                 let cards = self.neow_generator.three_card_choices();
-                self.choose_card_to_obtain(cards)
+                DeckSystem::choose_card_to_obtain(
+                    self.comms,
+                    &mut player_persistent_state.deck,
+                    &cards,
+                )
             }
             NeowBlessing::ChooseColorlessCard => {
                 let cards = self.neow_generator.three_colorless_card_choices();
-                self.choose_card_to_obtain(cards)
+                DeckSystem::choose_card_to_obtain(
+                    self.comms,
+                    &mut player_persistent_state.deck,
+                    &cards,
+                )
             }
-            NeowBlessing::GainOneHundredGold => self.player.increase_gold(100),
+            NeowBlessing::GainOneHundredGold => {
+                GoldSystem::increase_gold(self.comms, &mut player_persistent_state.gold, 100)
+            }
             NeowBlessing::IncreaseMaxHpByTenPercent => {
                 self.player.increase_hp_max(self.player.state.hp_max / 10)
             }
@@ -114,24 +126,6 @@ impl<'a> NeowSimulator<'a> {
                     NeowBonus::TransformTwoCards => todo!(),
                 }
             }
-        }
-    }
-
-    fn choose_card_to_obtain(&mut self, cards: Vec<Card>) -> Result<(), Error> {
-        let choices = cards
-            .iter()
-            .copied()
-            .map(Choice::ObtainCard)
-            .chain(once(Choice::Skip))
-            .collect::<Vec<_>>();
-        match self
-            .player
-            .comms
-            .prompt_for_choice(Prompt::ChooseOne, &choices)?
-        {
-            Choice::ObtainCard(card) => self.player.obtain_card(*card),
-            Choice::Skip => Ok(()),
-            invalid => unreachable!("{:?}", invalid),
         }
     }
 }

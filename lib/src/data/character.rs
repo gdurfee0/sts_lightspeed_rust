@@ -998,7 +998,7 @@ pub const WATCHER: &Character = &Character {
         Card::Collect(false),
         Card::InnerPeace(false),
         Card::Rushdown(false),
-        Card::DeceiveRealiry(false),
+        Card::DeceiveReality(false),
         Card::MentalFortress(false),
         Card::ReachHeaven(false),
         Card::FearNoEvil(false),

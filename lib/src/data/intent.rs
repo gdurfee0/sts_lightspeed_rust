@@ -1,15 +1,14 @@
 // Source: Slay the Spire wiki (https://slay-the-spire.fandom.com/wiki/Intent)
 
-use crate::types::{AttackCount, AttackDamage};
+use crate::types::{AttackCount, Hp};
 
 /// An `Intent` provides the user-visible view of the enemy's next action.
-#[derive(Debug, Clone, Copy)]
-#[cfg_attr(test, derive(Eq, Hash, PartialEq))]
+#[derive(Debug, Clone, Copy, Eq, Hash, PartialEq)]
 pub enum Intent {
-    Aggressive(AttackDamage, AttackCount),
-    AggressiveBuff(AttackDamage, AttackCount),
-    AggressiveDebuff(AttackDamage, AttackCount),
-    AggressiveDefensive(AttackDamage, AttackCount),
+    Aggressive(Hp, AttackCount),
+    AggressiveBuff(Hp, AttackCount),
+    AggressiveDebuff(Hp, AttackCount),
+    AggressiveDefensive(Hp, AttackCount),
     Cowardly,
     Defensive,
     DefensiveBuff,

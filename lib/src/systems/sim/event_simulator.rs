@@ -1,90 +1,96 @@
 use anyhow::Error;
 
+use crate::components::{Choice, Interaction, PlayerPersistentState, Prompt};
 use crate::data::Event;
-use crate::systems::player::Player;
 use crate::systems::rng::PotionGenerator;
-use crate::{Choice, Prompt};
 
-pub struct EventSimulator<'a> {
-    event: Event,
+pub struct EventSimulator<'a, I: Interaction> {
+    comms: &'a I,
+    gold_system: &'a mut GoldSystem,
+    health_system: &'a mut HealthSystem,
     potion_generator: &'a mut PotionGenerator,
-    player: &'a mut Player,
 }
 
-impl<'a> EventSimulator<'a> {
+impl<'a, I: Interaction> EventSimulator<'a, I> {
     pub fn new(
-        event: Event,
+        comms: &'a I,
+        gold_system: &'a mut GoldSystem,
+        health_system: &'a mut HealthSystem,
         potion_generator: &'a mut PotionGenerator,
-        player: &'a mut Player,
     ) -> Self {
         Self {
-            event,
+            comms,
+            gold_system,
+            health_system,
             potion_generator,
-            player,
         }
     }
 
-    pub fn run(self) -> Result<(), Error> {
-        match self.event {
-            Event::AncientWriting => todo!("{:?}", self.event),
-            Event::ANoteForYourself => todo!("{:?}", self.event),
-            Event::Augmenter => todo!("{:?}", self.event),
-            Event::BigFish => todo!("{:?}", self.event),
-            Event::BonfireSpirits => todo!("{:?}", self.event),
-            Event::CouncilOfGhosts => todo!("{:?}", self.event),
-            Event::CursedTome => todo!("{:?}", self.event),
-            Event::DeadAdventurer => todo!("{:?}", self.event),
-            Event::DesignerInSpire => todo!("{:?}", self.event),
-            Event::Duplicator => todo!("{:?}", self.event),
-            Event::FaceTrader => todo!("{:?}", self.event),
-            Event::Falling => todo!("{:?}", self.event),
-            Event::ForgottenAltar => todo!("{:?}", self.event),
-            Event::GoldenIdol => todo!("{:?}", self.event),
-            Event::GoldenShrine => todo!("{:?}", self.event),
-            Event::HypnotizingColoredMushrooms => todo!("{:?}", self.event),
-            Event::KnowingSkull => todo!("{:?}", self.event),
-            Event::Lab => todo!("{:?}", self.event),
-            Event::LivingWall => todo!("{:?}", self.event),
-            Event::MaskedBandits => todo!("{:?}", self.event),
-            Event::MatchAndKeep => todo!("{:?}", self.event),
-            Event::MindBloom => todo!("{:?}", self.event),
-            Event::MysteriousSphere => todo!("{:?}", self.event),
-            Event::Neow => todo!("{:?}", self.event),
-            Event::Nloth => todo!("{:?}", self.event),
-            Event::NoteForYourself => todo!("{:?}", self.event),
-            Event::OldBeggar => todo!("{:?}", self.event),
-            Event::OminousForge => todo!("{:?}", self.event),
-            Event::PleadingVagrant => todo!("{:?}", self.event),
-            Event::Purifier => todo!("{:?}", self.event),
-            Event::ScrapOoze => todo!("{:?}", self.event),
-            Event::SecretPortal => todo!("{:?}", self.event),
-            Event::SensoryStone => todo!("{:?}", self.event),
-            Event::ShiningLight => todo!("{:?}", self.event),
-            Event::TheCleric => self.the_cleric(),
-            Event::TheColosseum => todo!("{:?}", self.event),
-            Event::TheDivineFountain => todo!("{:?}", self.event),
-            Event::TheJoust => todo!("{:?}", self.event),
-            Event::TheLibrary => todo!("{:?}", self.event),
-            Event::TheMausoleum => todo!("{:?}", self.event),
-            Event::TheMoaiHead => todo!("{:?}", self.event),
-            Event::TheNest => todo!("{:?}", self.event),
-            Event::TheSsssserpent => todo!("{:?}", self.event),
-            Event::TheWomanInBlue => self.the_woman_in_blue(),
-            Event::TombOfLordRedMask => todo!("{:?}", self.event),
-            Event::Transmogrifier => todo!("{:?}", self.event),
-            Event::UpgradeShrine => todo!("{:?}", self.event),
-            Event::Vampires => todo!("{:?}", self.event),
-            Event::WeMeetAgain => todo!("{:?}", self.event),
-            Event::WheelOfChange => todo!("{:?}", self.event),
-            Event::WindingHalls => todo!("{:?}", self.event),
-            Event::WingStatue => todo!("{:?}", self.event),
-            Event::WorldOfGoop => todo!("{:?}", self.event),
+    pub fn simulate_event(
+        self,
+        event: Event,
+        player_persistent_state: &mut PlayerPersistentState,
+    ) -> Result<(), Error> {
+        match event {
+            Event::AncientWriting => todo!("{:?}", event),
+            Event::ANoteForYourself => todo!("{:?}", event),
+            Event::Augmenter => todo!("{:?}", event),
+            Event::BigFish => todo!("{:?}", event),
+            Event::BonfireSpirits => todo!("{:?}", event),
+            Event::CouncilOfGhosts => todo!("{:?}", event),
+            Event::CursedTome => todo!("{:?}", event),
+            Event::DeadAdventurer => todo!("{:?}", event),
+            Event::DesignerInSpire => todo!("{:?}", event),
+            Event::Duplicator => todo!("{:?}", event),
+            Event::FaceTrader => todo!("{:?}", event),
+            Event::Falling => todo!("{:?}", event),
+            Event::ForgottenAltar => todo!("{:?}", event),
+            Event::GoldenIdol => todo!("{:?}", event),
+            Event::GoldenShrine => todo!("{:?}", event),
+            Event::HypnotizingColoredMushrooms => todo!("{:?}", event),
+            Event::KnowingSkull => todo!("{:?}", event),
+            Event::Lab => todo!("{:?}", event),
+            Event::LivingWall => todo!("{:?}", event),
+            Event::MaskedBandits => todo!("{:?}", event),
+            Event::MatchAndKeep => todo!("{:?}", event),
+            Event::MindBloom => todo!("{:?}", event),
+            Event::MysteriousSphere => todo!("{:?}", event),
+            Event::Neow => todo!("{:?}", event),
+            Event::Nloth => todo!("{:?}", event),
+            Event::NoteForYourself => todo!("{:?}", event),
+            Event::OldBeggar => todo!("{:?}", event),
+            Event::OminousForge => todo!("{:?}", event),
+            Event::PleadingVagrant => todo!("{:?}", event),
+            Event::Purifier => todo!("{:?}", event),
+            Event::ScrapOoze => todo!("{:?}", event),
+            Event::SecretPortal => todo!("{:?}", event),
+            Event::SensoryStone => todo!("{:?}", event),
+            Event::ShiningLight => todo!("{:?}", event),
+            Event::TheCleric => self.the_cleric(player_persistent_state),
+            Event::TheColosseum => todo!("{:?}", event),
+            Event::TheDivineFountain => todo!("{:?}", event),
+            Event::TheJoust => todo!("{:?}", event),
+            Event::TheLibrary => todo!("{:?}", event),
+            Event::TheMausoleum => todo!("{:?}", event),
+            Event::TheMoaiHead => todo!("{:?}", event),
+            Event::TheNest => todo!("{:?}", event),
+            Event::TheSsssserpent => todo!("{:?}", event),
+            Event::TheWomanInBlue => Self::the_woman_in_blue(),
+            Event::TombOfLordRedMask => todo!("{:?}", event),
+            Event::Transmogrifier => todo!("{:?}", event),
+            Event::UpgradeShrine => todo!("{:?}", event),
+            Event::Vampires => todo!("{:?}", event),
+            Event::WeMeetAgain => todo!("{:?}", event),
+            Event::WheelOfChange => todo!("{:?}", event),
+            Event::WindingHalls => todo!("{:?}", event),
+            Event::WingStatue => todo!("{:?}", event),
+            Event::WorldOfGoop => todo!("{:?}", event),
         }
     }
 
-    fn the_cleric(self) -> Result<(), Error> {
+    fn the_cleric(self, player_persistent_state: &mut PlayerPersistentState) -> Result<(), Error> {
         let mut choices = vec![Choice::EventChoice(35, "35 Gold: Heal 20 HP".into())];
-        if self.player.state.gold >= 50 {
+        if player_persistent_state.gold >= 50 {
             choices.push(Choice::EventChoice(
                 50,
                 "50 Gold: Remove a card from your deck.".into(),
@@ -92,14 +98,13 @@ impl<'a> EventSimulator<'a> {
         }
         choices.push(Choice::Skip);
         let choice = self
-            .player
             .comms
             .prompt_for_choice(Prompt::ChooseForEvent, &choices)?;
         println!("{:?}", choice);
         match choice {
             Choice::EventChoice(35, _) => {
-                self.player.decrease_gold(35)?;
-                self.player.increase_hp(20)
+                player_persistent_state.decrease_gold(35)?;
+                player_persistent_state.increase_hp(20)
             }
             Choice::EventChoice(50, _) => {
                 self.player.decrease_gold(50)?;

@@ -1,19 +1,13 @@
-mod card_in_combat;
-mod enemy_state;
-mod enemy_status;
+mod damage_taken;
+mod effect_queue;
+mod interaction;
 pub mod map;
-mod message;
-mod notification;
-mod player_combat_state;
-mod player_interaction;
-mod player_state;
+mod state; // "state" is all internal state the simulator uses
+mod status; // "status" is the subset of state that is exposed to the player
 
-pub use card_in_combat::CardInCombat;
-pub use enemy_state::EnemyState;
-pub use enemy_status::EnemyStatus;
+pub use damage_taken::DamageTaken;
+pub use effect_queue::{Effect, EffectQueue};
+pub use interaction::{Choice, Interaction, Notification, PotionAction, Prompt, StsMessage};
 pub use map::Room;
-pub use message::{Choice, PotionAction, Prompt, StsMessage};
-pub use notification::Notification;
-pub use player_combat_state::PlayerCombatState;
-pub use player_interaction::PlayerInteraction;
-pub use player_state::PlayerState;
+pub use state::{CardCombatState, CombatCards, PlayerCombatState, PlayerPersistentState};
+pub use status::{AttackerStatus, DefenderStatus, EnemyStatus, PlayerStatus};

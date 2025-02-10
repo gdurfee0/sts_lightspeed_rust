@@ -1,4 +1,4 @@
-use crate::components::{PlayerState, Room};
+use crate::components::{PlayerPersistentState, Room};
 use crate::data::{Act, CardDetails, CardType, Event, ONE_TIME_EVENTS};
 use crate::types::Floor;
 
@@ -43,7 +43,11 @@ impl EventGenerator {
         self.treasure_room_probability = 0.02;
     }
 
-    pub fn next_event(&mut self, floor: Floor, state: &PlayerState) -> (Room, Option<Event>) {
+    pub fn next_event(
+        &mut self,
+        floor: Floor,
+        state: &PlayerPersistentState,
+    ) -> (Room, Option<Event>) {
         // TODO: Last room was a shop
         // TODO: Relic::TinyChest
         // TODO: Relic::JuzuBracelet
@@ -127,14 +131,14 @@ impl EventGenerator {
         }
     }
 
-    fn filter_event(&self, event: Event, floor: Floor, state: &PlayerState) -> bool {
+    fn filter_event(&self, event: Event, floor: Floor, state: &PlayerPersistentState) -> bool {
         match event {
             Event::DeadAdventurer => floor >= 7,
-            Event::DesignerInSpire => self.act.number > 1 && state.hp > 3,
+            Event::DesignerInSpire => self.act.number > 1 && state.health.0 > 3,
             Event::Duplicator => self.act.number > 1 && state.deck.len() >= 5,
             Event::FaceTrader => self.act.number < 3,
             Event::HypnotizingColoredMushrooms => floor >= 7,
-            Event::KnowingSkull => self.act.number == 2 && state.hp >= 13,
+            Event::KnowingSkull => self.act.number == 2 && state.health.0 >= 13,
             Event::Nloth => self.act.number == 2 && state.relics.len() >= 2,
             Event::OldBeggar => state.gold >= 75,
             Event::SecretPortal => false, // 13m 20s
@@ -145,7 +149,7 @@ impl EventGenerator {
                 .iter()
                 .any(|card| matches!(CardDetails::for_card(*card).type_, CardType::Curse)),
             Event::TheJoust => self.act.number == 2 && state.gold >= 50,
-            Event::TheMoaiHead => state.hp <= state.hp_max / 2,
+            Event::TheMoaiHead => state.health.0 <= state.health.1 / 2,
             Event::TheWomanInBlue => state.gold >= 20,
             _ => true,
         }
@@ -168,7 +172,7 @@ mod test {
     fn test_event_generator() {
         let seed = Seed::from(3);
         let mut event_generator = EventGenerator::new(seed);
-        let state = PlayerState::new(IRONCLAD);
+        let state = PlayerPersistentState::new(IRONCLAD);
         let (room, event) = event_generator.next_event(3, &state);
         assert_eq!(room, Room::Event);
         assert_eq!(event, Some(Event::UpgradeShrine));
@@ -185,7 +189,7 @@ mod test {
     fn test_event_generator_test_vector() {
         let seed = Seed::from(3);
         let mut event_generator = EventGenerator::new(seed);
-        let state = PlayerState::new(IRONCLAD);
+        let state = PlayerPersistentState::new(IRONCLAD);
         let mut test_vector = vec![];
         for i in 3..15 {
             let (room, event) = event_generator.next_event(i, &state);

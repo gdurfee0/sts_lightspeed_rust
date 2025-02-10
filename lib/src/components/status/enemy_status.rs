@@ -1,11 +1,11 @@
+use crate::components::{AttackerStatus, DefenderStatus};
 use crate::data::{Enemy, EnemyCondition, Intent};
-use crate::types::{Block, Hp, HpMax, Strength};
+use crate::types::{Block, Dexterity, Hp, HpMax, Strength};
 
 /// `EnemyStatus` is a small bundle of information about the enemy that is made available to
 /// the player. The player is not allowed to know anything else about the enemy, such as its
 /// internal state or future moves.
-#[derive(Clone, Debug)]
-#[cfg_attr(test, derive(Eq, Hash, PartialEq))]
+#[derive(Clone, Debug, Eq, Hash, PartialEq)]
 pub struct EnemyStatus {
     pub enemy_type: Enemy,
     pub hp: Hp,
@@ -16,17 +16,47 @@ pub struct EnemyStatus {
     pub intent: Intent,
 }
 
-impl EnemyStatus {
-    pub fn is_vulnerable(&self) -> bool {
-        self.conditions
-            .iter()
-            .any(|c| matches!(c, EnemyCondition::Vulnerable(_)))
+impl AttackerStatus for EnemyStatus {
+    fn block(&self) -> Block {
+        self.block
     }
 
-    pub fn is_weak(&self) -> bool {
+    fn draw_pile_size(&self) -> usize {
+        0
+    }
+
+    fn hand_size(&self) -> usize {
+        0
+    }
+
+    fn is_weak(&self) -> bool {
         self.conditions
             .iter()
             .any(|c| matches!(c, EnemyCondition::Weak(_)))
+    }
+
+    fn number_of_strike_cards_owned(&self) -> usize {
+        0
+    }
+
+    fn strength(&self) -> Strength {
+        self.strength
+    }
+}
+
+impl DefenderStatus for EnemyStatus {
+    fn dexterity(&self) -> Dexterity {
+        0
+    }
+
+    fn is_frail(&self) -> bool {
+        false
+    }
+
+    fn is_vulnerable(&self) -> bool {
+        self.conditions
+            .iter()
+            .any(|c| matches!(c, EnemyCondition::Vulnerable(_)))
     }
 }
 

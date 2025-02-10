@@ -1,6 +1,7 @@
 use crate::data::{Character, Potion, PotionRarity};
 
-use super::{Seed, StsRandom};
+use super::seed::Seed;
+use super::sts_random::StsRandom;
 
 pub struct PotionGenerator {
     character: &'static Character,

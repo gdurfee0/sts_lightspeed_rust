@@ -2,7 +2,8 @@ use std::collections::VecDeque;
 
 use crate::data::{Act, Encounter};
 
-use super::{Seed, StsRandom};
+use super::seed::Seed;
+use super::sts_random::StsRandom;
 
 /// A struct that generates the enemy encounters for a run based on the provided seed.
 ///

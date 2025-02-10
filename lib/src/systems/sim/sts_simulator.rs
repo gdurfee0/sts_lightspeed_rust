@@ -2,25 +2,31 @@ use std::sync::mpsc::{Receiver, Sender};
 
 use anyhow::Error;
 
-use crate::components::{Room, StsMessage};
+use crate::components::{PlayerPersistentState, Room, StsMessage};
 use crate::data::{Act, Character, Encounter};
-use crate::systems::player::Player;
+use crate::systems::base::{DeckSystem, GoldSystem, HealthSystem, PotionSystem, RelicSystem};
+use crate::systems::player::PlayerInteraction;
 use crate::systems::rng::{
     CardGenerator, EncounterGenerator, EventGenerator, PotionGenerator, RelicGenerator, Seed,
     StsRandom,
 };
 use crate::types::{Floor, Hp};
-use crate::{Choice, Prompt};
 
 use super::combat_simulator::CombatSimulator;
 use super::event_simulator::EventSimulator;
-use super::map_navigation_simulator::MapSimulator;
+use super::map_navigation_simulator::MapNavigationSimulator;
 use super::neow_simulator::NeowSimulator;
 
-pub struct StsSimulator {
+pub struct StsSimulator<'a> {
     // Information typically set on the command line
     seed: Seed,
     character: &'static Character,
+
+    // Player state
+    player_persistent_state: PlayerPersistentState,
+
+    // Player I/O
+    comms: PlayerInteraction,
 
     // Random number generators for various game elements
     card_generator: CardGenerator,
@@ -28,34 +34,30 @@ pub struct StsSimulator {
     event_generator: EventGenerator,
     potion_generator: PotionGenerator,
     relic_generator: RelicGenerator,
-
     misc_rng: StsRandom,
     treasure_rng: StsRandom,
-
-    // Connection to the player state and player I/O
-    player: Player,
 }
 
-impl StsSimulator {
+impl<'a> StsSimulator<'a> {
     pub fn new(
         seed: Seed,
         character: &'static Character,
         from_client: Receiver<usize>,
         to_client: Sender<StsMessage>,
     ) -> Self {
+        let player_persistent_state = PlayerPersistentState::new(character);
+        let comms = PlayerInteraction::new(from_client, to_client);
         let card_generator = CardGenerator::new(seed, character, Act::get(1));
         let encounter_generator = EncounterGenerator::new(seed);
         let event_generator = EventGenerator::new(seed);
-        let relic_generator = RelicGenerator::new(seed, character);
         let potion_generator = PotionGenerator::new(seed, character);
-
+        let relic_generator = RelicGenerator::new(seed, character);
         let misc_rng = StsRandom::from(seed);
         let treasure_rng = StsRandom::from(seed);
-
-        let player = Player::new(character, from_client, to_client);
         Self {
             seed,
             character,
+            comms,
             card_generator,
             encounter_generator,
             event_generator,
@@ -63,28 +65,7 @@ impl StsSimulator {
             relic_generator,
             misc_rng,
             treasure_rng,
-            player,
-        }
-    }
-
-    pub fn run_encounter(&mut self, floor: Floor, encounter: Encounter) -> Result<bool, Error> {
-        if !CombatSimulator::new(
-            self.seed.with_offset(floor),
-            encounter,
-            &mut self.misc_rng,
-            &mut self.player,
-        )
-        .run()?
-        {
-            Ok(false)
-        } else {
-            let gold_reward = self.treasure_rng.gen_range(10..=20);
-            // TODO: Relic::WhiteBeastStatue
-            let maybe_potion = self.potion_generator.combat_reward();
-            let card_rewards = self.card_generator.combat_rewards();
-            self.player
-                .choose_combat_rewards(gold_reward, maybe_potion, &card_rewards)?;
-            Ok(true)
+            player_persistent_state,
         }
     }
 
@@ -94,16 +75,15 @@ impl StsSimulator {
             std::mem::size_of::<StsSimulator>(),
             std::mem::size_of::<StsMessage>(),
         );
-        self.player.send_full_player_state()?;
-        let mut map_simulator = MapSimulator::new(self.seed);
-        map_simulator.send_map_to_player(&mut self.player)?;
+        // todo - self.player.send_full_player_state()?;
+        let mut map_simulator = MapNavigationSimulator::new(self.seed, &self.comms);
+        map_simulator.send_map_to_player()?;
         let neow_simulator = NeowSimulator::new(
             self.seed,
             self.character,
             &mut self.card_generator,
             &mut self.potion_generator,
             &mut self.relic_generator,
-            &mut self.player,
         );
         neow_simulator.run()?;
         let mut floor = 1;
@@ -163,6 +143,27 @@ impl StsSimulator {
             floor += 1;
         }
         self.player.comms.send_game_over(self.player.state.hp > 0)
+    }
+
+    pub fn run_encounter(&mut self, floor: Floor, encounter: Encounter) -> Result<bool, Error> {
+        if !CombatSimulator::new(
+            self.seed.with_offset(floor),
+            encounter,
+            &mut self.misc_rng,
+            &mut self.player,
+        )
+        .run()?
+        {
+            Ok(false)
+        } else {
+            let gold_reward = self.treasure_rng.gen_range(10..=20);
+            // TODO: Relic::WhiteBeastStatue
+            let maybe_potion = self.potion_generator.combat_reward();
+            let card_rewards = self.card_generator.combat_rewards();
+            self.player
+                .choose_combat_rewards(gold_reward, maybe_potion, &card_rewards)?;
+            Ok(true)
+        }
     }
 }
 

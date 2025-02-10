@@ -2,12 +2,10 @@ use std::sync::mpsc::{Receiver, Sender};
 
 use anyhow::Error;
 
-use super::message::{Choice, Prompt, StsMessage};
-use super::notification::Notification;
+use crate::components::{Choice, Interaction, Notification, Prompt, StsMessage};
 
 /// Handles all interactions with the player via the from_client and to_client channels, sending
 /// messages to the player to prompt for decisions and returning the choices made by the player.
-#[derive(Debug)]
 pub struct PlayerInteraction {
     from_client: Receiver<usize>,
     to_client: Sender<StsMessage>,
@@ -20,22 +18,25 @@ impl PlayerInteraction {
             to_client,
         }
     }
+}
 
+impl Interaction for PlayerInteraction {
     /// Sends the supplied notification to the user.
-    pub fn send_notification(&self, notification: Notification) -> Result<(), Error> {
+    fn send_notification(&self, notification: Notification) -> Result<(), Error> {
         self.to_client
             .send(StsMessage::Notification(notification))?;
         Ok(())
     }
 
-    pub fn send_game_over(&self, result: bool) -> Result<(), Error> {
-        self.to_client.send(StsMessage::GameOver(result))?;
+    /// Sends the game over message to the user.
+    fn send_game_over(&self, victorious: bool) -> Result<(), Error> {
+        self.to_client.send(StsMessage::GameOver(victorious))?;
         Ok(())
     }
 
     /// Internal helper function to prompt the user to choose one of the supplied choices.
     /// Annoyingly repeats the prompt until the user makes a valid choice.
-    pub fn prompt_for_choice<'a>(
+    fn prompt_for_choice<'a>(
         &self,
         prompt: Prompt,
         choices: &'a [Choice],

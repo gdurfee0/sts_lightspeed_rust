@@ -26,8 +26,14 @@ impl DrawSystem {
         }
     }
 
+    /// Sets up the draw pile for combat.
+    pub fn start_combat(&mut self, pcs: &mut PlayerCombatState) {
+        self.shuffle_rng
+            .java_compat_shuffle(&mut pcs.cards.draw_pile);
+    }
+
     /// Draws the appropriate number of cards at the start of the player's turn.
-    pub fn draw_cards_at_start_of_player_turn<I: Interaction>(
+    pub fn start_turn<I: Interaction>(
         &mut self,
         comms: &I,
         pps: &PlayerPersistentState,
@@ -125,8 +131,7 @@ impl DrawSystem {
         pcs.cards.hand.push(combat_card);
         comms.send_notification(Notification::CardDrawn(
             pcs.cards.hand.len() - 1,
-            combat_card.card,
-            combat_card.cost_this_turn,
+            combat_card,
         ))
     }
 }

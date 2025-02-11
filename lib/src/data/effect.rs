@@ -59,13 +59,6 @@ pub enum CostModifier {
 }
 
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
-pub enum EnemyTarget {
-    All,
-    Random,
-    Single,
-}
-
-#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 pub enum PlayerEffectCondition {
     IfHandContainsNoAttackCards,
 }

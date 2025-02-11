@@ -30,7 +30,7 @@ impl PlayerConditionSystem {
         condition: &PlayerCondition,
     ) -> Result<(), Error> {
         for preexisting_condition in pcs.conditions.iter_mut() {
-            if preexisting_condition.merge(&condition) {
+            if preexisting_condition.merge(condition) {
                 return Self::notify_player(comms, pcs);
             }
         }
@@ -48,10 +48,5 @@ impl PlayerConditionSystem {
         pcs.conditions
             .retain_mut(|c| c.on_damage_taken(damage_taken, effect_queue));
         Self::notify_player(comms, pcs)
-    }
-
-    /// Returns true if the player has the given condition.
-    fn player_has_condition(pcs: &PlayerCombatState, condition: PlayerCondition) -> bool {
-        pcs.conditions.iter().any(|c| *c == condition)
     }
 }

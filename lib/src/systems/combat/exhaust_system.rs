@@ -40,6 +40,6 @@ impl ExhaustSystem {
             effect_queue.push_back(Effect::FromCard(effect));
         }
         pcs.cards.exhaust_pile.push(combat_card);
-        comms.send_notification(Notification::CardExhausted(hand_index, combat_card.card))
+        comms.send_notification(Notification::CardExhausted(hand_index, combat_card))
     }
 }

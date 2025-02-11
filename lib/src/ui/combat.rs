@@ -34,27 +34,9 @@ impl<'a> CombatClient<'a> {
     pub fn run(mut self) -> Result<(), anyhow::Error> {
         loop {
             match self.from_server.recv()? {
-                StsMessage::Notification(Notification::Conditions(conditions)) => {
-                    self.player_status.conditions = conditions;
-                    println!("Buffs: {:?}", self.player_status.conditions);
-                }
-                StsMessage::Notification(Notification::Dexterity(dexterity)) => {
-                    self.player_status.dexterity = dexterity;
-                    println!("Dexterity: {}", self.player_status.dexterity);
-                }
                 StsMessage::Choices(prompt, choices) => {
                     let choice = self.collect_user_choice(prompt, choices)?;
                     self.to_server.send(choice)?;
-                }
-                StsMessage::Notification(Notification::EndingCombat) => {
-                    println!("Combat ended");
-                    break;
-                }
-                StsMessage::Notification(Notification::EnemyParty(party)) => {
-                    for enemy_status in party.iter().flatten() {
-                        println!("Enemy: {}", enemy_status);
-                    }
-                    self.enemy_party = party;
                 }
                 StsMessage::GameOver(result) => {
                     println!(
@@ -63,10 +45,36 @@ impl<'a> CombatClient<'a> {
                     );
                     break;
                 }
-                sts_message => println!("{:?}", sts_message),
+                StsMessage::Notification(notification) => {
+                    self.process_notification(notification);
+                }
             }
         }
         Ok(())
+    }
+
+    fn process_notification(&mut self, notification: Notification) {
+        println!("{:?}", notification);
+        match notification {
+            Notification::Deck(cards) => self.player_status.deck = cards,
+            Notification::Gold(gold) => self.player_status.gold = gold,
+            Notification::Relics(relics) => self.player_status.relics = relics,
+            Notification::Potions(potions) => self.player_status.potions = potions,
+            Notification::Block(block) => self.player_status.block = block,
+            Notification::Conditions(player_conditions) => {
+                self.player_status.conditions = player_conditions;
+            }
+            Notification::Dexterity(dexterity) => self.player_status.dexterity = dexterity,
+            Notification::DiscardPile(cards) => self.player_status.discard_pile = cards,
+            Notification::Energy(energy) => self.player_status.energy = energy,
+            Notification::Health(health) => {
+                self.player_status.hp = health.0;
+                self.player_status.hp_max = health.1;
+            }
+            Notification::Status(player_status) => self.player_status = player_status,
+            Notification::Strength(strength) => self.player_status.strength = strength,
+            _ => {}
+        }
     }
 
     fn collect_user_choice(
@@ -159,19 +167,6 @@ impl<'a> CombatClient<'a> {
             result.push_str(&format!(" (HP: {}/{})", enemy.hp, enemy.hp_max));
         }
         result
-    }
-
-    fn modified_target_effects(
-        &self,
-        effects: &[TargetEffect],
-        maybe_enemy_index: Option<EnemyIndex>,
-        target_suffix: &str,
-    ) -> String {
-        effects
-            .iter()
-            .map(|effect| self.modified_target_effect(effect, maybe_enemy_index, target_suffix))
-            .collect::<Vec<_>>()
-            .join(", ")
     }
 
     fn modified_target_effect(

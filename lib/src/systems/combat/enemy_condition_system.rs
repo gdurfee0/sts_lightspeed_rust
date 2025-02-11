@@ -50,13 +50,10 @@ impl EnemyConditionSystem {
     /// Triggers effects from the enemy's conditions when it dies.
     pub fn on_death(enemy: &mut EnemyState, effect_queue: &mut EffectQueue) {
         for condition in enemy.conditions.iter() {
-            match condition {
-                EnemyCondition::SporeCloud(stacks) => {
-                    effect_queue.push_front(Effect::FromEnemyState(EnemyEffect::Inflict(
-                        PlayerCondition::Vulnerable(*stacks),
-                    )));
-                }
-                _ => {}
+            if let EnemyCondition::SporeCloud(stacks) = condition {
+                effect_queue.push_front(Effect::FromEnemyState(EnemyEffect::Inflict(
+                    PlayerCondition::Vulnerable(*stacks),
+                )));
             }
         }
     }

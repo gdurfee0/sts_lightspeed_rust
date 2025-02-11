@@ -173,7 +173,7 @@ mod test {
     use std::thread;
     use std::time::Duration;
 
-    use crate::components::{Choice, EnemyStatus, Notification, Prompt};
+    use crate::components::{CardCombatState, Choice, EnemyStatus, Notification, Prompt};
     use crate::data::{
         Card, Enemy, EnemyCondition, EnergyCost, Intent, NeowBlessing, NeowBonus, NeowPenalty,
         PlayerCondition, IRONCLAD,
@@ -220,7 +220,7 @@ mod test {
         maybe_message.take().expect("expected a prompt")
     }
 
-    // TODO: This test depends on `EncounterSimulator` behavior. Should test combat separately.
+    // TODO: This test depends on `CombatSimulator` behavior. Should test combat separately.
     #[test]
     pub fn test_game_3_ironclad() {
         let seed = Seed::from(3);
@@ -483,7 +483,10 @@ mod test {
         assert_eq!(
             next_prompt(
                 &from_server,
-                &[Notification::CardExhausted(1, Card::Slimed)]
+                &[Notification::CardExhausted(
+                    1,
+                    CardCombatState::new(Card::Slimed, None)
+                )]
             ),
             StsMessage::Choices(Prompt::CombatAction, vec![Choice::EndTurn])
         );

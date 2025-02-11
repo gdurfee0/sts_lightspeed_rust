@@ -16,7 +16,7 @@ use crate::types::EnemyIndex;
 use super::player_combat_action::CombatAction;
 
 pub struct PlayerCombatSystem {
-    draw_system: DrawSystem,
+    pub draw_system: DrawSystem,
 }
 
 impl PlayerCombatSystem {
@@ -53,13 +53,14 @@ impl PlayerCombatSystem {
     /// Kicks off combat by triggering start-of-combat effects and notifying the player of their
     /// combat state as well as the enemy party.
     pub fn start_combat<I: Interaction>(
-        &self,
+        &mut self,
         comms: &I,
         pps: &mut PlayerPersistentState,
         pcs: &mut PlayerCombatState,
         enemy_party: &mut EnemyParty,
     ) -> Result<(), Error> {
         RelicSystem::on_start_combat(comms, pps, pcs)?;
+        self.draw_system.start_combat(pcs);
         self.notify_player(comms, pps, pcs, enemy_party)
     }
 
@@ -79,8 +80,7 @@ impl PlayerCombatSystem {
         PlayerConditionSystem::start_turn(comms, pcs)?;
         BlockSystem::start_player_turn(comms, pcs)?;
         EnergySystem::start_turn(comms, pcs)?;
-        self.draw_system
-            .draw_cards_at_start_of_player_turn(comms, pps, pcs, effect_queue)
+        self.draw_system.start_turn(comms, pps, pcs, effect_queue)
     }
 
     /// Triggers end-of-turn effects.
@@ -135,7 +135,7 @@ impl PlayerCombatSystem {
                     }
                 }
                 Choice::ExpendPotion(potion_action) => {
-                    PotionSystem::expend_potion_in_combat(comms, pps, pcs, &potion_action)?
+                    PotionSystem::expend_potion_in_combat(comms, pps, pcs, potion_action)?
                 }
                 Choice::EndTurn => return Ok(CombatAction::EndTurn),
                 invalid => unreachable!("{:?}", invalid),

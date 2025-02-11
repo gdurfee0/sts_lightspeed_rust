@@ -58,6 +58,6 @@ impl DiscardSystem {
         combat_card: CardCombatState,
     ) -> Result<(), Error> {
         pcs.cards.discard_pile.push(combat_card);
-        comms.send_notification(Notification::CardDiscarded(hand_index, combat_card.card))
+        comms.send_notification(Notification::CardDiscarded(hand_index, combat_card))
     }
 }

@@ -191,13 +191,9 @@ impl PlayerCondition {
         false
     }
 
-    /// Ticks down a condition's turn counter at the start of the player's turn.
     /// Returns true iff the condition is still active.
     pub fn start_turn(&mut self) -> bool {
-        match self {
-            PlayerCondition::FlameBarrier(_) => false,
-            _ => true,
-        }
+        !matches!(self, PlayerCondition::FlameBarrier(_))
     }
 
     /// Ticks down a condition's turn counter at the end of the player's turn.

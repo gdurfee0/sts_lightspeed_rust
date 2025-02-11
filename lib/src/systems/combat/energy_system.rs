@@ -1,59 +1,58 @@
 use anyhow::Error;
 
-use crate::components::{Interaction, Notification};
+use crate::components::{Interaction, Notification, PlayerCombatState};
 use crate::data::EnergyCost;
 use crate::types::Energy;
 
 pub struct EnergySystem;
 
 impl EnergySystem {
-    pub fn notify_player(&self, energy: &Energy) -> Result<(), Error> {
-        self.comms.send_notification(Notification::Energy(*energy))
+    /// Notifies the player of their current energy.
+    pub fn notify_player<I: Interaction>(comms: &I, pcs: &PlayerCombatState) -> Result<(), Error> {
+        comms.send_notification(Notification::Energy(pcs.energy))
     }
 
-    pub fn reset_at_start_of_player_turn(&self, energy: &mut Energy) {
-        *energy = 3;
+    /// Resets the player's energy to 3 at the start of their turn.
+    pub fn start_turn<I: Interaction>(comms: &I, pcs: &mut PlayerCombatState) -> Result<(), Error> {
+        pcs.energy = 3;
+        Self::notify_player(comms, pcs)
     }
 
-    pub fn can_afford(
-        &self,
-        energy: &Energy,
-        hp_loss_count: &usize,
-        energy_cost: EnergyCost,
-    ) -> bool {
+    /// Checks if the player can afford the specified energy cost.
+    pub fn can_afford(pcs: &PlayerCombatState, energy_cost: EnergyCost) -> bool {
         match energy_cost {
             EnergyCost::Zero | EnergyCost::X => true,
-            EnergyCost::One => *energy >= 1,
-            EnergyCost::Two => *energy >= 2,
-            EnergyCost::Three => *energy >= 3,
-            EnergyCost::ThreeMinusHpLossCount => *energy + *hp_loss_count as Energy >= 3,
-            EnergyCost::Four => *energy >= 4,
-            EnergyCost::FourMinusHpLossCount => *energy + *hp_loss_count as Energy >= 4,
-            EnergyCost::Five => *energy >= 5,
+            EnergyCost::One => pcs.energy >= 1,
+            EnergyCost::Two => pcs.energy >= 2,
+            EnergyCost::Three => pcs.energy >= 3,
+            EnergyCost::ThreeMinusHpLossCount => pcs.energy + pcs.hp_loss_count as Energy >= 3,
+            EnergyCost::Four => pcs.energy >= 4,
+            EnergyCost::FourMinusHpLossCount => pcs.energy + pcs.hp_loss_count as Energy >= 4,
+            EnergyCost::Five => pcs.energy >= 5,
         }
     }
 
-    pub fn spend(
-        &self,
-        energy: &mut Energy,
-        hp_loss_count: &mut usize,
+    /// Spends the specified amount of energy from the player.
+    pub fn spend<I: Interaction>(
+        comms: &I,
+        pcs: &mut PlayerCombatState,
         energy_cost: EnergyCost,
     ) -> Result<(), Error> {
-        *energy = match energy_cost {
-            EnergyCost::Zero => *energy,
-            EnergyCost::One => (*energy).saturating_sub(1),
-            EnergyCost::Two => (*energy).saturating_sub(2),
-            EnergyCost::Three => (*energy).saturating_sub(3),
-            EnergyCost::ThreeMinusHpLossCount => {
-                (*energy).saturating_sub(3u32.saturating_sub(*hp_loss_count as Energy))
-            }
-            EnergyCost::Four => (*energy).saturating_sub(4),
-            EnergyCost::FourMinusHpLossCount => {
-                (*energy).saturating_sub(4u32.saturating_sub(*hp_loss_count as Energy))
-            }
-            EnergyCost::Five => (*energy).saturating_sub(5),
+        pcs.energy = match energy_cost {
+            EnergyCost::Zero => pcs.energy,
+            EnergyCost::One => pcs.energy.saturating_sub(1),
+            EnergyCost::Two => pcs.energy.saturating_sub(2),
+            EnergyCost::Three => pcs.energy.saturating_sub(3),
+            EnergyCost::ThreeMinusHpLossCount => pcs
+                .energy
+                .saturating_sub(3u32.saturating_sub(pcs.hp_loss_count as Energy)),
+            EnergyCost::Four => pcs.energy.saturating_sub(4),
+            EnergyCost::FourMinusHpLossCount => pcs
+                .energy
+                .saturating_sub(4u32.saturating_sub(pcs.hp_loss_count as Energy)),
+            EnergyCost::Five => pcs.energy.saturating_sub(5),
             EnergyCost::X => 0,
         };
-        self.notify_player(energy)
+        Self::notify_player(comms, pcs)
     }
 }

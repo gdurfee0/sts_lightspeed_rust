@@ -2,61 +2,28 @@ use anyhow::Error;
 
 use crate::components::{Choice, Interaction, PlayerPersistentState, Prompt};
 use crate::data::{Card, Potion};
-use crate::types::{ColumnIndex, Gold};
+use crate::systems::base::{DeckSystem, GoldSystem, HealthSystem, PotionSystem, RelicSystem};
+use crate::types::Gold;
 
-use super::deck_system::DeckSystem;
-use super::gold_system::GoldSystem;
-use super::health_system::HealthSystem;
-use super::potion_system::PotionSystem;
-use super::relic_system::RelicSystem;
+pub struct MainScreenSystem;
 
-pub struct MainScreenSystem<'a, I: Interaction> {
-    comms: &'a I,
-    deck_system: &'a DeckSystem<'a, I>,
-    gold_system: &'a GoldSystem<'a, I>,
-    health_system: &'a HealthSystem<'a, I>,
-    potion_system: &'a PotionSystem<'a, I>,
-    relic_system: &'a RelicSystem<'a, I>,
-}
-
-impl<'a, I: Interaction> MainScreenSystem<'a, I> {
-    pub fn new(
-        comms: &'a I,
-        deck_system: &'a DeckSystem<'a, I>,
-        gold_system: &'a GoldSystem<'a, I>,
-        health_system: &'a HealthSystem<'a, I>,
-        potion_system: &'a PotionSystem<'a, I>,
-        relic_system: &'a RelicSystem<'a, I>,
-    ) -> Self {
-        Self {
-            comms,
-            deck_system,
-            gold_system,
-            health_system,
-            potion_system,
-            relic_system,
-        }
-    }
-
-    pub fn notify_player(
-        &self,
-        player_persistent_state: &PlayerPersistentState,
+impl MainScreenSystem {
+    /// Notifies the player of the current state of their persistent stats.
+    pub fn notify_player<I: Interaction>(
+        comms: &I,
+        pps: &PlayerPersistentState,
     ) -> Result<(), Error> {
-        self.deck_system
-            .notify_player(&player_persistent_state.deck)?;
-        self.gold_system
-            .notify_player(&player_persistent_state.gold)?;
-        self.health_system
-            .notify_player(&player_persistent_state.health)?;
-        self.potion_system
-            .notify_player(&player_persistent_state.potions)?;
-        self.relic_system
-            .notify_player(&player_persistent_state.relics)
+        DeckSystem::notify_player(comms, pps)?;
+        GoldSystem::notify_player(comms, pps)?;
+        HealthSystem::notify_player(comms, pps)?;
+        PotionSystem::notify_player(comms, pps)?;
+        RelicSystem::notify_player(comms, pps)
     }
 
-    pub fn choose_combat_rewards(
-        &self,
-        player_persistent_state: &mut PlayerPersistentState,
+    /// Prompts the player to choose their combat rewards.
+    pub fn choose_combat_rewards<I: Interaction>(
+        comms: &I,
+        pps: &mut PlayerPersistentState,
         available_gold: Gold,
         mut maybe_potion: Option<Potion>,
         available_cards: &[Card],
@@ -65,10 +32,7 @@ impl<'a, I: Interaction> MainScreenSystem<'a, I> {
         let mut available_card_vec = available_cards.to_vec();
         let mut cards_left_to_choose = 1;
         while maybe_gold.is_some()
-            || (maybe_potion.is_some()
-                && self
-                    .potion_system
-                    .has_potion_slot_available(&player_persistent_state.potions))
+            || (maybe_potion.is_some() && PotionSystem::has_potion_slot_available(pps))
             || (!available_card_vec.is_empty() && cards_left_to_choose > 0)
         {
             let mut choices = Vec::with_capacity(available_card_vec.len() + 2);
@@ -85,39 +49,23 @@ impl<'a, I: Interaction> MainScreenSystem<'a, I> {
                     ),
                 );
             }
-            self.potion_system.extend_with_potion_actions(
-                &player_persistent_state.potions,
-                false,
-                &mut choices,
-            );
-
+            let _ = PotionSystem::extend_with_potion_actions(pps, false, &mut choices);
             choices.push(Choice::Skip);
-            match self.comms.prompt_for_choice(Prompt::ChooseNext, &choices)? {
+            match comms.prompt_for_choice(Prompt::ChooseNext, &choices)? {
                 Choice::ExpendPotion(potion_action) => {
-                    self.potion_system.expend_potion_out_of_combat(
-                        &mut player_persistent_state.potions,
-                        &potion_action,
-                        &mut player_persistent_state.health,
-                    )?
+                    PotionSystem::expend_potion_out_of_combat(comms, pps, &potion_action)?
                 }
                 Choice::ObtainCard(card_reward_index, _) => {
                     let card_to_obtain = available_card_vec.remove(*card_reward_index);
-                    self.deck_system
-                        .obtain_card(&mut player_persistent_state.deck, card_to_obtain)?;
+                    DeckSystem::obtain_card(comms, pps, card_to_obtain)?;
                     cards_left_to_choose -= 1;
                 }
                 Choice::ObtainGold(gold_to_obtain) => {
-                    self.gold_system.increase_gold(
-                        &mut player_persistent_state.gold,
-                        *gold_to_obtain,
-                        &player_persistent_state.relics,
-                        &mut player_persistent_state.health,
-                    )?;
+                    GoldSystem::increase_gold(comms, pps, *gold_to_obtain)?;
                     maybe_gold = None;
                 }
                 Choice::ObtainPotion(potion_to_obtain) => {
-                    self.potion_system
-                        .obtain_potion(&mut player_persistent_state.potions, *potion_to_obtain)?;
+                    PotionSystem::obtain_potion(comms, pps, *potion_to_obtain)?;
                     maybe_potion = None;
                 }
                 Choice::Skip => break,

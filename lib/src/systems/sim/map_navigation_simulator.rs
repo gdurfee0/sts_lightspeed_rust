@@ -20,6 +20,7 @@ pub struct MapNavigationSimulator<'a, I: Interaction> {
 }
 
 impl<'a, I: Interaction> MapNavigationSimulator<'a, I> {
+    /// Creates a new map navigation simulator.
     pub fn new(seed: Seed, comms: &'a I) -> Self {
         let map = MapBuilder::from(seed, Act::get(1)).build();
         Self {
@@ -29,46 +30,14 @@ impl<'a, I: Interaction> MapNavigationSimulator<'a, I> {
         }
     }
 
+    /// Sends the map to the player.
     pub fn send_map_to_player(&self) -> Result<(), Error> {
         self.comms
             .send_notification(Notification::Map(self.map_string()))?;
         Ok(())
     }
 
-    fn climb_floor(
-        &self,
-        player_persistent_state: &mut PlayerPersistentState,
-        climb_options: &[ColumnIndex],
-    ) -> Result<ColumnIndex, Error> {
-        loop {
-            let mut choices = climb_options
-                .iter()
-                .copied()
-                .map(Choice::ClimbFloor)
-                .collect();
-            let prompt = if PotionSystem::extend_with_potion_actions(
-                &player_persistent_state.potions,
-                false,
-                &mut choices,
-            ) {
-                Prompt::ClimbFloorHasPotion
-            } else {
-                Prompt::ClimbFloor
-            };
-            match self.comms.prompt_for_choice(prompt, &choices)? {
-                Choice::ClimbFloor(column_index) => return Ok(*column_index),
-                Choice::ExpendPotion(potion_action) => PotionSystem::expend_potion_out_of_combat(
-                    self.comms,
-                    &mut player_persistent_state.potions,
-                    &potion_action,
-                    &mut player_persistent_state.health,
-                )?,
-
-                invalid => unreachable!("{:?}", invalid),
-            }
-        }
-    }
-
+    /// Advances the player to the next room.
     pub fn advance(
         &mut self,
         player_persistent_state: &mut PlayerPersistentState,
@@ -131,6 +100,32 @@ impl<'a, I: Interaction> MapNavigationSimulator<'a, I> {
                 next_row_index,
                 next_column_index
             ))
+        }
+    }
+
+    fn climb_floor(
+        &self,
+        pps: &mut PlayerPersistentState,
+        climb_options: &[ColumnIndex],
+    ) -> Result<ColumnIndex, Error> {
+        loop {
+            let mut choices = climb_options
+                .iter()
+                .copied()
+                .map(Choice::ClimbFloor)
+                .collect();
+            let prompt = if PotionSystem::extend_with_potion_actions(pps, false, &mut choices) {
+                Prompt::ClimbFloorHasPotion
+            } else {
+                Prompt::ClimbFloor
+            };
+            match self.comms.prompt_for_choice(prompt, &choices)? {
+                Choice::ClimbFloor(column_index) => return Ok(*column_index),
+                Choice::ExpendPotion(potion_action) => {
+                    PotionSystem::expend_potion_out_of_combat(self.comms, pps, potion_action)?
+                }
+                invalid => unreachable!("{:?}", invalid),
+            }
         }
     }
 

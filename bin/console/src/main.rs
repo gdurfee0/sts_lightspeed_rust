@@ -11,9 +11,9 @@ fn main() -> Result<(), anyhow::Error> {
     let (seed, character) = parse_command_line();
     let (to_server, from_client) = channel();
     let (to_client, from_server) = channel();
-    let simulator = StsSimulator::new(seed, character, from_client, to_client);
+    let simulator = StsSimulator::new(seed, character);
     let simulator_handle = thread::spawn(move || {
-        let _ = simulator.run();
+        let _ = simulator.run(from_client, to_client);
     });
 
     println!("Attacks:");
@@ -50,7 +50,7 @@ fn main() -> Result<(), anyhow::Error> {
         println!("{:?}", *card);
     }
 
-    main_input_loop(to_server, from_server)?;
+    main_input_loop(character, to_server, from_server)?;
     println!("[Main] Exiting.");
     simulator_handle
         .join()
@@ -59,6 +59,7 @@ fn main() -> Result<(), anyhow::Error> {
 }
 
 fn main_input_loop(
+    character: &'static Character,
     to_server: Sender<usize>,
     from_server: Receiver<StsMessage>,
 ) -> Result<(), anyhow::Error> {
@@ -81,7 +82,7 @@ fn main_input_loop(
                 break;
             }
             StsMessage::Notification(Notification::StartingCombat) => {
-                let combat_client = CombatClient::new(&from_server, &to_server);
+                let combat_client = CombatClient::new(character, &from_server, &to_server);
                 combat_client.run()?;
             }
             sts_message => println!("{:?}", sts_message),

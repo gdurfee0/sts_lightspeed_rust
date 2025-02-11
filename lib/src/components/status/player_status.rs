@@ -1,5 +1,5 @@
 use crate::components::{AttackerStatus, CardCombatState, DefenderStatus};
-use crate::data::{Card, PlayerCondition, Potion, Relic};
+use crate::data::{Card, Character, PlayerCondition, Potion, Relic};
 use crate::types::{Block, Dexterity, Energy, Gold, Hp, HpMax, Strength};
 
 /// `PlayerStatus` is the information about the player that is made available to the client.
@@ -25,6 +25,27 @@ pub struct PlayerStatus {
 }
 
 impl PlayerStatus {
+    pub fn new(character: &'static Character) -> Self {
+        Self {
+            hp: character.starting_hp,
+            hp_max: character.starting_hp,
+            gold: 99,
+            relics: vec![character.starting_relic],
+            deck: character.starting_deck.to_vec(),
+            potions: vec![None; 3],
+            energy: 0,
+            block: 0,
+            conditions: vec![],
+            hand: vec![],
+            draw_pile: vec![],
+            discard_pile: vec![],
+            exhaust_pile: vec![],
+            hp_loss_count: 0,
+            strength: 0,
+            dexterity: 0,
+        }
+    }
+
     pub fn cards_iter(&self) -> impl Iterator<Item = &CardCombatState> {
         self.hand
             .iter()

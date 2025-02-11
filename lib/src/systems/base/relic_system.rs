@@ -1,9 +1,11 @@
 use anyhow::Error;
 
 use crate::components::{
-    DamageTaken, Effect, EffectQueue, Interaction, Notification, PlayerPersistentState,
+    DamageTaken, Effect, EffectQueue, Interaction, Notification, PlayerCombatState,
+    PlayerPersistentState,
 };
-use crate::data::{Damage, PlayerEffect, Relic, TargetEffect};
+use crate::data::{Damage, PlayerCondition, PlayerEffect, Relic, TargetEffect};
+use crate::systems::combat::PlayerConditionSystem;
 
 use super::HealthSystem;
 
@@ -53,8 +55,43 @@ impl RelicSystem {
         }
     }
 
-    /// Processes damage to be taken by the player based on the presence of certain relics.
+    /// Applies any relic effects triggered by the start of combat.
+    pub fn on_start_combat<I: Interaction>(
+        comms: &I,
+        pps: &PlayerPersistentState,
+        pcs: &mut PlayerCombatState,
+    ) -> Result<(), Error> {
+        if pps.relics.contains(&Relic::SneckoEye) {
+            PlayerConditionSystem::apply_to_player(comms, pcs, &PlayerCondition::Confused)?;
+        }
+        Ok(())
+    }
 
+    /// Applies any relic effects triggered by the end of combat.
+    pub fn on_end_combat<I: Interaction>(
+        comms: &I,
+        pps: &mut PlayerPersistentState,
+    ) -> Result<(), Error> {
+        let mut has_burning_blood = false;
+        let mut has_black_blood = false;
+        for relic in pps.relics.iter() {
+            if *relic == Relic::BurningBlood {
+                has_burning_blood = true;
+            }
+            if *relic == Relic::BlackBlood {
+                has_black_blood = true;
+            }
+        }
+        if has_burning_blood {
+            HealthSystem::heal(comms, pps, 6)?;
+        }
+        if has_black_blood {
+            HealthSystem::heal(comms, pps, 12)?;
+        }
+        Ok(())
+    }
+
+    /// Modifies damage to be taken by the player based on the presence of certain relics.
     pub fn modify_damage_taken_by_player(
         pps: &PlayerPersistentState,
         damage_taken: &mut DamageTaken,

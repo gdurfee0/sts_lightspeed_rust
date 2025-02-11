@@ -11,7 +11,7 @@ impl DeckSystem {
     /// Notifies the player of the current deck.
     pub fn notify_player<I: Interaction>(
         comms: &I,
-        pps: &mut PlayerPersistentState,
+        pps: &PlayerPersistentState,
     ) -> Result<(), Error> {
         comms.send_notification(Notification::Deck(pps.deck.to_vec()))
     }
@@ -34,6 +34,17 @@ impl DeckSystem {
             Choice::Skip => Ok(()),
             invalid => unreachable!("{:?}", invalid),
         }
+    }
+
+    /// Adds the indicated card to the deck and notifies the player.
+    pub fn obtain_card<I: Interaction>(
+        comms: &I,
+        pps: &mut PlayerPersistentState,
+        card: Card,
+    ) -> Result<(), Error> {
+        pps.deck.push(card);
+        comms.send_notification(Notification::CardObtained(card))?;
+        Self::notify_player(comms, pps)
     }
 
     /// Prompts the player to remove a card from the deck and notifies them of the change.
@@ -85,17 +96,6 @@ impl DeckSystem {
             }
             invalid => unreachable!("{:?}", invalid),
         }
-        Self::notify_player(comms, pps)
-    }
-
-    /// Adds the indicated card to the deck and notifies the player.
-    fn obtain_card<I: Interaction>(
-        comms: &I,
-        pps: &mut PlayerPersistentState,
-        card: Card,
-    ) -> Result<(), Error> {
-        pps.deck.push(card);
-        comms.send_notification(Notification::CardObtained(card))?;
         Self::notify_player(comms, pps)
     }
 }

@@ -118,6 +118,9 @@ pub enum PlayerCondition {
     /// At the end of N turns, deal X damage to all enemies.
     TheBomb(Turns, Hp),
 
+    /// When attacked, deal X damage back.
+    Thorns(Hp),
+
     /// You take 50% more damage from attacks.
     Vulnerable(Turns),
 

@@ -46,7 +46,7 @@ impl EventGenerator {
     pub fn next_event(
         &mut self,
         floor: Floor,
-        state: &PlayerPersistentState,
+        pps: &PlayerPersistentState,
     ) -> (Room, Option<Event>) {
         // TODO: Last room was a shop
         // TODO: Relic::TinyChest
@@ -93,14 +93,14 @@ impl EventGenerator {
                     .event_pool
                     .iter()
                     .copied()
-                    .filter(|&event| self.filter_event(event, floor, state))
+                    .filter(|&event| self.filter_event(event, floor, pps))
                     .collect::<Vec<_>>();
                 let shrine_and_special_pool = self
                     .shrine_pool
                     .iter()
                     .copied()
                     .chain(self.one_time_event_pool.iter().copied())
-                    .filter(|&event| self.filter_event(event, floor, state))
+                    .filter(|&event| self.filter_event(event, floor, pps))
                     .collect::<Vec<_>>();
                 let pool = *event_rng_clone.weighted_choose(&[
                     (shrine_and_special_pool.as_slice(), SHRINE_PROBABILITY),

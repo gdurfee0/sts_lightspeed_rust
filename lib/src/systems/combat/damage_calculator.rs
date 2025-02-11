@@ -22,15 +22,28 @@ enum InitialCalculatedDamage {
 }
 
 impl DamageCalculator {
-    pub fn calculate_damage<A: AttackerStatus, D: DefenderStatus>(
+    /// Calculates the damage inflicted, taking into account strength and weakness of the attacker
+    /// and vulnerability of the defender.
+    pub fn calculate_damage_inflicted<A: AttackerStatus, D: DefenderStatus>(
         attacker: &A,
-        defender: &D,
+        maybe_defender: Option<&D>,
         damage: &Damage,
     ) -> CalculatedDamage {
         let initial_damage = Self::calculate_initial_damage(attacker, damage);
-        Self::calculate_final_damage(attacker, defender, initial_damage)
+        Self::calculate_final_damage(attacker, maybe_defender, initial_damage)
     }
 
+    /// Calculates the block gained by a defender, taking into account dexterity and frailty.
+    pub fn calculate_block_gained<D: DefenderStatus>(defender: &D, amount: Block) -> Block {
+        let initial_amount = amount.saturating_add_signed(defender.dexterity());
+        if defender.is_frail() {
+            (initial_amount as f32 * 0.75).floor() as Block
+        } else {
+            initial_amount
+        }
+    }
+
+    /// Partial calculation of damage inflicted taking only strength into account.
     fn calculate_initial_damage<A: AttackerStatus>(
         attacker: &A,
         damage: &Damage,
@@ -68,9 +81,11 @@ impl DamageCalculator {
         }
     }
 
+    /// Final calculation of damage inflicted taking into account weakness and vulnerability of the
+    /// attacker and defender.
     fn calculate_final_damage<A: AttackerStatus, D: DefenderStatus>(
         attacker: &A,
-        defender: &D,
+        maybe_defender: Option<&D>,
         damage: InitialCalculatedDamage,
     ) -> CalculatedDamage {
         match damage {
@@ -80,7 +95,7 @@ impl DamageCalculator {
                 } else {
                     amount
                 };
-                if defender.is_vulnerable() {
+                if maybe_defender.map_or(false, |d| d.is_vulnerable()) {
                     CalculatedDamage::Blockable(
                         (attacker_modified_amount as f32 * 1.5).floor() as Hp
                     )
@@ -92,15 +107,6 @@ impl DamageCalculator {
                 CalculatedDamage::BlockableNonAttack(amount)
             }
             InitialCalculatedDamage::HpLoss(amount) => CalculatedDamage::HpLoss(amount),
-        }
-    }
-
-    pub fn calculate_block<D: DefenderStatus>(defender: &D, amount: Block) -> Block {
-        let initial_amount = amount.saturating_add_signed(defender.dexterity());
-        if defender.is_frail() {
-            (initial_amount as f32 * 0.75).floor() as Block
-        } else {
-            initial_amount
         }
     }
 }

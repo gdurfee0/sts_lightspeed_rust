@@ -23,6 +23,7 @@ impl fmt::Display for Prompt {
             Prompt::CombatAction => write!(f, "It is your turn to act"),
             Prompt::RemoveCard => write!(f, "Choose a card to remove"),
             Prompt::TargetEnemy => write!(f, "Choose an enemy to target"),
+            Prompt::UpgradeCard => write!(f, "Choose a card to upgrade"),
         }
     }
 }
@@ -37,7 +38,7 @@ impl fmt::Display for Choice {
                     (b'a' + *column_index as u8) as char
                 )
             }
-            Choice::EventChoice(_, text) => write!(f, "{}", text),
+            Choice::Event(_, text) => write!(f, "{}", text),
             Choice::ExpendPotion(PotionAction::Discard(_, potion)) => {
                 write!(f, "Discard potion \"{:?}\"", potion)
             }
@@ -47,7 +48,7 @@ impl fmt::Display for Choice {
 
             Choice::EndTurn => write!(f, "(End Turn)"),
             Choice::NeowBlessing(blessing) => write!(f, "{}", blessing),
-            Choice::ObtainCard(card) => {
+            Choice::ObtainCard(_, card) => {
                 write!(f, "{:?} {:?}", card, CardDetails::for_card(*card).on_play)
             }
             Choice::ObtainGold(gold) => write!(f, "Obtain {} gold", gold),
@@ -58,11 +59,12 @@ impl fmt::Display for Choice {
             Choice::PutOnTopOfDrawPile(_, card) => write!(f, "{:?}", card),
             Choice::RemoveCard(_, card) => write!(f, "{:?}", card),
             Choice::Rest => write!(f, "Rest"),
+            Choice::Smith => write!(f, "Smith (Upgrade a card)"),
             Choice::Skip => write!(f, "(Skip)"),
             Choice::TargetEnemy(_, enemy) => {
                 write!(f, "Target \"{:?}\"", enemy)
             }
-            Choice::Upgrade => write!(f, "Upgrade Card"),
+            Choice::UpgradeCard(_, card, _) => write!(f, "Upgrade \"{:?}\"", card),
         }
     }
 }

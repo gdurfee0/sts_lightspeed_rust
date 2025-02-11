@@ -2,7 +2,8 @@ use crate::components::{AttackerStatus, DefenderStatus};
 use crate::data::{Card, PlayerCondition};
 use crate::types::{Block, Dexterity, Energy, Strength};
 
-use super::CombatCards;
+use super::combat_cards::CombatCards;
+use super::player_persistent_state::PlayerPersistentState;
 
 /// Captures the state of a combat encounter, including the player's hand, draw pile, etc.
 /// Lives only as long as the combat encounter itself.
@@ -18,12 +19,12 @@ pub struct PlayerCombatState {
 }
 
 impl PlayerCombatState {
-    pub fn new(deck: &[Card]) -> Self {
+    pub fn new(pps: &PlayerPersistentState) -> Self {
         Self {
             energy: 3,
             block: 0,
             conditions: Vec::new(),
-            cards: CombatCards::new(deck),
+            cards: CombatCards::new(&pps.deck),
             hp_loss_count: 0,
             strength: 0,
             dexterity: 0,

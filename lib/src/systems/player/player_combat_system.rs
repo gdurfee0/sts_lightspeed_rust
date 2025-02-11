@@ -1,177 +1,183 @@
-use std::fmt;
-
 use anyhow::Error;
 
 use crate::components::{
-    CardCombatState, EnemyStatus, Notification, PlayerCombatState, PlayerPersistentState,
-    PotionAction,
+    CardCombatState, Choice, EffectQueue, EnemyStatus, Interaction, Notification,
+    PlayerCombatState, PlayerPersistentState, Prompt,
 };
-use crate::data::{
-    Card, CardDestination, CardPool, CardSelection, CardType, CostModifier, EnergyCost,
-    PlayerCondition, Potion, Relic,
+use crate::data::CardType;
+use crate::systems::base::{PotionSystem, RelicSystem};
+use crate::systems::combat::{
+    BlockSystem, DiscardSystem, DrawSystem, EnergySystem, PlayerConditionSystem,
 };
-use crate::systems::damage::FinalCalculatedDamage;
-use crate::systems::effects::Condition;
-use crate::systems::enemy::EnemyState;
-use crate::systems::rng::StsRandom;
-use crate::types::{Block, Dexterity, EnemyIndex, HandIndex, StackCount};
-use crate::{Choice, Prompt, Seed};
+use crate::systems::enemy::EnemyParty;
+use crate::systems::rng::Seed;
+use crate::types::EnemyIndex;
 
-use super::energy::PlayerEnergy;
-use super::player_controller::PlayerController;
+use super::player_combat_action::CombatAction;
 
-pub trait PlayerCombatSystem: fmt::Debug {
-    //fn start_combat(&self, enemies: &[Option<EnemyStatus>]) -> Result<(), Error>;
-    //fn start_turn(&self) -> Result<(), Error>;
-    //fn end_turn(&self) -> Result<(), Error>;
-    //fn end_combat(&self) -> Result<(), Error>;
-
-    fn apply_condition(
-        &self,
-        combat_state: &mut PlayerCombatState,
-        condition: &PlayerCondition,
-    ) -> Result<(), Error>;
-
-    fn create_cards(
-        &self,
-        combat_state: &mut PlayerCombatState,
-        card_pool: CardPool,
-        card_selection: CardSelection,
-        card_destination: CardDestination,
-        cost_modifier: CostModifier,
-    ) -> Result<(), Error>;
-
-    fn take_damage(
-        &self,
-        persistent_state: &mut PlayerPersistentState,
-        combat_state: &mut PlayerCombatState,
-        enemy_state: &mut EnemyState,
-        damage: FinalCalculatedDamage,
-    ) -> Result<(), Error>;
-
-    fn take_retaliatory_damage(
-        &self,
-        persistent_state: &mut PlayerPersistentState,
-        combat_state: &mut PlayerCombatState,
-        damage: FinalCalculatedDamage,
-    ) -> Result<(), Error>;
+pub struct PlayerCombatSystem {
+    draw_system: DrawSystem,
 }
 
-/*
-#[derive(Debug)]
-pub struct PlayerInCombat<'a> {
-    pub player: &'a mut PlayerController,
-    pub state: PlayerCombatState,
-    turn_number: usize,
-    shuffle_rng: StsRandom,
-    card_randomizer_rng: StsRandom,
-    cards_drawn_each_turn: usize,
-    card_just_played: Option<HandIndex>,
-}
-
-/// Returned by various methods to indicate the player's choice of action in combat.
-#[derive(Debug)]
-pub enum CombatAction<'a> {
-    EndTurn,
-    PlayCard(&'a mut CardCombatState),
-    PlayCardAgainstEnemy(&'a mut CardCombatState, EnemyIndex),
-}
-*/
-
-impl<'a> PlayerInCombat<'a> {
-    pub fn new(player: &'a mut PlayerController, seed_for_floor: Seed) -> Self {
-        let mut state = PlayerCombatState::new(&player.player_persistent_state.deck);
-        let mut shuffle_rng = StsRandom::from(seed_for_floor);
-        shuffle_rng.java_compat_shuffle(&mut state.draw_pile);
-        let card_randomizer_rng = StsRandom::from(seed_for_floor);
-        // Move innate cards to the top of the draw pile
-        state.draw_pile.sort_by_key(|card| card.details.innate);
-
-        // TODO: Draw more than 5 cards if there are more than 5 innate cards
-        let cards_drawn_each_turn = if player.player_persistent_state.has_relic(Relic::SneckoEye) {
-            7
-        } else {
-            5
-        };
+impl PlayerCombatSystem {
+    /// Creates a new player combat system.
+    pub fn new(seed_for_floor: Seed) -> Self {
         Self {
-            player,
-            state,
-            turn_number: 0,
-            shuffle_rng,
-            card_randomizer_rng,
-            cards_drawn_each_turn,
-            card_just_played: None,
+            draw_system: DrawSystem::new(seed_for_floor),
         }
     }
 
-    pub fn start_combat(&mut self, enemies: &[Option<EnemyStatus>]) -> Result<(), Error> {
-        if self.player.state.has_relic(Relic::SneckoEye) {
-            self.state.conditions.push(PlayerCondition::Confused);
-        }
-        self.player
-            .comms
-            .send_notification(Notification::StartingCombat)?;
-        self.player
-            .comms
-            .send_notification(Notification::Energy(self.state.energy))?;
-        self.player
-            .comms
-            .send_notification(Notification::Health(self.player.state.health()))?;
-        self.player
-            .comms
-            .send_notification(Notification::Strength(self.state.strength))?;
-        self.player
-            .comms
-            .send_notification(Notification::Dexterity(self.state.dexterity))?;
-        self.player
-            .comms
-            .send_notification(Notification::EnemyParty(enemies.to_vec()))
+    /// Notifies the player of their current combat state and the enemy party.
+    pub fn notify_player<I: Interaction>(
+        &self,
+        comms: &I,
+        pps: &PlayerPersistentState,
+        pcs: &PlayerCombatState,
+        enemy_party: &EnemyParty,
+    ) -> Result<(), Error> {
+        comms.send_notification(Notification::StartingCombat)?;
+        comms.send_notification(Notification::EnemyParty(
+            enemy_party
+                .0
+                .iter()
+                .map(|enemy| enemy.as_ref().map(EnemyStatus::from))
+                .collect(),
+        ))?;
+        comms.send_notification(Notification::Health((pps.hp, pps.hp_max)))?;
+        comms.send_notification(Notification::Energy(pcs.energy))?;
+        comms.send_notification(Notification::Strength(pcs.strength))?;
+        comms.send_notification(Notification::Dexterity(pcs.dexterity))?;
+        comms.send_notification(Notification::Conditions(pcs.conditions.clone()))
     }
 
-    pub fn start_turn(&mut self) -> Result<(), Error> {
-        self.state.conditions.retain_mut(|c| c.start_turn());
-        self.state.energy = 3;
-        self.draw_cards()?;
-        if self.state.block > 0 {
-            self.state.block = 0;
-            self.player
-                .comms
-                .send_notification(Notification::Block(self.state.block))?;
-        }
-        // TODO: Apply other start-of-turn effects
-        Ok(())
+    /// Kicks off combat by triggering start-of-combat effects and notifying the player of their
+    /// combat state as well as the enemy party.
+    pub fn start_combat<I: Interaction>(
+        &self,
+        comms: &I,
+        pps: &mut PlayerPersistentState,
+        pcs: &mut PlayerCombatState,
+        enemy_party: &mut EnemyParty,
+    ) -> Result<(), Error> {
+        RelicSystem::on_start_combat(comms, pps, pcs)?;
+        self.notify_player(comms, pps, pcs, enemy_party)
     }
 
-    pub fn end_turn(&mut self) -> Result<(), Error> {
-        self.discard_hand()?; // TODO: handle on-discard effects
-        for condition in self.state.conditions.iter() {
-            match condition {
-                PlayerCondition::Combust(_, _) => todo!(),
-                PlayerCondition::StrengthDown(_) => todo!(),
-                _ => {}
+    /// Notifies the player that combat has ended.
+    pub fn end_combat<I: Interaction>(&self, comms: &I) -> Result<(), Error> {
+        comms.send_notification(Notification::EndingCombat)
+    }
+
+    /// Triggers start-of-turn effects.
+    pub fn start_turn<I: Interaction>(
+        &mut self,
+        comms: &I,
+        pps: &mut PlayerPersistentState,
+        pcs: &mut PlayerCombatState,
+        effect_queue: &mut EffectQueue,
+    ) -> Result<(), Error> {
+        PlayerConditionSystem::start_turn(comms, pcs)?;
+        BlockSystem::start_player_turn(comms, pcs)?;
+        EnergySystem::start_turn(comms, pcs)?;
+        self.draw_system
+            .draw_cards_at_start_of_player_turn(comms, pps, pcs, effect_queue)
+    }
+
+    /// Triggers end-of-turn effects.
+    pub fn end_turn<I: Interaction>(
+        &mut self,
+        comms: &I,
+        pps: &mut PlayerPersistentState,
+        pcs: &mut PlayerCombatState,
+        effect_queue: &mut EffectQueue,
+    ) -> Result<(), Error> {
+        DiscardSystem::end_turn(comms, pps, pcs, effect_queue)?;
+        PlayerConditionSystem::end_turn(comms, pcs)
+    }
+
+    /// Prompts the player for their next action.
+    pub fn choose_next_action<I: Interaction>(
+        &self,
+        comms: &I,
+        pps: &mut PlayerPersistentState,
+        pcs: &mut PlayerCombatState,
+        enemy_party: &EnemyParty,
+    ) -> Result<CombatAction, Error> {
+        self.notify_player(comms, pps, pcs, enemy_party)?;
+        loop {
+            let mut choices = pcs
+                .cards
+                .hand
+                .iter()
+                .filter(|combat_card| Self::can_play_card(pcs, combat_card))
+                .copied()
+                .enumerate()
+                .map(|(hand_index, combat_card)| {
+                    Choice::PlayCardFromHand(
+                        hand_index,
+                        combat_card.card,
+                        combat_card.cost_this_turn,
+                    )
+                })
+                .collect::<Vec<_>>();
+            PotionSystem::extend_with_potion_actions(pps, true, &mut choices);
+            choices.push(Choice::EndTurn);
+            match comms.prompt_for_choice(Prompt::CombatAction, &choices)? {
+                Choice::PlayCardFromHand(hand_index, _, _) => {
+                    pcs.cards.card_in_play = Some(*hand_index);
+                    let combat_card = pcs.cards.hand[*hand_index];
+                    EnergySystem::spend(comms, pcs, combat_card.cost_this_turn)?;
+                    if combat_card.details.requires_target {
+                        let enemy_index = Self::choose_enemy_to_target(comms, enemy_party)?;
+                        return Ok(CombatAction::PlayCard(combat_card, Some(enemy_index)));
+                    } else {
+                        return Ok(CombatAction::PlayCard(combat_card, None));
+                    }
+                }
+                Choice::ExpendPotion(potion_action) => {
+                    PotionSystem::expend_potion_in_combat(comms, pps, pcs, &potion_action)?
+                }
+                Choice::EndTurn => return Ok(CombatAction::EndTurn),
+                invalid => unreachable!("{:?}", invalid),
             }
         }
-        self.state.conditions.retain_mut(|c| c.end_turn());
-        self.player
-            .comms
-            .send_notification(Notification::Conditions(self.state.conditions.clone()));
-        for card in self.state.cards_iter_mut() {
-            card.cost_this_turn = card.cost_this_combat;
-        }
-        self.turn_number += 1;
-        // TODO: Apply other end-of-turn effects
-        Ok(())
     }
 
-    pub fn end_combat(self) -> Result<(), Error> {
-        if self.player.state.has_relic(Relic::BurningBlood) {
-            self.player.increase_hp(6)?;
+    /// Prompts the player to choose an enemy to target.
+    fn choose_enemy_to_target<I: Interaction>(
+        comms: &I,
+        enemy_party: &EnemyParty,
+    ) -> Result<EnemyIndex, Error> {
+        let choices = enemy_party
+            .0
+            .iter()
+            .enumerate()
+            .filter_map(|(index, maybe_enemy)| {
+                maybe_enemy
+                    .as_ref()
+                    .map(|enemy| Choice::TargetEnemy(index, enemy.enemy))
+            })
+            .collect::<Vec<_>>();
+        match comms.prompt_for_choice(Prompt::TargetEnemy, &choices)? {
+            Choice::TargetEnemy(enemy_index, _) => Ok(*enemy_index),
+            invalid => unreachable!("{:?}", invalid),
         }
-        self.player
-            .comms
-            .send_notification(Notification::EndingCombat)
     }
 
+    /// Returns true iff the player can play the given card.
+    fn can_play_card(pcs: &PlayerCombatState, combat_card: &CardCombatState) -> bool {
+        EnergySystem::can_afford(pcs, combat_card.cost_this_turn)
+            && (!combat_card
+                .details
+                .playable_only_if_all_cards_in_hand_are_attacks
+                || pcs
+                    .cards
+                    .hand
+                    .iter()
+                    .all(|c| matches!(c.details.type_, CardType::Attack)))
+    }
+
+    /*
     pub fn dispose_of_card_just_played(&mut self) -> Result<(), Error> {
         let mut rage_stacks: StackCount = 0;
         for condition in self.state.conditions.iter() {
@@ -237,141 +243,6 @@ impl<'a> PlayerInCombat<'a> {
             .send_notification(Notification::Block(self.state.block))
     }
 
-    fn expend_potion(&mut self, potion_action: &PotionAction) -> Result<(), Error> {
-        match potion_action {
-            PotionAction::Discard(_, _) => self.player.expend_potion(potion_action),
-            PotionAction::Drink(potion_index, potion) => {
-                self.player.state.potions[*potion_index] = None;
-                self.player
-                    .comms
-                    .send_notification(Notification::Potions(self.player.state.potions.to_vec()))?;
-                match *potion {
-                    Potion::Ambrosia => todo!(),
-                    Potion::AncientPotion => todo!(),
-                    Potion::AttackPotion => todo!(),
-                    Potion::BlessingOfTheForge => todo!(),
-                    Potion::BlockPotion => todo!(),
-                    Potion::BloodPotion => self.player.expend_potion(potion_action),
-                    Potion::BottledMiracle => todo!(),
-                    Potion::ColorlessPotion => todo!(),
-                    Potion::CultistPotion => todo!(),
-                    Potion::CunningPotion => todo!(),
-                    Potion::DexterityPotion => self.adjust_dexterity(2),
-                    Potion::DistilledChaos => todo!(),
-                    Potion::DuplicationPotion => todo!(),
-                    Potion::Elixir => todo!(),
-                    Potion::EnergyPotion => todo!(),
-                    Potion::EntropicBrew => self.player.expend_potion(potion_action),
-                    Potion::EssenceOfDarkness => todo!(),
-                    Potion::EssenceOfSteel => todo!(),
-                    Potion::ExplosivePotion => todo!(),
-                    Potion::FairyInABottle => todo!(),
-                    Potion::FearPotion => todo!(),
-                    Potion::FirePotion => todo!(),
-                    Potion::FlexPotion => todo!(),
-                    Potion::FocusPotion => todo!(),
-                    Potion::FruitJuice => self.player.expend_potion(potion_action),
-                    Potion::GamblersBrew => todo!(),
-                    Potion::GhostInAJar => todo!(),
-                    Potion::HeartOfIron => todo!(),
-                    Potion::LiquidBronze => todo!(),
-                    Potion::LiquidMemories => todo!(),
-                    Potion::PoisonPotion => todo!(),
-                    Potion::PotionOfCapacity => todo!(),
-                    Potion::PowerPotion => todo!(),
-                    Potion::RegenPotion => todo!(),
-                    Potion::SkillPotion => todo!(),
-                    Potion::SmokeBomb => todo!(),
-                    Potion::SneckoOil => todo!(),
-                    Potion::SpeedPotion => todo!(),
-                    Potion::StancePotion => todo!(),
-                    Potion::StrengthPotion => todo!(),
-                    Potion::SwiftPotion => todo!(),
-                    Potion::WeakPotion => todo!(),
-                }
-            }
-        }
-    }
-
-    pub fn can_play_card(&self, card: &CardCombatState) -> bool {
-        PlayerEnergy::can_afford(&self.state, card.cost_this_turn)
-        // TODO: custom requirements
-    }
-
-    pub fn choose_next_action(
-        &mut self,
-        enemies: &[Option<EnemyStatus>],
-    ) -> Result<CombatAction, Error> {
-        // TODO: check for unwinnable situations
-        self.player
-            .comms
-            .send_notification(Notification::EnemyParty(enemies.to_vec()))?;
-        self.player
-            .comms
-            .send_notification(Notification::Health(self.player.state.health()))?;
-        self.player
-            .comms
-            .send_notification(Notification::Energy(self.state.energy))?;
-        loop {
-            let mut choices = self
-                .state
-                .hand
-                .iter()
-                .filter(|card| self.can_play_card(card))
-                .copied()
-                .enumerate()
-                .map(|(hand_index, card)| {
-                    Choice::PlayCardFromHand(hand_index, card.card, card.cost_this_turn)
-                })
-                .collect::<Vec<_>>();
-            self.player.extend_with_potion_choices(&mut choices, true);
-            choices.push(Choice::EndTurn);
-            match self
-                .player
-                .comms
-                .prompt_for_choice(Prompt::CombatAction, &choices)?
-            {
-                Choice::PlayCardFromHand(hand_index, _, _) => {
-                    self.card_just_played = Some(*hand_index);
-                    let cost = self.state.hand[*hand_index].cost_this_turn;
-                    PlayerEnergy::spend(&mut self.state, &self.player.comms, cost)?;
-                    if self.state.hand[*hand_index].details.requires_target {
-                        let enemy_index = self.choose_enemy_to_target(enemies)?;
-                        return Ok(CombatAction::PlayCardAgainstEnemy(
-                            &mut self.state.hand[*hand_index],
-                            enemy_index,
-                        ));
-                    } else {
-                        return Ok(CombatAction::PlayCard(&mut self.state.hand[*hand_index]));
-                    }
-                }
-                Choice::ExpendPotion(potion_action) => self.expend_potion(potion_action)?,
-                Choice::EndTurn => return Ok(CombatAction::EndTurn),
-                invalid => unreachable!("{:?}", invalid),
-            }
-        }
-    }
-
-    fn choose_enemy_to_target(&self, enemies: &[Option<EnemyStatus>]) -> Result<EnemyIndex, Error> {
-        let choices = enemies
-            .iter()
-            .enumerate()
-            .filter_map(|(index, maybe_enemy)| {
-                maybe_enemy
-                    .as_ref()
-                    .map(|enemy| Choice::TargetEnemy(index, enemy.enemy_type))
-            })
-            .collect::<Vec<_>>();
-        match self
-            .player
-            .comms
-            .prompt_for_choice(Prompt::TargetEnemy, &choices)?
-        {
-            Choice::TargetEnemy(enemy_index, _) => Ok(*enemy_index),
-            invalid => unreachable!("{:?}", invalid),
-        }
-    }
-
     pub fn put_card_from_discard_pile_on_top_of_draw_pile(&mut self) -> Result<(), Error> {
         if !self.state.discard_pile.is_empty() {
             let choices = self
@@ -398,4 +269,5 @@ impl<'a> PlayerInCombat<'a> {
         }
         Ok(())
     }
+    */
 }

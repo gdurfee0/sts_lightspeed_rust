@@ -21,6 +21,7 @@ pub struct EnemyState {
 }
 
 impl EnemyState {
+    /// Creates a new enemy state from the specified enemy type and characteristics.
     pub fn new(
         enemy: Enemy,
         characteristics: Box<dyn EnemyCharacteristics>,
@@ -40,6 +41,7 @@ impl EnemyState {
         }
     }
 
+    /// Returns true iff the enemy is dead.
     pub fn is_dead(&self) -> bool {
         self.hp == 0
     }

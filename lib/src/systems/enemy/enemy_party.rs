@@ -7,6 +7,7 @@ use super::enemy_state::EnemyState;
 pub struct EnemyParty(pub [Option<EnemyState>; 5]);
 
 impl EnemyParty {
+    /// Generates a new enemy party for the specified encounter.
     pub fn generate(
         seed_for_floor: Seed,
         encounter: Encounter,

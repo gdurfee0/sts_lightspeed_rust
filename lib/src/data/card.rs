@@ -451,8 +451,8 @@ pub struct CardDetails {
     pub cost: EnergyCost,
     pub on_draw: Option<PlayerEffect>,
     pub on_exhaust: Option<PlayerEffect>,
+    pub on_linger: Option<PlayerEffect>,
     pub on_play: Vec<PlayerEffect>,
-    pub if_in_hand_at_end_of_turn: Option<PlayerEffect>,
 
     // Card properties
     pub ethereal: bool,
@@ -486,7 +486,7 @@ impl CardDetails {
             on_draw: None,
             on_exhaust: None,
             on_play: Vec::new(),
-            if_in_hand_at_end_of_turn: None,
+            on_linger: None,
             ethereal: false,
             exhaust: false,
             exhaust_when_played: false,
@@ -512,6 +512,11 @@ impl CardDetails {
         self
     }
 
+    fn on_linger(mut self, effect: PlayerEffect) -> Self {
+        self.on_linger = Some(effect);
+        self
+    }
+
     fn effect_chain_requires_target(effect_chain: &[PlayerEffect]) -> bool {
         effect_chain
             .iter()
@@ -533,11 +538,6 @@ impl CardDetails {
             }
         }
         self.on_play.push(effect);
-        self
-    }
-
-    fn if_in_hand_at_end_of_turn(mut self, effect: PlayerEffect) -> Self {
-        self.if_in_hand_at_end_of_turn = Some(effect);
         self
     }
 
@@ -846,7 +846,7 @@ static ALL_CARDS: Lazy<Vec<CardDetails>> = Lazy::new(|| {
             (Burn(false), Status, Special, Zero),
             [],
             [
-                if_in_hand_at_end_of_turn(PlayerEffect::TakeDamage(Damage::Blockable(2))),
+                on_linger(PlayerEffect::TakeDamage(Damage::Blockable(2))),
                 unplayable
             ]
         ),
@@ -854,7 +854,7 @@ static ALL_CARDS: Lazy<Vec<CardDetails>> = Lazy::new(|| {
             (Burn(true), Status, Special, Zero),
             [],
             [
-                if_in_hand_at_end_of_turn(PlayerEffect::TakeDamage(Damage::Blockable(4))),
+                on_linger(PlayerEffect::TakeDamage(Damage::Blockable(4))),
                 unplayable
             ]
         ),
@@ -993,7 +993,7 @@ static ALL_CARDS: Lazy<Vec<CardDetails>> = Lazy::new(|| {
             (Decay, Curse, Special, Zero),
             [],
             [
-                if_in_hand_at_end_of_turn(PlayerEffect::TakeDamage(Damage::Blockable(2))),
+                on_linger(PlayerEffect::TakeDamage(Damage::Blockable(2))),
                 unplayable
             ]
         ),
@@ -1078,7 +1078,7 @@ static ALL_CARDS: Lazy<Vec<CardDetails>> = Lazy::new(|| {
             (Doubt, Curse, Special, Zero),
             [],
             [
-                if_in_hand_at_end_of_turn(PlayerEffect::Apply(PlayerCondition::Weak(1))),
+                on_linger(PlayerEffect::Apply(PlayerCondition::Weak(1))),
                 unplayable
             ]
         ),
@@ -1811,7 +1811,7 @@ static ALL_CARDS: Lazy<Vec<CardDetails>> = Lazy::new(|| {
             (Regret, Curse, Special, Zero),
             [],
             [
-                if_in_hand_at_end_of_turn(PlayerEffect::TakeDamage(Damage::HpLossEqualToHandSize)),
+                on_linger(PlayerEffect::TakeDamage(Damage::HpLossEqualToHandSize)),
                 unplayable
             ]
         ),
@@ -1978,7 +1978,7 @@ static ALL_CARDS: Lazy<Vec<CardDetails>> = Lazy::new(|| {
             (Shame, Curse, Special, Zero),
             [],
             [
-                if_in_hand_at_end_of_turn(PlayerEffect::Apply(PlayerCondition::Frail(1))),
+                on_linger(PlayerEffect::Apply(PlayerCondition::Frail(1))),
                 unplayable
             ]
         ),

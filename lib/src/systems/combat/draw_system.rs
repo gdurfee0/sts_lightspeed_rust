@@ -1,12 +1,13 @@
 use anyhow::Error;
 
 use crate::components::{
-    CardCombatState, CombatCards, Effect, EffectQueue, Interaction, Notification,
-    PlayerCombatState, PlayerPersistentState,
+    CardCombatState, Effect, EffectQueue, Interaction, Notification, PlayerCombatState,
+    PlayerPersistentState,
 };
 use crate::data::{
-    Card, CardType, Damage, EnergyCost, PlayerCondition, PlayerEffect, Relic, TargetEffect,
+    Card, CardType, Damage, EnergyCost, PlayerCondition, PlayerEffect, TargetEffect,
 };
+use crate::systems::base::RelicSystem;
 use crate::systems::rng::{Seed, StsRandom};
 
 pub struct DrawSystem {
@@ -15,6 +16,7 @@ pub struct DrawSystem {
 }
 
 impl DrawSystem {
+    /// Creates a new draw system with the given seed.
     pub fn new(seed_for_floor: Seed) -> Self {
         let shuffle_rng = StsRandom::from(seed_for_floor);
         let card_randomizer_rng = StsRandom::from(seed_for_floor);
@@ -24,6 +26,7 @@ impl DrawSystem {
         }
     }
 
+    /// Draws the appropriate number of cards at the start of the player's turn.
     pub fn draw_cards_at_start_of_player_turn<I: Interaction>(
         &mut self,
         comms: &I,
@@ -31,17 +34,15 @@ impl DrawSystem {
         pcs: &mut PlayerCombatState,
         effect_queue: &mut EffectQueue,
     ) -> Result<(), Error> {
-        let cards_to_draw = if pps.relics.contains(&Relic::SneckoEye) {
-            7
-        } else {
-            5
-        };
+        let cards_to_draw = 5 + RelicSystem::extra_cards_to_draw_at_start_of_player_turn(pps);
+        // TODO: Extra draws when innate card count > cards_to_draw
         for _ in 0..cards_to_draw {
             self.draw_one_card(comms, pps, pcs, effect_queue)?;
         }
         Ok(())
     }
 
+    /// Draws one card.
     pub fn draw_one_card<I: Interaction>(
         &mut self,
         comms: &I,
@@ -67,6 +68,7 @@ impl DrawSystem {
         }
     }
 
+    /// Puts a drawn card into the player's hand.
     fn put_drawn_card_into_hand<I: Interaction>(
         &mut self,
         comms: &I,
@@ -75,6 +77,7 @@ impl DrawSystem {
         mut combat_card: CardCombatState,
         effect_queue: &mut EffectQueue,
     ) -> Result<(), Error> {
+        // TODO: Move these checks into ConditionSystem?
         for condition in pcs.conditions.iter() {
             match condition {
                 PlayerCondition::Confused => {

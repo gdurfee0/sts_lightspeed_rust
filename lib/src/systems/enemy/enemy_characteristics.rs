@@ -14,6 +14,7 @@ pub trait EnemyCharacteristics: fmt::Debug {
     ) -> EnemyAction;
 }
 
+/// Generates a new enemy characteristics object for the specified enemy type.
 pub fn gen_characteristics(enemy: Enemy, hp_rng: &mut StsRandom) -> Box<dyn EnemyCharacteristics> {
     match enemy {
         Enemy::AcidSlimeM => Box::new(AcidSlimeM::new(hp_rng)),

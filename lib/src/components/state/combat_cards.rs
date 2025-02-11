@@ -1,20 +1,20 @@
 use crate::data::Card;
+use crate::types::HandIndex;
 
 use super::card_combat_state::CardCombatState;
 
 #[derive(Debug)]
 pub struct CombatCards {
-    pub card_in_play: Option<CardCombatState>,
     pub hand: Vec<CardCombatState>,
     pub draw_pile: Vec<CardCombatState>,
     pub discard_pile: Vec<CardCombatState>,
     pub exhaust_pile: Vec<CardCombatState>,
+    pub card_in_play: Option<HandIndex>,
 }
 
 impl CombatCards {
     pub fn new(deck: &[Card]) -> Self {
         Self {
-            card_in_play: None,
             hand: Vec::with_capacity(10),
             draw_pile: deck
                 .iter()
@@ -24,6 +24,7 @@ impl CombatCards {
                 .collect(),
             discard_pile: Vec::with_capacity(deck.len()),
             exhaust_pile: Vec::new(),
+            card_in_play: None,
         }
     }
 

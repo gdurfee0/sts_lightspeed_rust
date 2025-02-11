@@ -1,4 +1,5 @@
 use crate::data::Encounter;
+use crate::systems::combat::{BlockSystem, EnemyConditionSystem};
 use crate::systems::rng::{Seed, StsRandom};
 
 use super::enemy_party::EnemyParty;
@@ -10,6 +11,7 @@ pub struct EnemySystem {
 }
 
 impl EnemySystem {
+    /// Creates a new enemy system with the specified seed for the floor.
     pub fn new(seed_for_floor: Seed) -> Self {
         let ai_rng = StsRandom::from(seed_for_floor);
         Self {
@@ -18,6 +20,7 @@ impl EnemySystem {
         }
     }
 
+    /// Creates a new enemy party for the specified encounter.
     pub fn create_enemy_party(
         &mut self,
         encounter: Encounter,
@@ -26,7 +29,23 @@ impl EnemySystem {
         EnemyParty::generate(self.seed_for_floor, encounter, &mut self.ai_rng, misc_rng)
     }
 
-    pub fn advance_action(&mut self, enemy_state: &mut EnemyState) {
+    /// Starts the turn for the enemy party.
+    pub fn start_turn(&mut self, enemy_party: &mut EnemyParty) {
+        EnemyConditionSystem::start_turn(enemy_party);
+        BlockSystem::start_enemy_turn(enemy_party);
+    }
+
+    /// Ends the turn for the enemy party.
+    pub fn end_turn(&mut self, enemy_party: &mut EnemyParty) {
+        EnemyConditionSystem::end_turn(enemy_party);
+        for enemy_state in enemy_party.0.iter_mut().filter_map(|e| e.as_mut()) {
+            self.advance_action(enemy_state);
+        }
+    }
+
+    /// Computes the next action for the supplied enemy, incrementing the run length if the action
+    /// is the same as the previous action.
+    fn advance_action(&mut self, enemy_state: &mut EnemyState) {
         let action = enemy_state.next_action;
         enemy_state.next_action = enemy_state.characteristics.next_action(
             &mut self.ai_rng,

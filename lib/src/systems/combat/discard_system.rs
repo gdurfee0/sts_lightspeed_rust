@@ -14,7 +14,7 @@ pub struct DiscardSystem;
 
 impl DiscardSystem {
     /// Discards the player's hand at the end of their turn.
-    pub fn discard_hand_at_end_of_player_turn<I: Interaction>(
+    pub fn end_turn<I: Interaction>(
         comms: &I,
         pps: &PlayerPersistentState,
         pcs: &mut PlayerCombatState,
@@ -24,7 +24,7 @@ impl DiscardSystem {
         let mut retained_cards = VecDeque::with_capacity(pcs.cards.hand.len());
         while let Some(combat_card) = pcs.cards.hand.pop() {
             let hand_index = pcs.cards.hand.len();
-            if let Some(effect) = combat_card.details.if_in_hand_at_end_of_turn.as_ref() {
+            if let Some(effect) = combat_card.details.on_linger.as_ref() {
                 effect_queue.push_back(Effect::FromCard(effect));
             }
             if combat_card.details.ethereal {
@@ -44,6 +44,9 @@ impl DiscardSystem {
             }
         }
         pcs.cards.hand.extend(retained_cards);
+        for combat_card in pcs.cards.hand.iter_mut() {
+            combat_card.cost_this_turn = combat_card.cost_this_combat;
+        }
         Ok(())
     }
 

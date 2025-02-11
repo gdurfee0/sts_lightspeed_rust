@@ -1,147 +1,325 @@
 use anyhow::Error;
 
-use crate::components::{CardCombatState, EnemyState, EnemyStatus, Interaction, PlayerCombatState};
-use crate::data::{
-    Card, CardDestination, CardPool, CardSelection, CostModifier, Damage, Encounter,
-    EnemyCondition, EnemyEffect, PlayerCondition, PlayerEffect, Resource,
+use crate::components::{
+    Effect, EffectQueue, Interaction, PlayerCombatState, PlayerPersistentState,
 };
-use crate::systems::enemy::{EnemyInCombat, EnemyPartyGenerator};
-use crate::systems::player::{CombatAction, DamageSystem, PlayerController, PlayerInCombat};
+use crate::data::{Encounter, EnemyEffect, PlayerEffect, Resource};
+use crate::systems::combat::{
+    BlockSystem, DamageCalculator, EnemyConditionSystem, PlayerConditionSystem,
+};
+use crate::systems::enemy::{EnemyParty, EnemySystem};
+use crate::systems::player::{CombatAction, PlayerCombatSystem};
 use crate::systems::rng::{Seed, StsRandom};
-use crate::types::{Block, EnemyIndex, Hp};
-use crate::Notification;
+use crate::types::EnemyIndex;
 
 pub struct CombatSimulator<'a> {
     seed_for_floor: Seed,
-    encounter: Encounter,
     misc_rng: &'a mut StsRandom,
+    player_combat_system: PlayerCombatSystem,
+    enemy_system: EnemySystem,
 }
 
 impl<'a> CombatSimulator<'a> {
-    pub fn new(seed_for_floor: Seed, encounter: Encounter, misc_rng: &'a mut StsRandom) -> Self {
-        let ai_rng = StsRandom::from(seed_for_floor);
+    /// Creates a new combat simulator.
+    pub fn new(seed_for_floor: Seed, misc_rng: &'a mut StsRandom) -> Self {
         Self {
             seed_for_floor,
-            encounter,
-            ai_rng,
             misc_rng,
+            player_combat_system: PlayerCombatSystem::new(seed_for_floor),
+            enemy_system: EnemySystem::new(seed_for_floor),
         }
     }
 
-    pub fn run(mut self, player: &mut PlayerController) -> Result<bool, Error> {
-        let mut enemy_party = EnemyPartyGenerator::new(
-            self.seed_for_floor,
-            self.encounter,
-            &mut self.ai_rng,
-            self.misc_rng,
-        )
-        .generate();
-        let mut player_in_combat = PlayerInCombat::new(player, self.seed_for_floor);
-        println!(
-            "[EncounterSimulator] Running encounter: {:?}",
-            self.encounter
-        );
-        player_in_combat.start_combat(
-            &enemy_party
-                .iter()
-                .map(|maybe_enemy| maybe_enemy.as_ref().map(EnemyStatus::from))
-                .collect::<Vec<_>>(),
-        )?;
+    /// Runs a combat encounter, returning true if the player wins.
+    pub fn run_encounter<I: Interaction>(
+        mut self,
+        comms: &I,
+        encounter: Encounter,
+        pps: &mut PlayerPersistentState,
+    ) -> Result<bool, Error> {
+        println!("[CombatSimulator] Running encounter: {:?}", encounter);
+        let mut enemy_party = self
+            .enemy_system
+            .create_enemy_party(encounter, self.misc_rng);
+        let mut pcs = PlayerCombatState::new(pps);
+        self.player_combat_system
+            .start_combat(comms, pps, &mut pcs, &mut enemy_party)?;
         loop {
-            self.conduct_player_turn(&mut player_in_combat, &mut enemy_party)?;
-            if Self::combat_should_end(&player_in_combat, &enemy_party) {
+            self.conduct_player_turn(comms, pps, &mut pcs, &mut enemy_party)?;
+            if Self::combat_should_end(pps, &enemy_party) {
                 break;
             }
-            self.conduct_enemies_turn(&mut player_in_combat, &mut enemy_party)?;
-            if Self::combat_should_end(&player_in_combat, &enemy_party) {
+            self.conduct_enemies_turn(comms, pps, &mut pcs, &mut enemy_party)?;
+            if Self::combat_should_end(pps, &enemy_party) {
                 break;
             }
         }
-        let victorious = player_in_combat.player.state.hp > 0;
-        player_in_combat.end_combat()?;
+        self.player_combat_system.end_combat(comms)?;
+        let victorious = pps.hp > 0;
         Ok(victorious)
     }
 
-    fn combat_should_end(
-        player_in_combat: &PlayerInCombat,
-        enemy_party: &[Option<EnemyInCombat>],
-    ) -> bool {
-        player_in_combat.player.state.hp == 0 || enemy_party.iter().all(|enemy| enemy.is_none())
-    }
-
-    fn conduct_player_turn(
+    /// Conducts the player's turn.
+    fn conduct_player_turn<I: Interaction>(
         &mut self,
-        player_in_combat: &mut PlayerInCombat,
-        enemy_party: &mut [Option<EnemyInCombat>],
+        comms: &I,
+        pps: &mut PlayerPersistentState,
+        pcs: &mut PlayerCombatState,
+        enemy_party: &mut EnemyParty,
     ) -> Result<(), Error> {
-        player_in_combat.start_turn()?;
-        loop {
-            let enemy_statuses = enemy_party
-                .iter()
-                .map(|maybe_enemy| maybe_enemy.as_ref().map(EnemyStatus::from))
-                .collect::<Vec<_>>();
-            match player_in_combat.choose_next_action(&enemy_statuses)? {
-                CombatAction::PlayCard(card_details) => {
-                    self.play_card(player_in_combat, enemy_party, card_details)?;
-                    if Self::combat_should_end(player_in_combat, enemy_party) {
-                        return Ok(());
-                    }
-                    player_in_combat.dispose_of_card_just_played()?;
-                }
-                CombatAction::PlayCardAgainstEnemy(card_details, enemy_index) => {
-                    self.play_card_against_enemy(
-                        player_in_combat,
-                        enemy_party,
-                        card_details,
-                        enemy_index,
-                    )?;
-                    if Self::combat_should_end(player_in_combat, enemy_party) {
-                        return Ok(());
-                    }
-                    player_in_combat.dispose_of_card_just_played()?;
-                }
-                CombatAction::EndTurn => break,
+        let mut effect_queue = EffectQueue::new();
+        self.player_combat_system
+            .start_turn(comms, pps, pcs, &mut effect_queue)?;
+        while let Some(effect) = effect_queue.pop_front() {
+            self.process_effect(
+                comms,
+                pps,
+                pcs,
+                enemy_party,
+                effect,
+                None,
+                &mut effect_queue,
+            )?;
+            if Self::combat_should_end(pps, enemy_party) {
+                break;
             }
         }
-        player_in_combat.end_turn()
-    }
-
-    fn conduct_enemies_turn(
-        &mut self,
-        player_in_combat: &mut PlayerInCombat,
-        enemy_party: &mut [Option<EnemyInCombat>],
-    ) -> Result<(), Error> {
-        for enemy in enemy_party.iter_mut().filter_map(|e| e.as_mut()) {
-            enemy.start_turn();
-        }
-        for (enemy_index, maybe_enemy) in enemy_party.iter_mut().enumerate() {
-            if let Some(enemy_in_combat) = maybe_enemy.as_mut() {
-                if self.conduct_enemy_turn(player_in_combat, enemy_in_combat)? {
-                    let enemy_status = EnemyStatus::from(&*enemy_in_combat);
-                    player_in_combat
-                        .player
-                        .comms
-                        .send_notification(Notification::EnemyStatus(enemy_index, enemy_status))?;
-                } else {
-                    player_in_combat
-                        .player
-                        .comms
-                        .send_notification(Notification::EnemyDied(
-                            enemy_index,
-                            enemy_in_combat.state.enemy,
-                        ))?;
-                    *maybe_enemy = None;
+        while !Self::combat_should_end(pps, enemy_party) {
+            match self
+                .player_combat_system
+                .choose_next_action(comms, pps, pcs, enemy_party)?
+            {
+                CombatAction::PlayCard(combat_card, maybe_enemy_index) => {
+                    for effect in combat_card.details.on_play.iter() {
+                        effect_queue.push_back(Effect::FromCard(effect));
+                    }
+                    while let Some(effect) = effect_queue.pop_front() {
+                        self.process_effect(
+                            comms,
+                            pps,
+                            pcs,
+                            enemy_party,
+                            effect,
+                            maybe_enemy_index,
+                            &mut effect_queue,
+                        )?;
+                        if Self::combat_should_end(pps, enemy_party) {
+                            break;
+                        }
+                    }
                 }
-                if player_in_combat.player.state.hp == 0 {
+                CombatAction::EndTurn => break,
+            };
+        }
+        if !Self::combat_should_end(pps, enemy_party) {
+            self.player_combat_system
+                .end_turn(comms, pps, pcs, &mut effect_queue)?;
+            while let Some(effect) = effect_queue.pop_front() {
+                self.process_effect(
+                    comms,
+                    pps,
+                    pcs,
+                    enemy_party,
+                    effect,
+                    None,
+                    &mut effect_queue,
+                )?;
+                if Self::combat_should_end(pps, enemy_party) {
                     break;
                 }
             }
         }
-        for enemy in enemy_party.iter_mut().filter_map(|e| e.as_mut()) {
-            enemy.end_turn();
+        Ok(())
+    }
+
+    /// Conducts the enemies' turn.
+    fn conduct_enemies_turn<I: Interaction>(
+        &mut self,
+        comms: &I,
+        pps: &mut PlayerPersistentState,
+        pcs: &mut PlayerCombatState,
+        enemy_party: &mut EnemyParty,
+    ) -> Result<(), Error> {
+        let mut effect_queue = EffectQueue::new();
+        self.enemy_system.start_turn(enemy_party);
+        for enemy_index in 0..enemy_party.0.len() {
+            if let Some(enemy_action) = enemy_party.0[enemy_index].as_mut().map(|e| e.next_action) {
+                for effect in enemy_action.effect_chain().iter() {
+                    effect_queue.push_back(Effect::FromEnemyPlaybook(effect));
+                }
+                while let Some(effect) = effect_queue.pop_front() {
+                    self.process_effect(
+                        comms,
+                        pps,
+                        pcs,
+                        enemy_party,
+                        effect,
+                        Some(enemy_index),
+                        &mut effect_queue,
+                    )?;
+                    if Self::combat_should_end(pps, enemy_party)
+                        || enemy_party.0[enemy_index].is_none()
+                    {
+                        break;
+                    }
+                }
+            }
+            if Self::combat_should_end(pps, enemy_party) {
+                break;
+            }
+        }
+        if !Self::combat_should_end(pps, enemy_party) {
+            self.enemy_system.end_turn(enemy_party);
         }
         Ok(())
     }
+
+    /// Returns true if the combat should end.
+    fn combat_should_end(pps: &PlayerPersistentState, enemy_party: &EnemyParty) -> bool {
+        pps.hp == 0 || enemy_party.0.iter().all(|enemy| enemy.is_none())
+    }
+
+    /// Handles the incoming effect (PlayerEffect or EnemyEffect).
+    fn process_effect<I: Interaction>(
+        &mut self,
+        comms: &I,
+        pps: &mut PlayerPersistentState,
+        pcs: &mut PlayerCombatState,
+        enemy_party: &mut EnemyParty,
+        effect: Effect,
+        maybe_enemy_index: Option<EnemyIndex>,
+        effect_queue: &mut EffectQueue,
+    ) -> Result<(), Error> {
+        match effect {
+            Effect::FromCard(player_effect) => self.process_player_effect(
+                comms,
+                pps,
+                pcs,
+                enemy_party,
+                player_effect,
+                maybe_enemy_index,
+                effect_queue,
+            ),
+            Effect::FromEnemyPlaybook(enemy_effect) => self.process_enemy_effect(
+                comms,
+                pps,
+                pcs,
+                enemy_party,
+                enemy_effect,
+                maybe_enemy_index,
+                effect_queue,
+            ),
+            Effect::FromEnemyState(enemy_effect) => self.process_enemy_effect(
+                comms,
+                pps,
+                pcs,
+                enemy_party,
+                &enemy_effect,
+                maybe_enemy_index,
+                effect_queue,
+            ),
+            Effect::FromPlayerState(player_effect) => self.process_player_effect(
+                comms,
+                pps,
+                pcs,
+                enemy_party,
+                &player_effect,
+                maybe_enemy_index,
+                effect_queue,
+            ),
+        }
+    }
+
+    fn process_player_effect<I: Interaction>(
+        &mut self,
+        comms: &I,
+        pps: &mut PlayerPersistentState,
+        pcs: &mut PlayerCombatState,
+        enemy_party: &mut EnemyParty,
+        effect: &PlayerEffect,
+        maybe_enemy_index: Option<EnemyIndex>,
+        effect_queue: &mut EffectQueue,
+    ) -> Result<(), Error> {
+        match effect {
+            PlayerEffect::Apply(player_condition) => {
+                PlayerConditionSystem::apply_to_player(comms, pcs, player_condition)
+            }
+            PlayerEffect::Conditional(player_effect_condition, player_effects) => todo!(),
+            PlayerEffect::CreateCards(
+                card_pool,
+                card_selection,
+                card_destination,
+                cost_modifier,
+            ) => todo!(),
+            PlayerEffect::Draw(_) => todo!(),
+            PlayerEffect::ForEachExhausted(player_effects) => todo!(),
+            PlayerEffect::Gain(resource) => todo!(),
+            PlayerEffect::Lose(resource) => todo!(),
+            PlayerEffect::ManipulateCards(
+                card_source,
+                card_selection,
+                card_destination,
+                cost_modifier,
+            ) => todo!(),
+            PlayerEffect::PlayThenExhaustTopCardOfDrawPile => todo!(),
+            PlayerEffect::RampUpCardDamage(_) => todo!(),
+            PlayerEffect::TakeDamage(damage) => todo!(),
+            PlayerEffect::ToAllEnemies(target_effect) => todo!(),
+            PlayerEffect::ToRandomEnemy(target_effect) => todo!(),
+            PlayerEffect::ToSingleTarget(target_effect) => todo!(),
+            PlayerEffect::Upgrade(card_source, card_selection) => todo!(),
+        }
+    }
+
+    fn process_enemy_effect<I: Interaction>(
+        &mut self,
+        comms: &I,
+        pps: &mut PlayerPersistentState,
+        pcs: &mut PlayerCombatState,
+        enemy_party: &mut EnemyParty,
+        effect: &EnemyEffect,
+        maybe_enemy_index: Option<EnemyIndex>,
+        effect_queue: &mut EffectQueue,
+    ) -> Result<(), Error> {
+        if let Some(enemy_state) = maybe_enemy_index
+            .and_then(|i| enemy_party.0.get_mut(i))
+            .and_then(|maybe_enemy| maybe_enemy.as_mut())
+        {
+            match effect {
+                EnemyEffect::Apply(enemy_condition) => {
+                    EnemyConditionSystem::apply_to_enemy(enemy_state, enemy_condition);
+                }
+                EnemyEffect::CreateCards(
+                    card_pool,
+                    card_selection,
+                    card_destination,
+                    cost_modifier,
+                ) => todo!(),
+                EnemyEffect::Deal(damage) => {
+                    let damage = DamageCalculator::calculate_damage_inflicted(
+                        enemy_state,
+                        Some(pcs),
+                        damage,
+                    );
+                    BlockSystem::damage_player(comms, pps, pcs, damage, effect_queue)?;
+                }
+                EnemyEffect::Gain(Resource::Block(block)) => {
+                    enemy_state.block += block;
+                }
+                EnemyEffect::Gain(Resource::Strength(strength)) => {
+                    enemy_state.strength += strength;
+                }
+                EnemyEffect::Gain(invalid) => unreachable!("{:?}", invalid),
+                EnemyEffect::Inflict(player_condition) => {
+                    PlayerConditionSystem::apply_to_player(comms, pcs, player_condition)?;
+                }
+            }
+        }
+        Ok(())
+    }
+
+    /*
+    // TODO: reactions
 
     fn conduct_enemy_turn(
         &mut self,
@@ -197,17 +375,6 @@ impl<'a> CombatSimulator<'a> {
         Ok(true)
     }
 
-    fn create_cards(
-        &mut self,
-        card_pool: &CardPool,
-        card_selection: &CardSelection,
-        card_destination: &CardDestination,
-        cost_modifier: &CostModifier,
-    ) -> Result<(), Error> {
-        Ok(())
-    }
-
-    // TODO: reactions
     fn play_card(
         &mut self,
         player_in_combat: &mut PlayerInCombat,
@@ -556,4 +723,5 @@ impl<'a> CombatSimulator<'a> {
             caster_modified_mount
         }
     }
+    */
 }

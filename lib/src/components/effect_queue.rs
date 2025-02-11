@@ -6,6 +6,7 @@ use crate::data::{EnemyEffect, PlayerEffect};
 pub enum Effect {
     FromCard(&'static PlayerEffect),
     FromEnemyPlaybook(&'static EnemyEffect),
+    FromEnemyState(EnemyEffect),
     FromPlayerState(PlayerEffect),
 }
 
@@ -18,6 +19,12 @@ impl EffectQueue {
         Self {
             queue: VecDeque::new(),
         }
+    }
+}
+
+impl Default for EffectQueue {
+    fn default() -> Self {
+        Self::new()
     }
 }
 

@@ -104,7 +104,6 @@ pub enum EnemyEffect {
     Apply(EnemyCondition),
     CreateCards(CardPool, CardSelection, CardDestination, CostModifier),
     Deal(Damage),
-    DealThenInflict(Damage, PlayerCondition),
     Gain(Resource),
     Inflict(PlayerCondition),
 }

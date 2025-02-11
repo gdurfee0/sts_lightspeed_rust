@@ -6,7 +6,7 @@ use crate::types::{
 #[derive(Clone, Debug, Eq, Hash, PartialEq)]
 pub enum Choice {
     EndTurn,
-    EventChoice(usize, String), // Free-form text for events
+    Event(usize, String), // Free-form text for events
     ExpendPotion(PotionAction),
     ClimbFloor(ColumnIndex),
     NeowBlessing(NeowBlessing),
@@ -18,6 +18,7 @@ pub enum Choice {
     RemoveCard(DeckIndex, Card),
     Rest,
     Skip,
+    Smith,
     TargetEnemy(EnemyIndex, Enemy),
     UpgradeCard(DeckIndex, Card, Card),
 }

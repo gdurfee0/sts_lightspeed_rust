@@ -3,27 +3,27 @@ use std::sync::mpsc::{Receiver, Sender};
 
 use anyhow::{anyhow, Error};
 
-use crate::components::{Choice, EnemyStatus, Notification, Prompt, StsMessage};
-use crate::data::{
-    CardDetails, Damage, PlayerCondition, PlayerEffect, Resource, Target, TargetEffect,
-};
-use crate::types::{Block, Dexterity, EnemyIndex, Hp};
+use crate::components::{Choice, EnemyStatus, Notification, PlayerStatus, Prompt, StsMessage};
+use crate::data::{CardDetails, Character, PlayerEffect, Resource, TargetEffect};
+use crate::systems::DamageCalculator;
+use crate::types::EnemyIndex;
 
 pub struct CombatClient<'a> {
-    my_conditions: Vec<PlayerCondition>,
-    my_dexterity: Dexterity,
+    player_status: PlayerStatus,
     enemy_party: Vec<Option<EnemyStatus>>,
     card_chosen: Option<&'static CardDetails>,
-
     from_server: &'a Receiver<StsMessage>,
     to_server: &'a Sender<usize>,
 }
 
 impl<'a> CombatClient<'a> {
-    pub fn new(from_server: &'a Receiver<StsMessage>, to_server: &'a Sender<usize>) -> Self {
+    pub fn new(
+        character: &'static Character,
+        from_server: &'a Receiver<StsMessage>,
+        to_server: &'a Sender<usize>,
+    ) -> Self {
         Self {
-            my_conditions: vec![],
-            my_dexterity: 0,
+            player_status: PlayerStatus::new(character),
             enemy_party: vec![],
             card_chosen: None,
             from_server,
@@ -35,12 +35,12 @@ impl<'a> CombatClient<'a> {
         loop {
             match self.from_server.recv()? {
                 StsMessage::Notification(Notification::Conditions(conditions)) => {
-                    self.my_conditions = conditions;
-                    println!("Buffs: {:?}", self.my_conditions);
+                    self.player_status.conditions = conditions;
+                    println!("Buffs: {:?}", self.player_status.conditions);
                 }
                 StsMessage::Notification(Notification::Dexterity(dexterity)) => {
-                    self.my_dexterity = dexterity;
-                    println!("Dexterity: {}", self.my_dexterity);
+                    self.player_status.dexterity = dexterity;
+                    println!("Dexterity: {}", self.player_status.dexterity);
                 }
                 StsMessage::Choices(prompt, choices) => {
                     let choice = self.collect_user_choice(prompt, choices)?;
@@ -134,18 +134,19 @@ impl<'a> CombatClient<'a> {
                 result.push_str(", ");
             }
             match effect {
-                PlayerEffect::Gain(Resource::Block(amount)) => {
-                    result.push_str(&format!("Gain {} block", self.incoming_block(*amount)))
-                }
-                PlayerEffect::Offensive(Target::All, effects) => result.push_str(
-                    &self.modified_target_effects(effects, maybe_enemy_index, " to ALL enemies"),
+                PlayerEffect::Gain(Resource::Block(amount)) => result.push_str(&format!(
+                    "Gain {} block",
+                    DamageCalculator::calculate_block_gained(&self.player_status, *amount)
+                )),
+                PlayerEffect::ToAllEnemies(effect) => result.push_str(
+                    &self.modified_target_effect(effect, maybe_enemy_index, " to ALL enemies"),
                 ),
-                PlayerEffect::Offensive(Target::Random, effects) => result.push_str(
-                    &self.modified_target_effects(effects, maybe_enemy_index, " to a random enemy"),
+                PlayerEffect::ToRandomEnemy(effect) => result.push_str(
+                    &self.modified_target_effect(effect, maybe_enemy_index, " to a random enemy"),
                 ),
-                PlayerEffect::Offensive(Target::Single, effects) => {
-                    result.push_str(&self.modified_target_effects(effects, maybe_enemy_index, ""))
-                }
+                PlayerEffect::ToSingleTarget(effect) => result.push_str(
+                    &self.modified_target_effect(effect, maybe_enemy_index, " to a single enemy"),
+                ),
                 _ => result.push_str(&format!("{:?}", effect)),
             }
             first = false;
@@ -180,20 +181,14 @@ impl<'a> CombatClient<'a> {
         target_suffix: &str,
     ) -> String {
         match effect {
-            TargetEffect::Deal(damage) => match damage {
-                Damage::Blockable(amount) | Damage::HpLoss(amount) => {
-                    format!(
-                        "Deal {} damage{}",
-                        self.outgoing_damage(*amount, maybe_enemy_index),
-                        target_suffix
-                    )
-                }
-                Damage::BlockableCountingStrikeCards(_, _) => todo!(),
-                Damage::BlockableEqualToDrawPileSize => todo!(),
-                Damage::BlockableEqualToPlayerBlock => todo!(),
-                Damage::BlockableWithStrengthMultiplier(_, _) => todo!(),
-                Damage::HpLossEqualToHandSize => todo!(),
-            },
+            TargetEffect::Deal(damage) => {
+                let damage = DamageCalculator::calculate_damage_inflicted(
+                    &self.player_status,
+                    maybe_enemy_index.and_then(|i| self.enemy_party[i].as_ref()),
+                    damage,
+                );
+                format!("Deal {:?} damage{}", damage, target_suffix)
+            }
             _ => format!("{:?}{}", effect, target_suffix),
         }
     }

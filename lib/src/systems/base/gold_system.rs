@@ -12,7 +12,7 @@ impl GoldSystem {
     /// Notifies the player of the current gold amount.
     pub fn notify_player<I: Interaction>(
         comms: &I,
-        pps: &mut PlayerPersistentState,
+        pps: &PlayerPersistentState,
     ) -> Result<(), Error> {
         comms.send_notification(Notification::Gold(pps.gold))
     }

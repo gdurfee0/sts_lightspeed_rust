@@ -2,10 +2,10 @@ use std::sync::mpsc::{Receiver, Sender};
 
 use anyhow::Error;
 
-use crate::components::{PlayerPersistentState, Room, StsMessage};
+use crate::components::{Choice, Interaction, PlayerPersistentState, Prompt, Room, StsMessage};
 use crate::data::{Act, Character, Encounter};
-use crate::systems::base::{DeckSystem, GoldSystem, HealthSystem, PotionSystem, RelicSystem};
-use crate::systems::player::PlayerInteraction;
+use crate::systems::base::HealthSystem;
+use crate::systems::player::{MainScreenSystem, PlayerInteraction};
 use crate::systems::rng::{
     CardGenerator, EncounterGenerator, EventGenerator, PotionGenerator, RelicGenerator, Seed,
     StsRandom,
@@ -17,16 +17,10 @@ use super::event_simulator::EventSimulator;
 use super::map_navigation_simulator::MapNavigationSimulator;
 use super::neow_simulator::NeowSimulator;
 
-pub struct StsSimulator<'a> {
+pub struct StsSimulator {
     // Information typically set on the command line
     seed: Seed,
     character: &'static Character,
-
-    // Player state
-    player_persistent_state: PlayerPersistentState,
-
-    // Player I/O
-    comms: PlayerInteraction,
 
     // Random number generators for various game elements
     card_generator: CardGenerator,
@@ -38,15 +32,8 @@ pub struct StsSimulator<'a> {
     treasure_rng: StsRandom,
 }
 
-impl<'a> StsSimulator<'a> {
-    pub fn new(
-        seed: Seed,
-        character: &'static Character,
-        from_client: Receiver<usize>,
-        to_client: Sender<StsMessage>,
-    ) -> Self {
-        let player_persistent_state = PlayerPersistentState::new(character);
-        let comms = PlayerInteraction::new(from_client, to_client);
+impl StsSimulator {
+    pub fn new(seed: Seed, character: &'static Character) -> Self {
         let card_generator = CardGenerator::new(seed, character, Act::get(1));
         let encounter_generator = EncounterGenerator::new(seed);
         let event_generator = EventGenerator::new(seed);
@@ -57,7 +44,6 @@ impl<'a> StsSimulator<'a> {
         Self {
             seed,
             character,
-            comms,
             card_generator,
             encounter_generator,
             event_generator,
@@ -65,18 +51,24 @@ impl<'a> StsSimulator<'a> {
             relic_generator,
             misc_rng,
             treasure_rng,
-            player_persistent_state,
         }
     }
 
-    pub fn run(mut self) -> Result<(), Error> {
+    pub fn run(
+        mut self,
+        from_client: Receiver<usize>,
+        to_client: Sender<StsMessage>,
+    ) -> Result<(), Error> {
+        let comms = PlayerInteraction::new(from_client, to_client);
+        let mut pps = PlayerPersistentState::new(self.character);
+        MainScreenSystem::notify_player(&comms, &pps)?;
         println!(
             "[Simulator] Starting simulator of size {} with messages of size {}",
             std::mem::size_of::<StsSimulator>(),
             std::mem::size_of::<StsMessage>(),
         );
         // todo - self.player.send_full_player_state()?;
-        let mut map_simulator = MapNavigationSimulator::new(self.seed, &self.comms);
+        let mut map_simulator = MapNavigationSimulator::new(self.seed, &comms);
         map_simulator.send_map_to_player()?;
         let neow_simulator = NeowSimulator::new(
             self.seed,
@@ -84,46 +76,43 @@ impl<'a> StsSimulator<'a> {
             &mut self.card_generator,
             &mut self.potion_generator,
             &mut self.relic_generator,
+            &comms,
         );
-        neow_simulator.run()?;
+        neow_simulator.run(&mut pps)?;
         let mut floor = 1;
         loop {
             self.misc_rng = self.seed.with_offset(floor).into();
-            match map_simulator.advance(&mut self.player)? {
+            match map_simulator.advance(&mut pps)? {
                 Room::Boss => todo!(),
                 Room::BurningElite1 => todo!(),
                 Room::BurningElite2 => todo!(),
                 Room::BurningElite3 => todo!(),
                 Room::BurningElite4 => todo!(),
                 Room::RestSite => {
-                    let choices = vec![Choice::Rest, Choice::Upgrade];
-                    match self
-                        .player
-                        .comms
-                        .prompt_for_choice(Prompt::ChooseRestSiteAction, &choices)?
-                    {
+                    let choices = vec![Choice::Rest, Choice::Smith];
+                    match comms.prompt_for_choice(Prompt::ChooseRestSiteAction, &choices)? {
                         Choice::Rest => {
-                            let heal_amt = (self.player.state.hp_max as f32 * 0.3).floor() as Hp;
-                            self.player.increase_hp(heal_amt)?;
+                            let heal_amt = (pps.hp_max as f32 * 0.3).floor() as Hp;
+                            HealthSystem::heal(&comms, &mut pps, heal_amt)?;
                         }
-                        Choice::Upgrade => todo!(),
+                        Choice::Smith => todo!(),
                         invalid => unreachable!("{:?}", invalid),
                     }
                 }
                 Room::Elite => {
                     let encounter = self.encounter_generator.next_elite_encounter();
-                    if !self.run_encounter(floor, encounter)? {
+                    if !self.run_encounter(&comms, floor, encounter, &mut pps)? {
                         break;
                     }
                 }
-                Room::Event => match self.event_generator.next_event(floor, &self.player.state) {
+                Room::Event => match self.event_generator.next_event(floor, &pps) {
                     (Room::Event, Some(event)) => {
-                        EventSimulator::new(event, &mut self.potion_generator, &mut self.player)
-                            .run()?
+                        EventSimulator::new(&comms, &mut self.potion_generator)
+                            .run_event(event, &mut pps)?
                     }
                     (Room::Monster, None) => {
                         let encounter = self.encounter_generator.next_monster_encounter();
-                        if !self.run_encounter(floor, encounter)? {
+                        if !self.run_encounter(&comms, floor, encounter, &mut pps)? {
                             break;
                         }
                     }
@@ -133,7 +122,7 @@ impl<'a> StsSimulator<'a> {
                 },
                 Room::Monster => {
                     let encounter = self.encounter_generator.next_monster_encounter();
-                    if !self.run_encounter(floor, encounter)? {
+                    if !self.run_encounter(&comms, floor, encounter, &mut pps)? {
                         break;
                     }
                 }
@@ -142,17 +131,18 @@ impl<'a> StsSimulator<'a> {
             }
             floor += 1;
         }
-        self.player.comms.send_game_over(self.player.state.hp > 0)
+        comms.send_game_over(pps.hp > 0)
     }
 
-    pub fn run_encounter(&mut self, floor: Floor, encounter: Encounter) -> Result<bool, Error> {
-        if !CombatSimulator::new(
-            self.seed.with_offset(floor),
-            encounter,
-            &mut self.misc_rng,
-            &mut self.player,
-        )
-        .run()?
+    pub fn run_encounter(
+        &mut self,
+        comms: &PlayerInteraction,
+        floor: Floor,
+        encounter: Encounter,
+        pps: &mut PlayerPersistentState,
+    ) -> Result<bool, Error> {
+        if !CombatSimulator::new(self.seed.with_offset(floor), &mut self.misc_rng)
+            .run_encounter(comms, encounter, pps)?
         {
             Ok(false)
         } else {
@@ -160,8 +150,13 @@ impl<'a> StsSimulator<'a> {
             // TODO: Relic::WhiteBeastStatue
             let maybe_potion = self.potion_generator.combat_reward();
             let card_rewards = self.card_generator.combat_rewards();
-            self.player
-                .choose_combat_rewards(gold_reward, maybe_potion, &card_rewards)?;
+            MainScreenSystem::choose_combat_rewards(
+                comms,
+                pps,
+                gold_reward,
+                maybe_potion,
+                &card_rewards,
+            )?;
             Ok(true)
         }
     }
@@ -232,8 +227,8 @@ mod test {
         let character = &IRONCLAD;
         let (to_server, from_client) = channel();
         let (to_client, from_server) = channel();
-        let simulator = StsSimulator::new(seed, character, from_client, to_client);
-        let simulator_thread = thread::spawn(move || simulator.run());
+        let simulator = StsSimulator::new(seed, character);
+        let simulator_thread = thread::spawn(move || simulator.run(from_client, to_client));
 
         assert_eq!(
             next_prompt(&from_server, &[Notification::Health((80, 80))]),
@@ -425,7 +420,6 @@ mod test {
             next_prompt(
                 &from_server,
                 &[
-                    Notification::BlockLost(6),     // Attack took off all block
                     Notification::Block(0),         // No block remaining
                     Notification::Health((78, 80)), // Took 2 damage
                     Notification::EnemyParty(vec![
@@ -445,7 +439,7 @@ mod test {
                 Prompt::CombatAction,
                 vec![
                     Choice::PlayCardFromHand(0, Card::Defend(false), EnergyCost::One),
-                    Choice::PlayCardFromHand(1, Card::Slimed(false), EnergyCost::One),
+                    Choice::PlayCardFromHand(1, Card::Slimed, EnergyCost::One),
                     Choice::PlayCardFromHand(2, Card::Strike(false), EnergyCost::One),
                     Choice::PlayCardFromHand(3, Card::Bash(false), EnergyCost::Two),
                     Choice::PlayCardFromHand(4, Card::Strike(false), EnergyCost::One),
@@ -478,7 +472,7 @@ mod test {
                 Prompt::CombatAction,
                 vec![
                     Choice::PlayCardFromHand(0, Card::Defend(false), EnergyCost::One),
-                    Choice::PlayCardFromHand(1, Card::Slimed(false), EnergyCost::One),
+                    Choice::PlayCardFromHand(1, Card::Slimed, EnergyCost::One),
                     Choice::PlayCardFromHand(2, Card::Strike(false), EnergyCost::One),
                     Choice::PlayCardFromHand(3, Card::Strike(false), EnergyCost::One),
                     Choice::EndTurn,
@@ -489,7 +483,7 @@ mod test {
         assert_eq!(
             next_prompt(
                 &from_server,
-                &[Notification::CardExhausted(1, Card::Slimed(false))]
+                &[Notification::CardExhausted(1, Card::Slimed)]
             ),
             StsMessage::Choices(Prompt::CombatAction, vec![Choice::EndTurn])
         );
@@ -610,9 +604,9 @@ mod test {
                 Prompt::ChooseNext,
                 vec![
                     Choice::ObtainGold(11),
-                    Choice::ObtainCard(Card::Thunderclap(false)),
-                    Choice::ObtainCard(Card::HeavyBlade(false)),
-                    Choice::ObtainCard(Card::Armaments(false)),
+                    Choice::ObtainCard(0, Card::Thunderclap(false)),
+                    Choice::ObtainCard(1, Card::HeavyBlade(false)),
+                    Choice::ObtainCard(2, Card::Armaments(false)),
                     Choice::Skip,
                 ]
             )
@@ -623,9 +617,9 @@ mod test {
             StsMessage::Choices(
                 Prompt::ChooseNext,
                 vec![
-                    Choice::ObtainCard(Card::Thunderclap(false)),
-                    Choice::ObtainCard(Card::HeavyBlade(false)),
-                    Choice::ObtainCard(Card::Armaments(false)),
+                    Choice::ObtainCard(0, Card::Thunderclap(false)),
+                    Choice::ObtainCard(1, Card::HeavyBlade(false)),
+                    Choice::ObtainCard(2, Card::Armaments(false)),
                     Choice::Skip,
                 ]
             )
@@ -936,7 +930,6 @@ mod test {
                 &from_server,
                 &[
                     Notification::Energy(3),
-                    Notification::BlockLost(9),
                     Notification::Block(1),
                     Notification::Block(0),
                     Notification::EnemyParty(vec![
@@ -987,9 +980,9 @@ mod test {
                 Prompt::ChooseNext,
                 vec![
                     Choice::ObtainGold(10),
-                    Choice::ObtainCard(Card::Anger(false)),
-                    Choice::ObtainCard(Card::HeavyBlade(false)),
-                    Choice::ObtainCard(Card::Armaments(false)),
+                    Choice::ObtainCard(0, Card::Anger(false)),
+                    Choice::ObtainCard(1, Card::HeavyBlade(false)),
+                    Choice::ObtainCard(2, Card::Armaments(false)),
                     Choice::Skip,
                 ]
             )
@@ -1000,9 +993,9 @@ mod test {
             StsMessage::Choices(
                 Prompt::ChooseNext,
                 vec![
-                    Choice::ObtainCard(Card::Anger(false)),
-                    Choice::ObtainCard(Card::HeavyBlade(false)),
-                    Choice::ObtainCard(Card::Armaments(false)),
+                    Choice::ObtainCard(0, Card::Anger(false)),
+                    Choice::ObtainCard(1, Card::HeavyBlade(false)),
+                    Choice::ObtainCard(2, Card::Armaments(false)),
                     Choice::Skip,
                 ]
             )
@@ -1072,8 +1065,8 @@ mod test {
         let character = &IRONCLAD;
         let (to_server, from_client) = channel();
         let (to_client, from_server) = channel();
-        let simulator = StsSimulator::new(seed, character, from_client, to_client);
-        let simulator_thread = thread::spawn(move || simulator.run());
+        let simulator = StsSimulator::new(seed, character);
+        let simulator_thread = thread::spawn(move || simulator.run(from_client, to_client));
 
         let choices = [1, 0, 0, 3, 3, 1, 0, 1, 0, 7, 0, 0, 0, 0, 0, 0, 4, 6];
         for choice in choices.iter() {
@@ -1101,8 +1094,8 @@ mod test {
         let character = &IRONCLAD;
         let (to_server, from_client) = channel();
         let (to_client, from_server) = channel();
-        let simulator = StsSimulator::new(seed, character, from_client, to_client);
-        let simulator_thread = thread::spawn(move || simulator.run());
+        let simulator = StsSimulator::new(seed, character);
+        let simulator_thread = thread::spawn(move || simulator.run(from_client, to_client));
         let mut choice_seq = vec![];
         let mut steps = 0;
         while steps < 700 {

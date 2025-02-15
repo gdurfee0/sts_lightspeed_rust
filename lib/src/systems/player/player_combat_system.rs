@@ -65,7 +65,12 @@ impl PlayerCombatSystem {
     }
 
     /// Notifies the player that combat has ended.
-    pub fn end_combat<I: Interaction>(&self, comms: &I) -> Result<(), Error> {
+    pub fn end_combat<I: Interaction>(
+        &self,
+        comms: &I,
+        pps: &mut PlayerPersistentState,
+    ) -> Result<(), Error> {
+        RelicSystem::on_end_combat(comms, pps)?;
         comms.send_notification(Notification::EndingCombat)
     }
 

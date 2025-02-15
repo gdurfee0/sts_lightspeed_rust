@@ -66,21 +66,22 @@ impl EnemyCondition {
 
     /// Ticks down a condition's turn counter at the start of the enemies' turn.
     /// Returns true iff the condition is still active.
-    pub fn start_turn(&mut self, enemy_strength: &mut Strength) -> bool {
-        match self {
-            EnemyCondition::Ritual(strength, just_applied) => {
-                *just_applied = false;
-                *enemy_strength += *strength;
-                true
-            }
-            _ => true,
-        }
+    pub fn start_turn(&mut self) -> bool {
+        true
     }
 
     /// Ticks down the conditions at the end of the enemies' turn.
     /// Returns true iff the condition is still active.
-    pub fn end_turn(&mut self) -> bool {
+    pub fn end_turn(&mut self, enemy_strength: &mut Strength) -> bool {
         match self {
+            EnemyCondition::Ritual(strength, just_applied) => {
+                if *just_applied {
+                    *just_applied = false;
+                } else {
+                    *enemy_strength += *strength;
+                }
+                true
+            }
             EnemyCondition::Vulnerable(turns) => {
                 *turns = turns.saturating_sub(1);
                 *turns > 0

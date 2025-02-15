@@ -9,9 +9,7 @@ impl EnemyConditionSystem {
     pub fn start_turn(enemy_party: &mut EnemyParty) {
         for maybe_enemy in enemy_party.0.iter_mut() {
             let enemy_died = if let Some(enemy_state) = maybe_enemy {
-                enemy_state
-                    .conditions
-                    .retain_mut(|c| c.start_turn(&mut enemy_state.strength));
+                enemy_state.conditions.retain_mut(|c| c.start_turn());
                 enemy_state.is_dead()
             } else {
                 false
@@ -26,7 +24,9 @@ impl EnemyConditionSystem {
     pub fn end_turn(enemy_party: &mut EnemyParty) {
         for maybe_enemy in enemy_party.0.iter_mut() {
             let enemy_died = if let Some(enemy) = maybe_enemy {
-                enemy.conditions.retain_mut(|c| c.end_turn());
+                enemy
+                    .conditions
+                    .retain_mut(|c| c.end_turn(&mut enemy.strength));
                 enemy.is_dead()
             } else {
                 false

@@ -71,7 +71,7 @@ impl<'a> CombatSimulator<'a> {
                 break;
             }
         }
-        self.player_combat_system.end_combat(comms)?;
+        self.player_combat_system.end_combat(comms, pps)?;
         let victorious = pps.hp > 0;
         Ok(victorious)
     }
@@ -319,8 +319,8 @@ impl<'a> CombatSimulator<'a> {
             TargetEffect::Conditional(target_condition, player_effects) => todo!(),
             TargetEffect::Deal(damage) => {
                 let calculated_damage = DamageCalculator::calculate_damage_inflicted(
-                    enemy_state,
-                    Some(ctx.pcs),
+                    ctx.pcs,
+                    Some(enemy_state),
                     damage,
                 );
                 BlockSystem::damage_enemy(enemy_state, calculated_damage, effect_queue);

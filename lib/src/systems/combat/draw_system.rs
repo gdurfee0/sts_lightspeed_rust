@@ -30,6 +30,7 @@ impl DrawSystem {
     pub fn start_combat(&mut self, pcs: &mut PlayerCombatState) {
         self.shuffle_rng
             .java_compat_shuffle(&mut pcs.cards.draw_pile);
+        pcs.cards.draw_pile.sort_by_key(|card| card.details.innate);
     }
 
     /// Draws the appropriate number of cards at the start of the player's turn.
@@ -103,7 +104,7 @@ impl DrawSystem {
                 PlayerCondition::Evolve(draw_count) => {
                     if matches!(combat_card.details.type_, CardType::Status) {
                         effect_queue
-                            .push_back(Effect::FromPlayerState(PlayerEffect::Draw(*draw_count)));
+                            .push_back(Effect::PlayerState(PlayerEffect::Draw(*draw_count)));
                     }
                 }
                 PlayerCondition::FireBreathing(hp) => {
@@ -111,11 +112,9 @@ impl DrawSystem {
                         combat_card.details.type_,
                         CardType::Status | CardType::Curse
                     ) {
-                        effect_queue.push_back(Effect::FromPlayerState(
-                            PlayerEffect::ToAllEnemies(TargetEffect::Deal(
-                                Damage::BlockableNonAttack(*hp),
-                            )),
-                        ));
+                        effect_queue.push_back(Effect::PlayerState(PlayerEffect::ToAllEnemies(
+                            TargetEffect::Deal(Damage::BlockableNonAttack(*hp)),
+                        )));
                     }
                 }
                 PlayerCondition::NoDraw => unreachable!(),
@@ -123,7 +122,7 @@ impl DrawSystem {
             }
         }
         if let Some(effect) = combat_card.details.on_draw.as_ref() {
-            effect_queue.push_back(Effect::FromCard(effect));
+            effect_queue.push_back(Effect::Card(effect));
         }
         if combat_card.card == Card::Normality {
             // TODO: Implement normality counter

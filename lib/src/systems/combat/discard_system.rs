@@ -25,7 +25,7 @@ impl DiscardSystem {
         while let Some(combat_card) = pcs.cards.hand.pop() {
             let hand_index = pcs.cards.hand.len();
             if let Some(effect) = combat_card.details.on_linger.as_ref() {
-                effect_queue.push_back(Effect::FromCard(effect));
+                effect_queue.push_back(Effect::Card(effect));
             }
             if combat_card.details.ethereal {
                 ExhaustSystem::exhaust_card(
@@ -43,8 +43,9 @@ impl DiscardSystem {
                 Self::discard_card(comms, pcs, hand_index, combat_card)?;
             }
         }
-        pcs.cards.hand.extend(retained_cards);
-        for combat_card in pcs.cards.hand.iter_mut() {
+        pcs.cards.hand.extend(retained_cards.iter());
+        drop(retained_cards);
+        for combat_card in pcs.cards.iter_mut() {
             combat_card.cost_this_turn = combat_card.cost_this_combat;
         }
         Ok(())
@@ -58,6 +59,7 @@ impl DiscardSystem {
         combat_card: CardCombatState,
     ) -> Result<(), Error> {
         pcs.cards.discard_pile.push(combat_card);
+        // TODO: On discard?
         comms.send_notification(Notification::CardDiscarded(hand_index, combat_card))
     }
 }

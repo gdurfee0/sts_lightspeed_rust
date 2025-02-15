@@ -1,4 +1,5 @@
 mod block_system;
+mod card_creation_system;
 mod damage_calculator;
 mod discard_system;
 mod draw_system;
@@ -10,6 +11,7 @@ mod player_condition;
 mod player_condition_system;
 
 pub use block_system::BlockSystem;
+pub use card_creation_system::CardCreationSystem;
 pub use damage_calculator::DamageCalculator;
 pub use discard_system::DiscardSystem;
 pub use draw_system::DrawSystem;

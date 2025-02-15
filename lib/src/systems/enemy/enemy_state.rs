@@ -8,6 +8,7 @@ use super::enemy_characteristics::EnemyCharacteristics;
 /// The `EnemyState` is the basic unit representing enemy combatants in the game.
 /// As per the ECS model, this is just a collection of components. We do provide some
 /// convenience methods for querying state in the impl though.
+#[derive(Debug)]
 pub struct EnemyState {
     pub enemy: Enemy,
     pub hp: Hp,

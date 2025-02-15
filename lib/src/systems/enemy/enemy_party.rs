@@ -4,6 +4,7 @@ use crate::systems::rng::{Seed, StsRandom};
 use super::enemy_characteristics::gen_characteristics;
 use super::enemy_state::EnemyState;
 
+#[derive(Debug)]
 pub struct EnemyParty(pub [Option<EnemyState>; 5]);
 
 impl EnemyParty {

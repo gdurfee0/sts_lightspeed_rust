@@ -7,7 +7,7 @@ use crate::components::{
 use crate::data::CardType;
 use crate::systems::base::{PotionSystem, RelicSystem};
 use crate::systems::combat::{
-    BlockSystem, DiscardSystem, DrawSystem, EnergySystem, PlayerConditionSystem,
+    BlockSystem, DiscardSystem, DrawSystem, EnergySystem, ExhaustSystem, PlayerConditionSystem,
 };
 use crate::systems::enemy::EnemyParty;
 use crate::systems::rng::Seed;
@@ -143,6 +143,26 @@ impl PlayerCombatSystem {
         }
     }
 
+    /// Disposes of the card just played.
+    pub fn dispose_of_card_just_played<I: Interaction>(
+        &self,
+        comms: &I,
+        pps: &mut PlayerPersistentState,
+        pcs: &mut PlayerCombatState,
+        effect_queue: &mut EffectQueue,
+    ) -> Result<(), Error> {
+        let Some(hand_index) = pcs.cards.card_in_play else {
+            panic!("No card in play");
+        };
+        let combat_card = pcs.cards.hand.remove(hand_index);
+        PlayerConditionSystem::on_some_card_played(comms, pcs, &combat_card, effect_queue)?;
+        if combat_card.details.exhaust {
+            ExhaustSystem::exhaust_card(comms, pps, pcs, hand_index, combat_card, effect_queue)
+        } else {
+            DiscardSystem::discard_card(comms, pcs, hand_index, combat_card)
+        }
+    }
+
     /// Prompts the player to choose an enemy to target.
     fn choose_enemy_to_target<I: Interaction>(
         comms: &I,
@@ -178,30 +198,6 @@ impl PlayerCombatSystem {
     }
 
     /*
-    pub fn dispose_of_card_just_played(&mut self) -> Result<(), Error> {
-        let mut rage_stacks: StackCount = 0;
-        for condition in self.state.conditions.iter() {
-            if let PlayerCondition::Rage(stacks) = condition {
-                rage_stacks += *stacks;
-            }
-        }
-        if let Some(hand_index) = self.card_just_played {
-            let card_in_combat = self.state.hand.remove(hand_index);
-            if card_in_combat.details.type_ == CardType::Attack && rage_stacks > 0 {
-                self.gain_block(rage_stacks)?;
-            }
-            if card_in_combat.details.exhaust {
-                self.exhaust_card(hand_index, card_in_combat)
-            } else {
-                self.state.discard_pile.push(card_in_combat);
-                self.player
-                    .comms
-                    .send_notification(Notification::CardDiscarded(hand_index, card_in_combat.card))
-            }
-        } else {
-            Ok(())
-        }
-    }
 
     fn exhaust_card(&mut self, hand_index: HandIndex, card: CardCombatState) -> Result<(), Error> {}
 

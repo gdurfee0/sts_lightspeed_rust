@@ -51,7 +51,7 @@ impl EnemyConditionSystem {
     pub fn on_death(enemy: &mut EnemyState, effect_queue: &mut EffectQueue) {
         for condition in enemy.conditions.iter() {
             if let EnemyCondition::SporeCloud(stacks) = condition {
-                effect_queue.push_front(Effect::FromEnemyState(EnemyEffect::Inflict(
+                effect_queue.push_front(Effect::EnemyState(EnemyEffect::Inflict(
                     PlayerCondition::Vulnerable(*stacks),
                 )));
             }

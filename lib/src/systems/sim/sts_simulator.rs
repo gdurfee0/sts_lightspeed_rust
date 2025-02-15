@@ -213,7 +213,7 @@ mod test {
         }
         assert!(
             expected.is_empty(),
-            "did not see: {:?}; maybe mismatched one of these? {:?}",
+            "did not see: {:#?}; maybe mismatched one of these? {:#?}",
             expected,
             unrecognized_notifications
         );
@@ -310,10 +310,21 @@ mod test {
                 &from_server,
                 &[
                     Notification::Energy(2),
-                    Notification::EnemyStatus(
-                        0,
-                        EnemyStatus::new(Enemy::AcidSlimeS, (6, 12), Intent::StrategicDebuff)
-                    )
+                    Notification::EnemyParty(vec![
+                        Some(EnemyStatus::new(
+                            Enemy::AcidSlimeS,
+                            (6, 12),
+                            Intent::StrategicDebuff
+                        )),
+                        Some(EnemyStatus::new(
+                            Enemy::SpikeSlimeM,
+                            (31, 31),
+                            Intent::StrategicDebuff
+                        )),
+                        None,
+                        None,
+                        None
+                    ]),
                 ]
             ),
             StsMessage::Choices(
@@ -351,7 +362,7 @@ mod test {
                 Prompt::CombatAction,
                 vec![
                     Choice::PlayCardFromHand(0, Card::Defend(false), EnergyCost::One),
-                    Choice::PlayCardFromHand(2, Card::Defend(false), EnergyCost::One),
+                    Choice::PlayCardFromHand(1, Card::Defend(false), EnergyCost::One),
                     Choice::EndTurn,
                 ]
             )
@@ -461,11 +472,16 @@ mod test {
                 &from_server,
                 &[
                     Notification::Energy(1),
-                    Notification::EnemyStatus(
-                        1,
-                        EnemyStatus::new(Enemy::SpikeSlimeM, (23, 31), Intent::StrategicDebuff)
-                            .with_condition(EnemyCondition::Vulnerable(2))
-                    )
+                    Notification::EnemyParty(vec![
+                        None,
+                        Some(
+                            EnemyStatus::new(Enemy::SpikeSlimeM, (23, 31), Intent::StrategicDebuff)
+                                .with_condition(EnemyCondition::Vulnerable(2))
+                        ),
+                        None,
+                        None,
+                        None
+                    ])
                 ]
             ),
             StsMessage::Choices(
@@ -536,11 +552,16 @@ mod test {
                 &from_server,
                 &[
                     Notification::Energy(2),
-                    Notification::EnemyStatus(
-                        1,
-                        EnemyStatus::new(Enemy::SpikeSlimeM, (14, 31), Intent::StrategicDebuff)
-                            .with_condition(EnemyCondition::Vulnerable(1))
-                    )
+                    Notification::EnemyParty(vec![
+                        None,
+                        Some(
+                            EnemyStatus::new(Enemy::SpikeSlimeM, (14, 31), Intent::StrategicDebuff)
+                                .with_condition(EnemyCondition::Vulnerable(1))
+                        ),
+                        None,
+                        None,
+                        None
+                    ]),
                 ]
             ),
             StsMessage::Choices(
@@ -568,11 +589,16 @@ mod test {
                 &from_server,
                 &[
                     Notification::Energy(1),
-                    Notification::EnemyStatus(
-                        1,
-                        EnemyStatus::new(Enemy::SpikeSlimeM, (5, 31), Intent::StrategicDebuff)
-                            .with_condition(EnemyCondition::Vulnerable(1))
-                    )
+                    Notification::EnemyParty(vec![
+                        None,
+                        Some(
+                            EnemyStatus::new(Enemy::SpikeSlimeM, (5, 31), Intent::StrategicDebuff)
+                                .with_condition(EnemyCondition::Vulnerable(1))
+                        ),
+                        None,
+                        None,
+                        None
+                    ]),
                 ]
             ),
             StsMessage::Choices(
@@ -681,10 +707,17 @@ mod test {
                 &from_server,
                 &[
                     Notification::Energy(2),
-                    Notification::EnemyStatus(
-                        0,
-                        EnemyStatus::new(Enemy::Cultist, (44, 50), Intent::StrategicBuff)
-                    )
+                    Notification::EnemyParty(vec![
+                        Some(EnemyStatus::new(
+                            Enemy::Cultist,
+                            (44, 50),
+                            Intent::StrategicBuff
+                        )),
+                        None,
+                        None,
+                        None,
+                        None
+                    ])
                 ]
             ),
             StsMessage::Choices(
@@ -712,10 +745,17 @@ mod test {
                 &from_server,
                 &[
                     Notification::Energy(1),
-                    Notification::EnemyStatus(
-                        0,
-                        EnemyStatus::new(Enemy::Cultist, (38, 50), Intent::StrategicBuff)
-                    )
+                    Notification::EnemyParty(vec![
+                        Some(EnemyStatus::new(
+                            Enemy::Cultist,
+                            (38, 50),
+                            Intent::StrategicBuff
+                        )),
+                        None,
+                        None,
+                        None,
+                        None
+                    ])
                 ]
             ),
             StsMessage::Choices(
@@ -742,10 +782,17 @@ mod test {
                 &from_server,
                 &[
                     Notification::Energy(0),
-                    Notification::EnemyStatus(
-                        0,
-                        EnemyStatus::new(Enemy::Cultist, (32, 50), Intent::StrategicBuff)
-                    )
+                    Notification::EnemyParty(vec![
+                        Some(EnemyStatus::new(
+                            Enemy::Cultist,
+                            (32, 50),
+                            Intent::StrategicBuff
+                        )),
+                        None,
+                        None,
+                        None,
+                        None
+                    ])
                 ]
             ),
             StsMessage::Choices(Prompt::CombatAction, vec![Choice::EndTurn])
@@ -794,12 +841,17 @@ mod test {
                 &from_server,
                 &[
                     Notification::Energy(1),
-                    Notification::EnemyStatus(
-                        0,
-                        EnemyStatus::new(Enemy::Cultist, (24, 50), Intent::Aggressive(6, 1))
-                            .with_condition(EnemyCondition::Ritual(3, false))
-                            .with_condition(EnemyCondition::Vulnerable(2))
-                    )
+                    Notification::EnemyParty(vec![
+                        Some(
+                            EnemyStatus::new(Enemy::Cultist, (24, 50), Intent::Aggressive(6, 1))
+                                .with_condition(EnemyCondition::Ritual(3, false))
+                                .with_condition(EnemyCondition::Vulnerable(2))
+                        ),
+                        None,
+                        None,
+                        None,
+                        None
+                    ])
                 ]
             ),
             StsMessage::Choices(
@@ -827,12 +879,17 @@ mod test {
                 &from_server,
                 &[
                     Notification::Energy(0),
-                    Notification::EnemyStatus(
-                        0,
-                        EnemyStatus::new(Enemy::Cultist, (15, 50), Intent::Aggressive(6, 1))
-                            .with_condition(EnemyCondition::Ritual(3, false))
-                            .with_condition(EnemyCondition::Vulnerable(2))
-                    )
+                    Notification::EnemyParty(vec![
+                        Some(
+                            EnemyStatus::new(Enemy::Cultist, (15, 50), Intent::Aggressive(6, 1))
+                                .with_condition(EnemyCondition::Ritual(3, false))
+                                .with_condition(EnemyCondition::Vulnerable(2))
+                        ),
+                        None,
+                        None,
+                        None,
+                        None
+                    ])
                 ]
             ),
             StsMessage::Choices(Prompt::CombatAction, vec![Choice::EndTurn])
@@ -875,13 +932,18 @@ mod test {
                 &from_server,
                 &[
                     Notification::Energy(2),
-                    Notification::EnemyStatus(
-                        0,
-                        EnemyStatus::new(Enemy::Cultist, (9, 50), Intent::Aggressive(6, 1))
-                            .with_condition(EnemyCondition::Ritual(3, false))
-                            .with_condition(EnemyCondition::Vulnerable(2))
-                            .with_strength(3)
-                    )
+                    Notification::EnemyParty(vec![
+                        Some(
+                            EnemyStatus::new(Enemy::Cultist, (9, 50), Intent::Aggressive(6, 1))
+                                .with_condition(EnemyCondition::Ritual(3, false))
+                                .with_condition(EnemyCondition::Vulnerable(2))
+                                .with_strength(3)
+                        ),
+                        None,
+                        None,
+                        None,
+                        None
+                    ])
                 ]
             ),
             StsMessage::Choices(

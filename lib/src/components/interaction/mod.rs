@@ -1,3 +1,5 @@
+use std::fmt;
+
 use anyhow::Error;
 
 mod choice;
@@ -10,7 +12,7 @@ pub use message::StsMessage;
 pub use notification::Notification;
 pub use prompt::Prompt;
 
-pub trait Interaction {
+pub trait Interaction: fmt::Debug {
     fn prompt_for_choice<'a>(
         &self,
         prompt: Prompt,

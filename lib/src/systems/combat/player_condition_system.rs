@@ -1,6 +1,8 @@
 use anyhow::Error;
 
-use crate::components::{DamageTaken, EffectQueue, Interaction, Notification, PlayerCombatState};
+use crate::components::{
+    CardCombatState, DamageTaken, EffectQueue, Interaction, Notification, PlayerCombatState,
+};
 use crate::data::PlayerCondition;
 
 pub struct PlayerConditionSystem;
@@ -47,6 +49,18 @@ impl PlayerConditionSystem {
     ) -> Result<(), Error> {
         pcs.conditions
             .retain_mut(|c| c.on_damage_taken(damage_taken, effect_queue));
+        Self::notify_player(comms, pcs)
+    }
+
+    /// Queues any effects triggered by the player playing a card.
+    pub fn on_some_card_played<I: Interaction>(
+        comms: &I,
+        pcs: &mut PlayerCombatState,
+        combat_card: &CardCombatState,
+        effect_queue: &mut EffectQueue,
+    ) -> Result<(), Error> {
+        pcs.conditions
+            .retain_mut(|c| c.on_some_card_played(combat_card, effect_queue));
         Self::notify_player(comms, pcs)
     }
 }

@@ -457,7 +457,6 @@ pub struct CardDetails {
     // Card properties
     pub ethereal: bool,
     pub exhaust: bool,
-    pub exhaust_when_played: bool,
     pub innate: bool,
     pub irremovable: bool,
     pub pain: bool,     // Lose 1 HP (unblockable) when other cards are played.
@@ -489,7 +488,6 @@ impl CardDetails {
             on_linger: None,
             ethereal: false,
             exhaust: false,
-            exhaust_when_played: false,
             innate: false,
             irremovable: false,
             pain: false,
@@ -548,11 +546,6 @@ impl CardDetails {
 
     fn exhaust(mut self) -> Self {
         self.exhaust = true;
-        self
-    }
-
-    fn exhaust_when_played(mut self) -> Self {
-        self.exhaust_when_played = true;
         self
     }
 
@@ -2004,7 +1997,7 @@ static ALL_CARDS: Lazy<Vec<CardDetails>> = Lazy::new(|| {
             (ShrugItOff(true), Skill, Common, One),
             [Gain(Resource::Block(11)), Draw(1)]
         ),
-        define_card!((Slimed, Status, Common, One), [], [exhaust_when_played]),
+        define_card!((Slimed, Status, Common, One), [], [exhaust]),
         define_card!(
             (SpotWeakness(false), Skill, Uncommon, One),
             [ToSingleTarget(TargetEffect::Conditional(

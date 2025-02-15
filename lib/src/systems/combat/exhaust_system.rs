@@ -22,14 +22,14 @@ impl ExhaustSystem {
         effect_queue: &mut EffectQueue,
     ) -> Result<(), Error> {
         RelicSystem::on_card_exhausted(pps, effect_queue);
+        // TODO: Move these checks to PlayerConditionSystem
         for condition in pcs.conditions.iter() {
             match condition {
                 PlayerCondition::DarkEmbrace(card_count) => {
-                    effect_queue
-                        .push_back(Effect::FromPlayerState(PlayerEffect::Draw(*card_count)));
+                    effect_queue.push_back(Effect::PlayerState(PlayerEffect::Draw(*card_count)));
                 }
                 PlayerCondition::FeelNoPain(block) => {
-                    effect_queue.push_back(Effect::FromPlayerState(PlayerEffect::Gain(
+                    effect_queue.push_back(Effect::PlayerState(PlayerEffect::Gain(
                         Resource::Block(*block),
                     )));
                 }
@@ -37,7 +37,7 @@ impl ExhaustSystem {
             }
         }
         if let Some(effect) = combat_card.details.on_exhaust.as_ref() {
-            effect_queue.push_back(Effect::FromCard(effect));
+            effect_queue.push_back(Effect::Card(effect));
         }
         pcs.cards.exhaust_pile.push(combat_card);
         comms.send_notification(Notification::CardExhausted(hand_index, combat_card))

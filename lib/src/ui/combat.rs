@@ -144,7 +144,7 @@ impl<'a> CombatClient<'a> {
             match effect {
                 PlayerEffect::Gain(Resource::Block(amount)) => result.push_str(&format!(
                     "Gain {} block",
-                    DamageCalculator::calculate_block_gained(&self.player_status, *amount)
+                    DamageCalculator::calculate_block_gained(&self.player_status, *amount).amount
                 )),
                 PlayerEffect::ToAllEnemies(effect) => result.push_str(
                     &self.modified_target_effect(effect, maybe_enemy_index, " to ALL enemies"),

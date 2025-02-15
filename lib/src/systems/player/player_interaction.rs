@@ -6,6 +6,7 @@ use crate::components::{Choice, Interaction, Notification, Prompt, StsMessage};
 
 /// Handles all interactions with the player via the from_client and to_client channels, sending
 /// messages to the player to prompt for decisions and returning the choices made by the player.
+#[derive(Debug)]
 pub struct PlayerInteraction {
     from_client: Receiver<usize>,
     to_client: Sender<StsMessage>,

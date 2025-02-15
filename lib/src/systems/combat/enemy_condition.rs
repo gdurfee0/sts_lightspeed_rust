@@ -106,7 +106,7 @@ impl EnemyCondition {
                 false
             }
             EnemyCondition::Thorns(hp) if damage_taken.provokes_thorns => {
-                effect_queue.push_front(Effect::FromEnemyState(EnemyEffect::Deal(
+                effect_queue.push_front(Effect::EnemyState(EnemyEffect::Deal(
                     Damage::BlockableNonAttack(*hp),
                 )));
                 true
@@ -119,7 +119,7 @@ impl EnemyCondition {
     pub fn on_death(&mut self, effect_queue: &mut EffectQueue) -> bool {
         match self {
             EnemyCondition::SporeCloud(stacks) => {
-                effect_queue.push_front(Effect::FromEnemyState(EnemyEffect::Inflict(
+                effect_queue.push_front(Effect::EnemyState(EnemyEffect::Inflict(
                     PlayerCondition::Vulnerable(*stacks),
                 )));
                 true

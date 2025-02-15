@@ -1,5 +1,6 @@
-use crate::components::{DamageTaken, Effect, EffectQueue};
-use crate::data::{Damage, PlayerCondition, PlayerEffect, TargetEffect};
+use crate::components::{CardCombatState, DamageTaken, Effect, EffectQueue};
+use crate::data::{CardType, Damage, PlayerCondition, PlayerEffect, Resource, TargetEffect};
+use crate::types::Block;
 
 impl PlayerCondition {
     /// Attempts to merge the supplied condition into self, returning true iff the conditions
@@ -267,12 +268,31 @@ impl PlayerCondition {
         if damage_taken.provokes_thorns {
             match self {
                 PlayerCondition::FlameBarrier(hp) | PlayerCondition::Thorns(hp) => {
-                    effect_queue.push_front(Effect::FromPlayerState(PlayerEffect::ToSingleTarget(
+                    effect_queue.push_front(Effect::PlayerState(PlayerEffect::ToSingleTarget(
                         TargetEffect::Deal(Damage::BlockableNonAttack(*hp)),
                     )));
                 }
                 _ => {}
             }
+        }
+        true
+    }
+
+    /// Queues any effects triggered by the player playing a card.
+    pub fn on_some_card_played(
+        &self,
+        combat_card: &CardCombatState,
+        effect_queue: &mut EffectQueue,
+    ) -> bool {
+        match self {
+            PlayerCondition::Rage(stacks) => {
+                if combat_card.details.type_ == CardType::Attack {
+                    effect_queue.push_front(Effect::PlayerState(PlayerEffect::Gain(
+                        Resource::Block(*stacks),
+                    )));
+                }
+            }
+            _ => {}
         }
         true
     }

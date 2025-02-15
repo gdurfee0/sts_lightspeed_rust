@@ -4,12 +4,13 @@ use crate::data::{EnemyEffect, PlayerEffect};
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum Effect {
-    FromCard(&'static PlayerEffect),
-    FromEnemyPlaybook(&'static EnemyEffect),
-    FromEnemyState(EnemyEffect),
-    FromPlayerState(PlayerEffect),
+    Card(&'static PlayerEffect),
+    EnemyPlaybook(&'static EnemyEffect),
+    EnemyState(EnemyEffect),
+    PlayerState(PlayerEffect),
 }
 
+#[derive(Debug)]
 pub struct EffectQueue {
     queue: VecDeque<Effect>,
 }
@@ -39,5 +40,16 @@ impl EffectQueue {
 
     pub fn pop_front(&mut self) -> Option<Effect> {
         self.queue.pop_front()
+    }
+}
+
+impl Drop for EffectQueue {
+    fn drop(&mut self) {
+        if !self.queue.is_empty() {
+            eprintln!(
+                "EffectQueue dropped with {} effects remaining",
+                self.queue.len()
+            );
+        }
     }
 }

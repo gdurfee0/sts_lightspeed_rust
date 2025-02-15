@@ -13,6 +13,10 @@ pub enum CalculatedDamage {
     HpLoss(Hp),
 }
 
+pub struct CalculatedBlock {
+    pub amount: Block,
+}
+
 /// The initial damage calculation after only strength is applied. Useful as an intermediate result.
 #[derive(Copy, Clone, Debug, Eq, Hash, PartialEq)]
 enum InitialCalculatedDamage {
@@ -34,12 +38,19 @@ impl DamageCalculator {
     }
 
     /// Calculates the block gained by a defender, taking into account dexterity and frailty.
-    pub fn calculate_block_gained<D: DefenderStatus>(defender: &D, amount: Block) -> Block {
+    pub fn calculate_block_gained<D: DefenderStatus>(
+        defender: &D,
+        amount: Block,
+    ) -> CalculatedBlock {
         let initial_amount = amount.saturating_add_signed(defender.dexterity());
         if defender.is_frail() {
-            (initial_amount as f32 * 0.75).floor() as Block
+            CalculatedBlock {
+                amount: (initial_amount as f32 * 0.75).floor() as Block,
+            }
         } else {
-            initial_amount
+            CalculatedBlock {
+                amount: initial_amount,
+            }
         }
     }
 

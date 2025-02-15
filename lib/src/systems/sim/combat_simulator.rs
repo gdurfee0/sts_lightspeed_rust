@@ -1,16 +1,19 @@
+use std::fmt;
+
 use anyhow::Error;
 
 use crate::components::{
     Effect, EffectQueue, Interaction, PlayerCombatState, PlayerPersistentState,
 };
-use crate::data::{Encounter, EnemyEffect, PlayerEffect, Resource};
+use crate::data::{Encounter, Enemy, EnemyEffect, PlayerEffect, Resource, TargetEffect};
 use crate::systems::combat::{
-    BlockSystem, DamageCalculator, EnemyConditionSystem, PlayerConditionSystem,
+    BlockSystem, CardCreationSystem, DamageCalculator, EnemyConditionSystem, PlayerConditionSystem,
 };
 use crate::systems::enemy::{EnemyParty, EnemySystem};
 use crate::systems::player::{CombatAction, PlayerCombatSystem};
 use crate::systems::rng::{Seed, StsRandom};
 use crate::types::EnemyIndex;
+use crate::Notification;
 
 pub struct CombatSimulator<'a> {
     misc_rng: &'a mut StsRandom,
@@ -18,12 +21,13 @@ pub struct CombatSimulator<'a> {
     enemy_system: EnemySystem,
 }
 
+#[derive(Debug)]
 struct CombatContext<'a, I: Interaction> {
     pub comms: &'a I,
     pub pps: &'a mut PlayerPersistentState,
     pub pcs: &'a mut PlayerCombatState,
     pub enemy_party: &'a mut EnemyParty,
-    pub effect_queue: &'a mut EffectQueue,
+    pub maybe_enemy_index: Option<EnemyIndex>,
 }
 
 impl<'a> CombatSimulator<'a> {
@@ -52,11 +56,12 @@ impl<'a> CombatSimulator<'a> {
             enemy_party: &mut self
                 .enemy_system
                 .create_enemy_party(encounter, self.misc_rng),
-            effect_queue: &mut EffectQueue::new(),
+            maybe_enemy_index: None,
         };
         self.player_combat_system
             .start_combat(comms, ctx.pps, ctx.pcs, ctx.enemy_party)?;
         loop {
+            ctx.maybe_enemy_index = None;
             self.conduct_player_turn(&mut ctx)?;
             if Self::combat_should_end(&ctx) {
                 break;
@@ -71,6 +76,20 @@ impl<'a> CombatSimulator<'a> {
         Ok(victorious)
     }
 
+    /// Processes all effects in the queue.
+    fn drain_effect_queue<I: Interaction>(
+        &mut self,
+        ctx: &mut CombatContext<I>,
+        effect_queue: &mut EffectQueue,
+    ) -> Result<(), Error> {
+        while let Some(effect) = effect_queue.pop_front() {
+            if self.process_effect(ctx, effect, effect_queue)? {
+                break;
+            }
+        }
+        Ok(())
+    }
+
     /// Conducts the player's turn.
     fn conduct_player_turn<I: Interaction>(
         &mut self,
@@ -79,11 +98,7 @@ impl<'a> CombatSimulator<'a> {
         let mut effect_queue = EffectQueue::new();
         self.player_combat_system
             .start_turn(ctx.comms, ctx.pps, ctx.pcs, &mut effect_queue)?;
-        while let Some(effect) = effect_queue.pop_front() {
-            if !self.process_effect(ctx, effect, None, &mut effect_queue)? {
-                break;
-            }
-        }
+        self.drain_effect_queue(ctx, &mut effect_queue)?;
         while !Self::combat_should_end(ctx) {
             match self.player_combat_system.choose_next_action(
                 ctx.comms,
@@ -92,19 +107,18 @@ impl<'a> CombatSimulator<'a> {
                 ctx.enemy_party,
             )? {
                 CombatAction::PlayCard(combat_card, maybe_enemy_index) => {
+                    ctx.maybe_enemy_index = maybe_enemy_index;
                     for effect in combat_card.details.on_play.iter() {
-                        effect_queue.push_back(Effect::FromCard(effect));
+                        effect_queue.push_back(Effect::Card(effect));
                     }
-                    while let Some(effect) = effect_queue.pop_front() {
-                        if !self.process_effect(
-                            ctx,
-                            effect,
-                            maybe_enemy_index,
-                            &mut effect_queue,
-                        )? {
-                            break;
-                        }
-                    }
+                    self.drain_effect_queue(ctx, &mut effect_queue)?;
+                    self.player_combat_system.dispose_of_card_just_played(
+                        ctx.comms,
+                        ctx.pps,
+                        ctx.pcs,
+                        &mut effect_queue,
+                    )?;
+                    self.drain_effect_queue(ctx, &mut effect_queue)?;
                 }
                 CombatAction::EndTurn => break,
             };
@@ -112,11 +126,7 @@ impl<'a> CombatSimulator<'a> {
         if !Self::combat_should_end(ctx) {
             self.player_combat_system
                 .end_turn(ctx.comms, ctx.pps, ctx.pcs, &mut effect_queue)?;
-            while let Some(effect) = effect_queue.pop_front() {
-                if !self.process_effect(ctx, effect, None, &mut effect_queue)? {
-                    break;
-                }
-            }
+            self.drain_effect_queue(ctx, &mut effect_queue)?;
         }
         Ok(())
     }
@@ -129,15 +139,20 @@ impl<'a> CombatSimulator<'a> {
         let mut effect_queue = EffectQueue::new();
         self.enemy_system.start_turn(ctx.enemy_party);
         for enemy_index in 0..ctx.enemy_party.0.len() {
+            ctx.maybe_enemy_index = Some(enemy_index);
             if let Some(enemy_action) = ctx.enemy_party.0[enemy_index]
                 .as_mut()
                 .map(|e| e.next_action)
             {
+                println!(
+                    "[CombatSimulator] Enemy {} action: {:?}",
+                    enemy_index, enemy_action
+                );
                 for effect in enemy_action.effect_chain().iter() {
-                    effect_queue.push_back(Effect::FromEnemyPlaybook(effect));
+                    effect_queue.push_back(Effect::EnemyPlaybook(effect));
                 }
                 while let Some(effect) = effect_queue.pop_front() {
-                    if !self.process_effect(ctx, effect, Some(enemy_index), &mut effect_queue)?
+                    if self.process_effect(ctx, effect, &mut effect_queue)?
                         || ctx.enemy_party.0[enemy_index].is_none()
                     {
                         break;
@@ -164,21 +179,30 @@ impl<'a> CombatSimulator<'a> {
         &mut self,
         ctx: &mut CombatContext<I>,
         effect: Effect,
-        maybe_enemy_index: Option<EnemyIndex>,
         effect_queue: &mut EffectQueue,
     ) -> Result<bool, Error> {
         match effect {
-            Effect::FromCard(player_effect) => {
-                self.process_player_effect(ctx, player_effect, maybe_enemy_index, effect_queue)?;
+            Effect::Card(player_effect) => {
+                self.process_player_effect(ctx, player_effect, effect_queue)?;
             }
-            Effect::FromEnemyPlaybook(enemy_effect) => {
-                self.process_enemy_effect(ctx, enemy_effect, maybe_enemy_index, effect_queue)?;
+            Effect::EnemyPlaybook(enemy_effect) => {
+                self.process_enemy_effect(ctx, enemy_effect, effect_queue)?;
             }
-            Effect::FromEnemyState(enemy_effect) => {
-                self.process_enemy_effect(ctx, &enemy_effect, maybe_enemy_index, effect_queue)?;
+            Effect::EnemyState(enemy_effect) => {
+                self.process_enemy_effect(ctx, &enemy_effect, effect_queue)?;
             }
-            Effect::FromPlayerState(player_effect) => {
-                self.process_player_effect(ctx, &player_effect, maybe_enemy_index, effect_queue)?;
+            Effect::PlayerState(player_effect) => {
+                self.process_player_effect(ctx, &player_effect, effect_queue)?;
+            }
+        }
+        if let Some((enemy_index, enemy_hp, enemy)) = ctx
+            .maybe_enemy_index
+            .and_then(|i| ctx.enemy_party.0[i].as_ref().map(|e| (i, e.hp, e.enemy)))
+        {
+            if enemy_hp == 0 {
+                ctx.enemy_party.0[enemy_index] = None;
+                ctx.comms
+                    .send_notification(Notification::EnemyDied(enemy_index, enemy))?;
             }
         }
         Ok(Self::combat_should_end(ctx))
@@ -188,7 +212,6 @@ impl<'a> CombatSimulator<'a> {
         &mut self,
         ctx: &mut CombatContext<I>,
         effect: &PlayerEffect,
-        maybe_enemy_index: Option<EnemyIndex>,
         effect_queue: &mut EffectQueue,
     ) -> Result<(), Error> {
         match effect {
@@ -214,7 +237,7 @@ impl<'a> CombatSimulator<'a> {
                 Ok(())
             }
             PlayerEffect::ForEachExhausted(player_effects) => todo!(),
-            PlayerEffect::Gain(resource) => todo!(),
+            PlayerEffect::Gain(resource) => self.gain_resource(ctx, resource, effect_queue),
             PlayerEffect::Lose(resource) => todo!(),
             PlayerEffect::ManipulateCards(
                 card_source,
@@ -225,10 +248,90 @@ impl<'a> CombatSimulator<'a> {
             PlayerEffect::PlayThenExhaustTopCardOfDrawPile => todo!(),
             PlayerEffect::RampUpCardDamage(_) => todo!(),
             PlayerEffect::TakeDamage(damage) => todo!(),
-            PlayerEffect::ToAllEnemies(target_effect) => todo!(),
-            PlayerEffect::ToRandomEnemy(target_effect) => todo!(),
-            PlayerEffect::ToSingleTarget(target_effect) => todo!(),
+            PlayerEffect::ToAllEnemies(target_effect) => {
+                for enemy_index in 0..ctx.enemy_party.0.len() {
+                    if ctx.enemy_party.0[enemy_index].is_some() {
+                        ctx.maybe_enemy_index = Some(enemy_index);
+                        self.to_target_effect(ctx, target_effect, effect_queue)?;
+                    }
+                    self.drain_effect_queue(ctx, effect_queue)?;
+                }
+                Ok(())
+            }
+            PlayerEffect::ToRandomEnemy(target_effect) => {
+                ctx.maybe_enemy_index = self.pick_random_enemy(ctx);
+                self.to_target_effect(ctx, target_effect, effect_queue)
+            }
+            PlayerEffect::ToSingleTarget(target_effect) => {
+                assert!(ctx.maybe_enemy_index.is_some());
+                self.to_target_effect(ctx, target_effect, effect_queue)
+            }
             PlayerEffect::Upgrade(card_source, card_selection) => todo!(),
+        }
+    }
+
+    fn gain_resource<I: Interaction>(
+        &mut self,
+        ctx: &mut CombatContext<I>,
+        resource: &Resource,
+        _effect_queue: &mut EffectQueue,
+    ) -> Result<(), Error> {
+        match resource {
+            Resource::Block(block) => {
+                let calculated_block = DamageCalculator::calculate_block_gained(ctx.pcs, *block);
+                BlockSystem::gain_block(ctx.comms, ctx.pcs, calculated_block)
+            }
+            Resource::CurrentBlockIsDoubled => todo!(),
+            Resource::CurrentStrengthIsDoubled => todo!(),
+            Resource::Energy(_) => todo!(),
+            Resource::Gold(_) => todo!(),
+            Resource::Hp(_) => todo!(),
+            Resource::HpEqualToUnblockedDamage => todo!(),
+            Resource::HpMax(_) => todo!(),
+            Resource::Strength(_) => todo!(),
+        }
+    }
+
+    fn pick_random_enemy<I: Interaction>(&mut self, ctx: &CombatContext<I>) -> Option<EnemyIndex> {
+        let living_enemies = ctx
+            .enemy_party
+            .0
+            .iter()
+            .enumerate()
+            .filter(|(_, e)| e.is_some())
+            .collect::<Vec<_>>();
+        let living_index = self.misc_rng.gen_range(0..living_enemies.len());
+        Some(living_enemies[living_index].0)
+    }
+
+    fn to_target_effect<I: Interaction>(
+        &mut self,
+        ctx: &mut CombatContext<I>,
+        effect: &TargetEffect,
+        effect_queue: &mut EffectQueue,
+    ) -> Result<(), Error> {
+        let enemy_state = ctx
+            .maybe_enemy_index
+            .and_then(|i| ctx.enemy_party.0.get_mut(i))
+            .and_then(|maybe_enemy| maybe_enemy.as_mut())
+            .unwrap_or_else(|| panic!("No enemy index set: {:?}", effect));
+        match effect {
+            TargetEffect::Conditional(target_condition, player_effects) => todo!(),
+            TargetEffect::Deal(damage) => {
+                let calculated_damage = DamageCalculator::calculate_damage_inflicted(
+                    enemy_state,
+                    Some(ctx.pcs),
+                    damage,
+                );
+                BlockSystem::damage_enemy(enemy_state, calculated_damage, effect_queue);
+                Ok(())
+            }
+            TargetEffect::DealXTimes(damage) => todo!(),
+            TargetEffect::Inflict(enemy_condition) => {
+                EnemyConditionSystem::apply_to_enemy(enemy_state, enemy_condition);
+                Ok(())
+            }
+            TargetEffect::SapStrength(_) => todo!(),
         }
     }
 
@@ -236,10 +339,10 @@ impl<'a> CombatSimulator<'a> {
         &mut self,
         ctx: &mut CombatContext<I>,
         effect: &EnemyEffect,
-        maybe_enemy_index: Option<EnemyIndex>,
         effect_queue: &mut EffectQueue,
     ) -> Result<(), Error> {
-        if let Some(enemy_state) = maybe_enemy_index
+        if let Some(enemy_state) = ctx
+            .maybe_enemy_index
             .and_then(|i| ctx.enemy_party.0.get_mut(i))
             .and_then(|maybe_enemy| maybe_enemy.as_mut())
         {
@@ -252,7 +355,15 @@ impl<'a> CombatSimulator<'a> {
                     card_selection,
                     card_destination,
                     cost_modifier,
-                ) => todo!(),
+                ) => {
+                    CardCreationSystem::create_card(
+                        ctx.comms,
+                        ctx.pps,
+                        ctx.pcs,
+                        (card_pool, card_selection, card_destination, cost_modifier),
+                        effect_queue,
+                    )?;
+                }
                 EnemyEffect::Deal(damage) => {
                     let damage = DamageCalculator::calculate_damage_inflicted(
                         enemy_state,
@@ -262,7 +373,9 @@ impl<'a> CombatSimulator<'a> {
                     BlockSystem::damage_player(ctx.comms, ctx.pps, ctx.pcs, damage, effect_queue)?;
                 }
                 EnemyEffect::Gain(Resource::Block(block)) => {
-                    enemy_state.block += block;
+                    let calculated_block =
+                        DamageCalculator::calculate_block_gained(enemy_state, *block);
+                    enemy_state.block += calculated_block.amount;
                 }
                 EnemyEffect::Gain(Resource::Strength(strength)) => {
                     enemy_state.strength += strength;

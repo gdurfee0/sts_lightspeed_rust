@@ -34,7 +34,6 @@ pub enum Notification {
     DamageTaken(Hp),
     Dexterity(Dexterity),
     DiscardPile(Vec<CardCombatState>),
-    EnemyStatus(EnemyIndex, EnemyStatus),
     EnemyDied(EnemyIndex, Enemy),
     EnemyParty(Vec<Option<EnemyStatus>>),
     Energy(Energy),

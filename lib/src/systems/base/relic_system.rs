@@ -119,7 +119,7 @@ impl RelicSystem {
         for relic in pps.relics.iter() {
             match relic {
                 Relic::CharonsAshes => {
-                    effect_queue.push_back(Effect::FromPlayerState(PlayerEffect::ToAllEnemies(
+                    effect_queue.push_back(Effect::PlayerState(PlayerEffect::ToAllEnemies(
                         TargetEffect::Deal(Damage::BlockableNonAttack(3)),
                     )));
                 }

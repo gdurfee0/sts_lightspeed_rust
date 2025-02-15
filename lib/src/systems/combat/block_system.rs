@@ -11,7 +11,7 @@ use crate::systems::base::{HealthSystem, RelicSystem};
 use crate::systems::enemy::{EnemyParty, EnemyState};
 use crate::types::Block;
 
-use super::damage_calculator::CalculatedDamage;
+use super::damage_calculator::{CalculatedBlock, CalculatedDamage};
 
 pub struct BlockSystem;
 
@@ -44,9 +44,10 @@ impl BlockSystem {
     pub fn gain_block<I: Interaction>(
         comms: &I,
         pcs: &mut PlayerCombatState,
-        amount: Block,
+        calculated_block: CalculatedBlock,
     ) -> Result<(), Error> {
-        pcs.block = pcs.block.saturating_add(amount);
+        pcs.block = pcs.block.saturating_add(calculated_block.amount);
+        comms.send_notification(Notification::BlockGained(calculated_block.amount))?;
         Self::notify_player(comms, pcs)
     }
 
@@ -68,11 +69,9 @@ impl BlockSystem {
             for condition in pcs.conditions.iter_mut() {
                 match condition {
                     PlayerCondition::FlameBarrier(hp) | PlayerCondition::Thorns(hp) => {
-                        effect_queue.push_front(Effect::FromPlayerState(
-                            PlayerEffect::ToSingleTarget(TargetEffect::Deal(
-                                Damage::BlockableNonAttack(*hp),
-                            )),
-                        ));
+                        effect_queue.push_front(Effect::PlayerState(PlayerEffect::ToSingleTarget(
+                            TargetEffect::Deal(Damage::BlockableNonAttack(*hp)),
+                        )));
                     }
                     _ => {}
                 }
@@ -97,13 +96,10 @@ impl BlockSystem {
         let damage_taken = Self::damage_taken(enemy_state.block, damage);
         if damage_taken.provokes_thorns {
             for condition in enemy_state.conditions.iter_mut() {
-                match condition {
-                    EnemyCondition::Thorns(hp) => {
-                        effect_queue.push_front(Effect::FromEnemyState(EnemyEffect::Deal(
-                            Damage::BlockableNonAttack(*hp),
-                        )));
-                    }
-                    _ => {}
+                if let EnemyCondition::Thorns(hp) = condition {
+                    effect_queue.push_front(Effect::EnemyState(EnemyEffect::Deal(
+                        Damage::BlockableNonAttack(*hp),
+                    )));
                 }
             }
         }

@@ -127,9 +127,10 @@ impl PotionSystem {
     pub fn expend_potion_in_combat<I: Interaction>(
         comms: &I,
         pps: &mut PlayerPersistentState,
-        _pcs: &mut PlayerCombatState,
+        pcs: &mut PlayerCombatState,
         potion_action: &PotionAction,
     ) -> Result<(), Error> {
+        // TODO: Sacred Bark
         match potion_action {
             PotionAction::Discard(potion_index, _) => {
                 pps.potions[*potion_index] = None;
@@ -147,7 +148,10 @@ impl PotionSystem {
                     Potion::ColorlessPotion => todo!(),
                     Potion::CultistPotion => todo!(),
                     Potion::CunningPotion => todo!(),
-                    Potion::DexterityPotion => todo!(),
+                    Potion::DexterityPotion => {
+                        pcs.dexterity += 2;
+                        comms.send_notification(Notification::Dexterity(pcs.dexterity))?;
+                    }
                     Potion::DistilledChaos => todo!(),
                     Potion::DuplicationPotion => todo!(),
                     Potion::Elixir => todo!(),

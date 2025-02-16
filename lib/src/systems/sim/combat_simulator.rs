@@ -76,20 +76,6 @@ impl<'a> CombatSimulator<'a> {
         Ok(victorious)
     }
 
-    /// Processes all effects in the queue.
-    fn drain_effect_queue<I: Interaction>(
-        &mut self,
-        ctx: &mut CombatContext<I>,
-        effect_queue: &mut EffectQueue,
-    ) -> Result<(), Error> {
-        while let Some(effect) = effect_queue.pop_front() {
-            if self.process_effect(ctx, effect, effect_queue)? {
-                break;
-            }
-        }
-        Ok(())
-    }
-
     /// Conducts the player's turn.
     fn conduct_player_turn<I: Interaction>(
         &mut self,
@@ -98,7 +84,7 @@ impl<'a> CombatSimulator<'a> {
         let mut effect_queue = EffectQueue::new();
         self.player_combat_system
             .start_turn(ctx.comms, ctx.pps, ctx.pcs, &mut effect_queue)?;
-        self.drain_effect_queue(ctx, &mut effect_queue)?;
+        self.process_effect_queue(ctx, &mut effect_queue)?;
         while !Self::combat_should_end(ctx) {
             match self.player_combat_system.choose_next_action(
                 ctx.comms,
@@ -111,14 +97,14 @@ impl<'a> CombatSimulator<'a> {
                     for effect in combat_card.details.on_play.iter() {
                         effect_queue.push_back(Effect::Card(effect));
                     }
-                    self.drain_effect_queue(ctx, &mut effect_queue)?;
+                    self.process_effect_queue(ctx, &mut effect_queue)?;
                     self.player_combat_system.dispose_of_card_just_played(
                         ctx.comms,
                         ctx.pps,
                         ctx.pcs,
                         &mut effect_queue,
                     )?;
-                    self.drain_effect_queue(ctx, &mut effect_queue)?;
+                    self.process_effect_queue(ctx, &mut effect_queue)?;
                 }
                 CombatAction::EndTurn => break,
             };
@@ -126,7 +112,7 @@ impl<'a> CombatSimulator<'a> {
         if !Self::combat_should_end(ctx) {
             self.player_combat_system
                 .end_turn(ctx.comms, ctx.pps, ctx.pcs, &mut effect_queue)?;
-            self.drain_effect_queue(ctx, &mut effect_queue)?;
+            self.process_effect_queue(ctx, &mut effect_queue)?;
         }
         Ok(())
     }
@@ -169,9 +155,18 @@ impl<'a> CombatSimulator<'a> {
         Ok(())
     }
 
-    /// Returns true if the combat should end.
-    fn combat_should_end<I: Interaction>(ctx: &CombatContext<I>) -> bool {
-        ctx.pps.hp == 0 || ctx.enemy_party.0.iter().all(|enemy| enemy.is_none())
+    /// Processes all effects in the queue.
+    fn process_effect_queue<I: Interaction>(
+        &mut self,
+        ctx: &mut CombatContext<I>,
+        effect_queue: &mut EffectQueue,
+    ) -> Result<(), Error> {
+        while let Some(effect) = effect_queue.pop_front() {
+            if self.process_effect(ctx, effect, effect_queue)? {
+                break;
+            }
+        }
+        Ok(())
     }
 
     /// Handles the incoming effect (PlayerEffect or EnemyEffect).
@@ -254,7 +249,7 @@ impl<'a> CombatSimulator<'a> {
                         ctx.maybe_enemy_index = Some(enemy_index);
                         self.to_target_effect(ctx, target_effect, effect_queue)?;
                     }
-                    self.drain_effect_queue(ctx, effect_queue)?;
+                    self.process_effect_queue(ctx, effect_queue)?;
                 }
                 Ok(())
             }
@@ -310,28 +305,31 @@ impl<'a> CombatSimulator<'a> {
         effect: &TargetEffect,
         effect_queue: &mut EffectQueue,
     ) -> Result<(), Error> {
-        let enemy_state = ctx
+        if let Some(enemy_state) = ctx
             .maybe_enemy_index
             .and_then(|i| ctx.enemy_party.0.get_mut(i))
             .and_then(|maybe_enemy| maybe_enemy.as_mut())
-            .unwrap_or_else(|| panic!("No enemy index set: {:?}", effect));
-        match effect {
-            TargetEffect::Conditional(target_condition, player_effects) => todo!(),
-            TargetEffect::Deal(damage) => {
-                let calculated_damage = DamageCalculator::calculate_damage_inflicted(
-                    ctx.pcs,
-                    Some(enemy_state),
-                    damage,
-                );
-                BlockSystem::damage_enemy(enemy_state, calculated_damage, effect_queue);
-                Ok(())
+        {
+            match effect {
+                TargetEffect::Conditional(target_condition, player_effects) => todo!(),
+                TargetEffect::Deal(damage) => {
+                    let calculated_damage = DamageCalculator::calculate_damage_inflicted(
+                        ctx.pcs,
+                        Some(enemy_state),
+                        damage,
+                    );
+                    BlockSystem::damage_enemy(enemy_state, calculated_damage, effect_queue);
+                    Ok(())
+                }
+                TargetEffect::DealXTimes(damage) => todo!(),
+                TargetEffect::Inflict(enemy_condition) => {
+                    EnemyConditionSystem::apply_to_enemy(enemy_state, enemy_condition);
+                    Ok(())
+                }
+                TargetEffect::SapStrength(_) => todo!(),
             }
-            TargetEffect::DealXTimes(damage) => todo!(),
-            TargetEffect::Inflict(enemy_condition) => {
-                EnemyConditionSystem::apply_to_enemy(enemy_state, enemy_condition);
-                Ok(())
-            }
-            TargetEffect::SapStrength(_) => todo!(),
+        } else {
+            Ok(())
         }
     }
 
@@ -387,6 +385,11 @@ impl<'a> CombatSimulator<'a> {
             }
         }
         Ok(())
+    }
+
+    /// Returns true if the combat should end.
+    fn combat_should_end<I: Interaction>(ctx: &CombatContext<I>) -> bool {
+        ctx.pps.hp == 0 || ctx.enemy_party.0.iter().all(|enemy| enemy.is_none())
     }
 
     /*

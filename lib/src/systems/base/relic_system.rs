@@ -136,11 +136,8 @@ impl RelicSystem {
     ) -> Result<(), Error> {
         let mut has_bloody_idol = false;
         for relic in pps.relics.iter() {
-            match relic {
-                Relic::BloodyIdol => {
-                    has_bloody_idol = true;
-                }
-                _ => {}
+            if *relic == Relic::BloodyIdol {
+                has_bloody_idol = true;
             }
         }
         if has_bloody_idol {

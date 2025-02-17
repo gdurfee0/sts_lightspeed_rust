@@ -5,6 +5,7 @@ use crate::types::{
 };
 
 #[derive(Clone, Debug, Eq, Hash, PartialEq)]
+#[allow(clippy::large_enum_variant)]
 pub enum Notification {
     // State updates for the main game loop, outside of an encounter or event.
     CardObtained(Card),

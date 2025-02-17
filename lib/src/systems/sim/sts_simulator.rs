@@ -84,11 +84,12 @@ impl StsSimulator {
             self.misc_rng = self.seed.with_offset(floor).into();
             let room = map_simulator.advance(&mut pps)?;
             match room {
-                Room::Boss => todo!("{:?}", room),
-                Room::BurningElite1 => todo!("{:?}", room),
-                Room::BurningElite2 => todo!("{:?}", room),
-                Room::BurningElite3 => todo!("{:?}", room),
-                Room::BurningElite4 => todo!("{:?}", room),
+                Room::Boss => {
+                    let boss = self.encounter_generator.next_boss_encounter();
+                    if !self.run_encounter(&comms, floor, boss, &mut pps, None)? {
+                        break;
+                    }
+                }
                 Room::RestSite => {
                     let choices = vec![Choice::Rest, Choice::Smith];
                     match comms.prompt_for_choice(Prompt::ChooseRestSiteAction, &choices)? {
@@ -100,9 +101,25 @@ impl StsSimulator {
                         invalid => unreachable!("{:?}", invalid),
                     }
                 }
-                Room::Elite => {
+                Room::BurningElite1
+                | Room::BurningElite2
+                | Room::BurningElite3
+                | Room::BurningElite4
+                | Room::Elite => {
                     let encounter = self.encounter_generator.next_elite_encounter();
-                    if !self.run_encounter(&comms, floor, encounter, &mut pps)? {
+                    if !self.run_encounter(
+                        &comms,
+                        floor,
+                        encounter,
+                        &mut pps,
+                        match room {
+                            Room::BurningElite1 => Some(1),
+                            Room::BurningElite2 => Some(2),
+                            Room::BurningElite3 => Some(3),
+                            Room::BurningElite4 => Some(4),
+                            _ => None,
+                        },
+                    )? {
                         break;
                     }
                 }
@@ -113,22 +130,22 @@ impl StsSimulator {
                     }
                     (Room::Monster, None) => {
                         let encounter = self.encounter_generator.next_monster_encounter();
-                        if !self.run_encounter(&comms, floor, encounter, &mut pps)? {
+                        if !self.run_encounter(&comms, floor, encounter, &mut pps, None)? {
                             break;
                         }
                     }
                     (Room::Shop, None) => self.run_shop(&comms, floor, &mut pps)?,
-                    (Room::Treasure, None) => todo!(),
+                    (Room::Treasure, None) => self.run_treasure_room(&comms, floor, &mut pps)?,
                     invalid => unreachable!("{:?}", invalid),
                 },
                 Room::Monster => {
                     let encounter = self.encounter_generator.next_monster_encounter();
-                    if !self.run_encounter(&comms, floor, encounter, &mut pps)? {
+                    if !self.run_encounter(&comms, floor, encounter, &mut pps, None)? {
                         break;
                     }
                 }
                 Room::Shop => self.run_shop(&comms, floor, &mut pps)?,
-                Room::Treasure => todo!("{:?}", room),
+                Room::Treasure => self.run_treasure_room(&comms, floor, &mut pps)?,
             }
             floor += 1;
         }
@@ -141,6 +158,7 @@ impl StsSimulator {
         floor: Floor,
         encounter: Encounter,
         pps: &mut PlayerPersistentState,
+        _burning_elite_buff: Option<u8>,
     ) -> Result<bool, Error> {
         if !CombatSimulator::new(self.seed.with_offset(floor), &mut self.misc_rng)
             .run_encounter(comms, encounter, pps)?
@@ -163,6 +181,15 @@ impl StsSimulator {
     }
 
     fn run_shop(
+        &mut self,
+        comms: &PlayerInteraction,
+        floor: Floor,
+        pps: &mut PlayerPersistentState,
+    ) -> Result<(), Error> {
+        todo!()
+    }
+
+    fn run_treasure_room(
         &mut self,
         comms: &PlayerInteraction,
         floor: Floor,

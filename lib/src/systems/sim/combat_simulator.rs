@@ -3,7 +3,7 @@ use std::fmt;
 use anyhow::Error;
 
 use crate::components::{
-    Effect, EffectQueue, Interaction, PlayerCombatState, PlayerPersistentState,
+    Effect, EffectQueue, Interaction, Notification, PlayerCombatState, PlayerPersistentState,
 };
 use crate::data::{Encounter, Enemy, EnemyEffect, PlayerEffect, Resource, TargetEffect};
 use crate::systems::combat::{
@@ -13,7 +13,6 @@ use crate::systems::enemy::{EnemyParty, EnemySystem};
 use crate::systems::player::{CombatAction, PlayerCombatSystem};
 use crate::systems::rng::{Seed, StsRandom};
 use crate::types::EnemyIndex;
-use crate::Notification;
 
 pub struct CombatSimulator<'a> {
     misc_rng: &'a mut StsRandom,

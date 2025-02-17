@@ -43,7 +43,7 @@ impl PotionSystem {
                 &choices,
             )? {
                 Choice::ExpendPotion(potion_action) => {
-                    Self::expend_potion_out_of_combat(comms, pps, &potion_action)?
+                    Self::expend_potion_out_of_combat(comms, pps, potion_action)?
                 }
                 Choice::ObtainPotion(potion) => {
                     *pps.potions
@@ -126,24 +126,23 @@ impl PotionSystem {
     /// Discard or drink a potion in combat.
     pub fn expend_potion_in_combat<I: Interaction>(
         comms: &I,
-        pps: &mut PlayerPersistentState,
         pcs: &mut PlayerCombatState,
         potion_action: &PotionAction,
     ) -> Result<(), Error> {
         // TODO: Sacred Bark
         match potion_action {
             PotionAction::Discard(potion_index, _) => {
-                pps.potions[*potion_index] = None;
+                pcs.pps.potions[*potion_index] = None;
             }
             PotionAction::Drink(potion_index, potion) => {
-                pps.potions[*potion_index] = None;
+                pcs.pps.potions[*potion_index] = None;
                 match potion {
                     Potion::Ambrosia => todo!(),
                     Potion::AncientPotion => todo!(),
                     Potion::AttackPotion => todo!(),
                     Potion::BlessingOfTheForge => todo!(),
                     Potion::BlockPotion => todo!(),
-                    Potion::BloodPotion => Self::blood_potion(comms, pps)?,
+                    Potion::BloodPotion => Self::blood_potion(comms, pcs.pps)?,
                     Potion::BottledMiracle => todo!(),
                     Potion::ColorlessPotion => todo!(),
                     Potion::CultistPotion => todo!(),
@@ -156,7 +155,7 @@ impl PotionSystem {
                     Potion::DuplicationPotion => todo!(),
                     Potion::Elixir => todo!(),
                     Potion::EnergyPotion => todo!(),
-                    Potion::EntropicBrew => Self::entropic_brew(comms, pps)?,
+                    Potion::EntropicBrew => Self::entropic_brew(comms, pcs.pps)?,
                     Potion::EssenceOfDarkness => todo!(),
                     Potion::EssenceOfSteel => todo!(),
                     Potion::ExplosivePotion => todo!(),
@@ -164,7 +163,7 @@ impl PotionSystem {
                     Potion::FearPotion => todo!(),
                     Potion::FirePotion => todo!(),
                     Potion::FlexPotion => todo!(),
-                    Potion::FruitJuice => Self::fruit_juice(comms, pps)?,
+                    Potion::FruitJuice => Self::fruit_juice(comms, pcs.pps)?,
                     Potion::FocusPotion => todo!(),
                     Potion::GamblersBrew => todo!(),
                     Potion::GhostInAJar => todo!(),
@@ -186,7 +185,7 @@ impl PotionSystem {
                 }
             }
         }
-        Self::notify_player(comms, pps)
+        Self::notify_player(comms, pcs.pps)
     }
 
     /// Checks if there is a potion slot available.

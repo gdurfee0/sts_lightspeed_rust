@@ -31,7 +31,6 @@ impl PlayerCombatSystem {
     pub fn notify_player<I: Interaction>(
         &self,
         comms: &I,
-        pps: &PlayerPersistentState,
         pcs: &PlayerCombatState,
         enemy_party: &EnemyParty,
     ) -> Result<(), Error> {
@@ -43,7 +42,7 @@ impl PlayerCombatSystem {
                 .map(|enemy| enemy.as_ref().map(EnemyStatus::from))
                 .collect(),
         ))?;
-        comms.send_notification(Notification::Health((pps.hp, pps.hp_max)))?;
+        comms.send_notification(Notification::Health((pcs.pps.hp, pcs.pps.hp_max)))?;
         comms.send_notification(Notification::Energy(pcs.energy))?;
         comms.send_notification(Notification::Strength(pcs.strength))?;
         comms.send_notification(Notification::Dexterity(pcs.dexterity))?;
@@ -55,13 +54,12 @@ impl PlayerCombatSystem {
     pub fn start_combat<I: Interaction>(
         &mut self,
         comms: &I,
-        pps: &mut PlayerPersistentState,
         pcs: &mut PlayerCombatState,
         enemy_party: &mut EnemyParty,
     ) -> Result<(), Error> {
-        RelicSystem::on_start_combat(comms, pps, pcs)?;
+        RelicSystem::on_start_combat(comms, pcs)?;
         self.draw_system.start_combat(pcs);
-        self.notify_player(comms, pps, pcs, enemy_party)
+        self.notify_player(comms, pcs, enemy_party)
     }
 
     /// Notifies the player that combat has ended.
@@ -78,25 +76,23 @@ impl PlayerCombatSystem {
     pub fn start_turn<I: Interaction>(
         &mut self,
         comms: &I,
-        pps: &mut PlayerPersistentState,
         pcs: &mut PlayerCombatState,
         effect_queue: &mut EffectQueue,
     ) -> Result<(), Error> {
         PlayerConditionSystem::start_turn(comms, pcs)?;
         BlockSystem::start_player_turn(comms, pcs)?;
         EnergySystem::start_turn(comms, pcs)?;
-        self.draw_system.start_turn(comms, pps, pcs, effect_queue)
+        self.draw_system.start_turn(comms, pcs, effect_queue)
     }
 
     /// Triggers end-of-turn effects.
     pub fn end_turn<I: Interaction>(
         &mut self,
         comms: &I,
-        pps: &mut PlayerPersistentState,
         pcs: &mut PlayerCombatState,
         effect_queue: &mut EffectQueue,
     ) -> Result<(), Error> {
-        DiscardSystem::end_turn(comms, pps, pcs, effect_queue)?;
+        DiscardSystem::end_turn(comms, pcs, effect_queue)?;
         PlayerConditionSystem::end_turn(comms, pcs)
     }
 
@@ -104,11 +100,10 @@ impl PlayerCombatSystem {
     pub fn choose_next_action<I: Interaction>(
         &self,
         comms: &I,
-        pps: &mut PlayerPersistentState,
         pcs: &mut PlayerCombatState,
         enemy_party: &EnemyParty,
     ) -> Result<CombatAction, Error> {
-        self.notify_player(comms, pps, pcs, enemy_party)?;
+        self.notify_player(comms, pcs, enemy_party)?;
         loop {
             let mut choices = pcs
                 .cards
@@ -124,7 +119,7 @@ impl PlayerCombatSystem {
                     )
                 })
                 .collect::<Vec<_>>();
-            PotionSystem::extend_with_potion_actions(pps, true, &mut choices);
+            PotionSystem::extend_with_potion_actions(pcs.pps, true, &mut choices);
             choices.push(Choice::EndTurn);
             match comms.prompt_for_choice(Prompt::CombatAction, &choices)? {
                 Choice::PlayCardFromHand(hand_index, _, _) => {
@@ -139,7 +134,7 @@ impl PlayerCombatSystem {
                     }
                 }
                 Choice::ExpendPotion(potion_action) => {
-                    PotionSystem::expend_potion_in_combat(comms, pps, pcs, potion_action)?
+                    PotionSystem::expend_potion_in_combat(comms, pcs, potion_action)?
                 }
                 Choice::EndTurn => return Ok(CombatAction::EndTurn),
                 invalid => unreachable!("{:?}", invalid),
@@ -151,7 +146,6 @@ impl PlayerCombatSystem {
     pub fn dispose_of_card_just_played<I: Interaction>(
         &self,
         comms: &I,
-        pps: &mut PlayerPersistentState,
         pcs: &mut PlayerCombatState,
         effect_queue: &mut EffectQueue,
     ) -> Result<(), Error> {
@@ -161,7 +155,7 @@ impl PlayerCombatSystem {
         let combat_card = pcs.cards.hand.remove(hand_index);
         PlayerConditionSystem::on_some_card_played(comms, pcs, &combat_card, effect_queue)?;
         if combat_card.details.exhaust {
-            ExhaustSystem::push(comms, pps, pcs, hand_index, combat_card, effect_queue)
+            ExhaustSystem::push(comms, pcs, hand_index, combat_card, effect_queue)
         } else {
             DiscardSystem::push(comms, pcs, hand_index, combat_card)
         }

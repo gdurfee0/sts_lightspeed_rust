@@ -53,7 +53,7 @@ impl MainScreenSystem {
             choices.push(Choice::Skip);
             match comms.prompt_for_choice(Prompt::ChooseNext, &choices)? {
                 Choice::ExpendPotion(potion_action) => {
-                    PotionSystem::expend_potion_out_of_combat(comms, pps, &potion_action)?
+                    PotionSystem::expend_potion_out_of_combat(comms, pps, potion_action)?
                 }
                 Choice::ObtainCard(card_reward_index, _) => {
                     let card_to_obtain = available_card_vec.remove(*card_reward_index);

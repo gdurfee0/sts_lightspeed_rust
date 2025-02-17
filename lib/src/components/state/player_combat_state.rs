@@ -1,4 +1,4 @@
-use crate::components::{AttackerStatus, DefenderStatus};
+use crate::components::{AttackerStatus, DefenderStatus, PlayerStatus};
 use crate::data::{Card, PlayerCondition};
 use crate::types::{Block, Dexterity, Energy, Strength};
 
@@ -8,7 +8,8 @@ use super::player_persistent_state::PlayerPersistentState;
 /// Captures the state of a combat encounter, including the player's hand, draw pile, etc.
 /// Lives only as long as the combat encounter itself.
 #[derive(Debug)]
-pub struct PlayerCombatState {
+pub struct PlayerCombatState<'a> {
+    pub pps: &'a mut PlayerPersistentState,
     pub energy: Energy,
     pub block: Block,
     pub conditions: Vec<PlayerCondition>,
@@ -18,13 +19,15 @@ pub struct PlayerCombatState {
     pub dexterity: Dexterity,
 }
 
-impl PlayerCombatState {
-    pub fn new(pps: &PlayerPersistentState) -> Self {
+impl<'a> PlayerCombatState<'a> {
+    pub fn new(pps: &'a mut PlayerPersistentState) -> Self {
+        let cards = CombatCards::new(&pps.deck);
         Self {
+            pps,
             energy: 3,
             block: 0,
             conditions: Vec::new(),
-            cards: CombatCards::new(&pps.deck),
+            cards,
             hp_loss_count: 0,
             strength: 0,
             dexterity: 0,
@@ -32,7 +35,7 @@ impl PlayerCombatState {
     }
 }
 
-impl AttackerStatus for PlayerCombatState {
+impl AttackerStatus for PlayerCombatState<'_> {
     fn block(&self) -> Block {
         self.block
     }
@@ -76,7 +79,7 @@ impl AttackerStatus for PlayerCombatState {
     }
 }
 
-impl DefenderStatus for PlayerCombatState {
+impl DefenderStatus for PlayerCombatState<'_> {
     fn dexterity(&self) -> Dexterity {
         self.dexterity
     }
@@ -91,5 +94,28 @@ impl DefenderStatus for PlayerCombatState {
         self.conditions
             .iter()
             .any(|c| matches!(c, PlayerCondition::Vulnerable(_)))
+    }
+}
+
+impl<'a> From<&PlayerCombatState<'a>> for PlayerStatus {
+    fn from(pcs: &PlayerCombatState<'a>) -> Self {
+        Self {
+            hp: pcs.pps.hp,
+            hp_max: pcs.pps.hp_max,
+            gold: pcs.pps.gold,
+            relics: pcs.pps.relics.clone(),
+            deck: pcs.pps.deck.clone(),
+            potions: pcs.pps.potions.clone(),
+            energy: pcs.energy,
+            block: pcs.block,
+            conditions: pcs.conditions.clone(),
+            hand: pcs.cards.hand.clone(),
+            draw_pile: pcs.cards.sanitized_draw_pile(),
+            discard_pile: pcs.cards.sanitized_discard_pile(),
+            exhaust_pile: pcs.cards.sanitized_exhaust_pile(),
+            hp_loss_count: pcs.hp_loss_count,
+            strength: pcs.strength,
+            dexterity: pcs.dexterity,
+        }
     }
 }

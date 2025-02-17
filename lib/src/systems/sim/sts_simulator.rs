@@ -182,18 +182,18 @@ impl StsSimulator {
 
     fn run_shop(
         &mut self,
-        comms: &PlayerInteraction,
-        floor: Floor,
-        pps: &mut PlayerPersistentState,
+        _comms: &PlayerInteraction,
+        _floor: Floor,
+        _pps: &mut PlayerPersistentState,
     ) -> Result<(), Error> {
         todo!()
     }
 
     fn run_treasure_room(
         &mut self,
-        comms: &PlayerInteraction,
-        floor: Floor,
-        pps: &mut PlayerPersistentState,
+        _comms: &PlayerInteraction,
+        _floor: Floor,
+        _pps: &mut PlayerPersistentState,
     ) -> Result<(), Error> {
         todo!()
     }
@@ -1200,7 +1200,7 @@ mod test {
         let simulator_thread = thread::spawn(move || simulator.run(from_client, to_client));
         let mut choice_seq = vec![];
         let mut steps = 0;
-        while steps < 700 {
+        while steps < 1000 {
             match from_server.recv_timeout(Duration::from_secs(5)) {
                 Ok(message) => {
                     println!("{:?}", message);

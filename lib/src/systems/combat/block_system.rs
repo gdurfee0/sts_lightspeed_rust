@@ -2,7 +2,6 @@ use anyhow::Error;
 
 use crate::components::{
     DamageTaken, Effect, EffectQueue, Interaction, Notification, PlayerCombatState,
-    PlayerPersistentState,
 };
 use crate::data::{
     Damage, EnemyCondition, EnemyEffect, PlayerCondition, PlayerEffect, TargetEffect,
@@ -55,7 +54,6 @@ impl BlockSystem {
     /// Damages the player and notifies them of the change.
     pub fn damage_player<I: Interaction>(
         comms: &I,
-        pps: &mut PlayerPersistentState,
         pcs: &mut PlayerCombatState,
         damage: CalculatedDamage,
         effect_queue: &mut EffectQueue,
@@ -81,10 +79,10 @@ impl BlockSystem {
         if damage_taken.hp_lost == 0 {
             Ok(())
         } else {
-            RelicSystem::modify_damage_taken_by_player(pps, &mut damage_taken);
+            RelicSystem::modify_damage_taken_by_player(pcs.pps, &mut damage_taken);
             PlayerConditionSystem::on_damage_taken(comms, pcs, &damage_taken, effect_queue)?;
             comms.send_notification(Notification::DamageTaken(damage_taken.hp_lost))?;
-            HealthSystem::decrease_hp(comms, pps, damage_taken.hp_lost)?;
+            HealthSystem::decrease_hp(comms, pcs.pps, damage_taken.hp_lost)?;
             Self::notify_player(comms, pcs)
         }
     }

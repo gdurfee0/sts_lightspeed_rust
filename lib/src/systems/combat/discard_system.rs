@@ -4,7 +4,6 @@ use anyhow::Error;
 
 use crate::components::{
     CardCombatState, Effect, EffectQueue, Interaction, Notification, PlayerCombatState,
-    PlayerPersistentState,
 };
 use crate::types::HandIndex;
 
@@ -16,7 +15,6 @@ impl DiscardSystem {
     /// Discards the player's hand at the end of their turn.
     pub fn end_turn<I: Interaction>(
         comms: &I,
-        pps: &PlayerPersistentState,
         pcs: &mut PlayerCombatState,
         effect_queue: &mut EffectQueue,
     ) -> Result<(), Error> {
@@ -28,7 +26,7 @@ impl DiscardSystem {
                 effect_queue.push_back(Effect::Card(effect));
             }
             if combat_card.details.ethereal {
-                ExhaustSystem::push(comms, pps, pcs, hand_index, combat_card, effect_queue)?;
+                ExhaustSystem::push(comms, pcs, hand_index, combat_card, effect_queue)?;
             } else if combat_card.details.retain {
                 // TODO: Cost reduction on retain
                 retained_cards.push_front(combat_card);

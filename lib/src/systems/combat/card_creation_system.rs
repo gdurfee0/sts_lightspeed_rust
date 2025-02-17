@@ -1,7 +1,7 @@
 use anyhow::Error;
 
 use crate::components::{
-    CardCombatState, EffectQueue, Interaction, PlayerCombatState, PlayerPersistentState,
+    CardCombatState, EffectQueue, Interaction, Notification, PlayerCombatState,
 };
 use crate::data::{Card, CardDestination, CardPool, CardSelection, CostModifier};
 
@@ -10,7 +10,6 @@ pub struct CardCreationSystem;
 impl CardCreationSystem {
     pub fn create_card<I: Interaction>(
         comms: &I,
-        pps: &mut PlayerPersistentState,
         pcs: &mut PlayerCombatState,
         card_args: (&CardPool, &CardSelection, &CardDestination, &CostModifier),
         effect_queue: &mut EffectQueue,
@@ -20,14 +19,7 @@ impl CardCreationSystem {
         let card_selection_vec: Vec<Card> =
             Self::get_card_selection_vec(card_selection, card_pool_vec);
         let modified_cards = Self::modify_costs(cost_modifier, card_selection_vec);
-        Self::add_cards_to_destination(
-            comms,
-            pps,
-            pcs,
-            modified_cards,
-            card_destination,
-            effect_queue,
-        )
+        Self::add_cards_to_destination(comms, pcs, modified_cards, card_destination, effect_queue)
     }
 
     fn get_card_pool_vec(card_pool: &CardPool) -> Vec<Card> {
@@ -76,17 +68,16 @@ impl CardCreationSystem {
 
     fn add_cards_to_destination<I: Interaction>(
         comms: &I,
-        pps: &mut PlayerPersistentState,
         pcs: &mut PlayerCombatState,
-        modified_cards: Vec<CardCombatState>,
+        created_cards: Vec<CardCombatState>,
         card_destination: &CardDestination,
-        effect_queue: &mut EffectQueue,
+        _effect_queue: &mut EffectQueue,
     ) -> Result<(), Error> {
-        for card in modified_cards {
+        for combat_card in created_cards {
             match card_destination {
                 CardDestination::BottomOfDrawPile => todo!(),
                 CardDestination::DiscardPile => {
-                    pcs.cards.discard_pile.push(card);
+                    pcs.cards.discard_pile.push(combat_card);
                 }
                 CardDestination::ExhaustPile => todo!(),
                 CardDestination::Hand => todo!(),
@@ -94,6 +85,7 @@ impl CardCreationSystem {
                 CardDestination::TopOfDrawPile => todo!(),
                 CardDestination::TwoCopiesInHand => todo!(),
             }
+            comms.send_notification(Notification::CardCreated(combat_card, *card_destination))?;
         }
         Ok(())
     }

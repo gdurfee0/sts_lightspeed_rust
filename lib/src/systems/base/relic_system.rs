@@ -58,10 +58,9 @@ impl RelicSystem {
     /// Applies any relic effects triggered by the start of combat.
     pub fn on_start_combat<I: Interaction>(
         comms: &I,
-        pps: &PlayerPersistentState,
         pcs: &mut PlayerCombatState,
     ) -> Result<(), Error> {
-        if pps.relics.contains(&Relic::SneckoEye) {
+        if pcs.pps.relics.contains(&Relic::SneckoEye) {
             PlayerConditionSystem::apply_to_player(comms, pcs, &PlayerCondition::Confused)?;
         }
         Ok(())

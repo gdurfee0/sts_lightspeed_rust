@@ -48,7 +48,7 @@ impl EnemyConditionSystem {
     }
 
     /// Triggers effects from the enemy's conditions when it dies.
-    pub fn on_death(enemy: &mut EnemyState, effect_queue: &mut EffectQueue) {
+    pub fn on_enemy_death(enemy: &mut EnemyState, effect_queue: &mut EffectQueue) {
         for condition in enemy.conditions.iter() {
             if let EnemyCondition::SporeCloud(stacks) = condition {
                 effect_queue.push_front(Effect::EnemyState(EnemyEffect::Inflict(

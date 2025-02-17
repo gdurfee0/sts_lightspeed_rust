@@ -1,5 +1,5 @@
 use crate::components::{CardCombatState, EnemyStatus, PlayerStatus};
-use crate::data::{Card, Enemy, PlayerCondition, Potion, Relic};
+use crate::data::{Card, CardDestination, Enemy, PlayerCondition, Potion, Relic};
 use crate::types::{
     Block, Dexterity, EnemyIndex, Energy, Gold, HandIndex, Health, Hp, PotionIndex, Strength,
 };
@@ -27,6 +27,7 @@ pub enum Notification {
     AddToDiscardPile(Vec<CardCombatState>),
     Block(Block),
     BlockGained(Block),
+    CardCreated(CardCombatState, CardDestination),
     CardDiscarded(HandIndex, CardCombatState),
     CardDrawn(HandIndex, CardCombatState),
     CardExhausted(HandIndex, CardCombatState),

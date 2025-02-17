@@ -1,6 +1,5 @@
 use crate::components::{CardCombatState, DamageTaken, Effect, EffectQueue};
 use crate::data::{CardType, Damage, PlayerCondition, PlayerEffect, Resource, TargetEffect};
-use crate::types::Block;
 
 impl PlayerCondition {
     /// Attempts to merge the supplied condition into self, returning true iff the conditions
@@ -284,15 +283,12 @@ impl PlayerCondition {
         combat_card: &CardCombatState,
         effect_queue: &mut EffectQueue,
     ) -> bool {
-        match self {
-            PlayerCondition::Rage(stacks) => {
-                if combat_card.details.type_ == CardType::Attack {
-                    effect_queue.push_front(Effect::PlayerState(PlayerEffect::Gain(
-                        Resource::Block(*stacks),
-                    )));
-                }
+        if let PlayerCondition::Rage(stacks) = self {
+            if combat_card.details.type_ == CardType::Attack {
+                effect_queue.push_front(Effect::PlayerState(PlayerEffect::Gain(Resource::Block(
+                    *stacks,
+                ))));
             }
-            _ => {}
         }
         true
     }

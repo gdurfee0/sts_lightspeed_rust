@@ -2,7 +2,6 @@ use anyhow::Error;
 
 use crate::components::{
     CardCombatState, Effect, EffectQueue, Interaction, Notification, PlayerCombatState,
-    PlayerPersistentState,
 };
 use crate::data::{PlayerCondition, PlayerEffect, Resource};
 use crate::systems::base::RelicSystem;
@@ -15,13 +14,12 @@ impl ExhaustSystem {
     /// that should be applied as a result of the player's relics and conditions.
     pub fn push<I: Interaction>(
         comms: &I,
-        pps: &PlayerPersistentState,
         pcs: &mut PlayerCombatState,
         hand_index: HandIndex,
         combat_card: CardCombatState,
         effect_queue: &mut EffectQueue,
     ) -> Result<(), Error> {
-        RelicSystem::on_card_exhausted(pps, effect_queue);
+        RelicSystem::on_card_exhausted(pcs.pps, effect_queue);
         // TODO: Move these checks to PlayerConditionSystem
         for condition in pcs.conditions.iter() {
             match condition {

@@ -2,7 +2,6 @@ use anyhow::Error;
 
 use crate::components::{
     CardCombatState, Effect, EffectQueue, Interaction, Notification, PlayerCombatState,
-    PlayerPersistentState,
 };
 use crate::data::{
     Card, CardType, Damage, EnergyCost, PlayerCondition, PlayerEffect, TargetEffect,
@@ -37,14 +36,13 @@ impl DrawSystem {
     pub fn start_turn<I: Interaction>(
         &mut self,
         comms: &I,
-        pps: &PlayerPersistentState,
         pcs: &mut PlayerCombatState,
         effect_queue: &mut EffectQueue,
     ) -> Result<(), Error> {
-        let cards_to_draw = 5 + RelicSystem::extra_cards_to_draw_at_start_of_player_turn(pps);
+        let cards_to_draw = 5 + RelicSystem::extra_cards_to_draw_at_start_of_player_turn(pcs.pps);
         // TODO: Extra draws when innate card count > cards_to_draw
         for _ in 0..cards_to_draw {
-            self.draw_one_card(comms, pps, pcs, effect_queue)?;
+            self.draw_one_card(comms, pcs, effect_queue)?;
         }
         Ok(())
     }
@@ -53,14 +51,13 @@ impl DrawSystem {
     pub fn draw_one_card<I: Interaction>(
         &mut self,
         comms: &I,
-        pps: &PlayerPersistentState,
         pcs: &mut PlayerCombatState,
         effect_queue: &mut EffectQueue,
     ) -> Result<(), Error> {
         if pcs.conditions.contains(&PlayerCondition::NoDraw) || pcs.cards.hand.len() >= 10 {
             Ok(())
         } else if let Some(card) = pcs.cards.draw_pile.pop() {
-            self.put_drawn_card_into_hand(comms, pps, pcs, card, effect_queue)
+            self.put_drawn_card_into_hand(comms, pcs, card, effect_queue)
         } else {
             // Shuffle discard pile into draw pile
             comms.send_notification(Notification::ShufflingDiscardPileIntoDrawPile)?;
@@ -68,7 +65,7 @@ impl DrawSystem {
                 .java_compat_shuffle(&mut pcs.cards.discard_pile);
             pcs.cards.draw_pile.append(&mut pcs.cards.discard_pile);
             if let Some(card) = pcs.cards.draw_pile.pop() {
-                self.put_drawn_card_into_hand(comms, pps, pcs, card, effect_queue)
+                self.put_drawn_card_into_hand(comms, pcs, card, effect_queue)
             } else {
                 Ok(())
             }
@@ -79,7 +76,6 @@ impl DrawSystem {
     fn put_drawn_card_into_hand<I: Interaction>(
         &mut self,
         comms: &I,
-        _pps: &PlayerPersistentState,
         pcs: &mut PlayerCombatState,
         mut combat_card: CardCombatState,
         effect_queue: &mut EffectQueue,

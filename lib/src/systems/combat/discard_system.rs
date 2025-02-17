@@ -28,19 +28,12 @@ impl DiscardSystem {
                 effect_queue.push_back(Effect::Card(effect));
             }
             if combat_card.details.ethereal {
-                ExhaustSystem::exhaust_card(
-                    comms,
-                    pps,
-                    pcs,
-                    hand_index,
-                    combat_card,
-                    effect_queue,
-                )?;
+                ExhaustSystem::push(comms, pps, pcs, hand_index, combat_card, effect_queue)?;
             } else if combat_card.details.retain {
                 // TODO: Cost reduction on retain
                 retained_cards.push_front(combat_card);
             } else {
-                Self::discard_card(comms, pcs, hand_index, combat_card)?;
+                Self::push(comms, pcs, hand_index, combat_card)?;
             }
         }
         pcs.cards.hand.extend(retained_cards.iter());
@@ -52,7 +45,7 @@ impl DiscardSystem {
     }
 
     /// Discards the indicated card and notifies the player of the change.
-    pub fn discard_card<I: Interaction>(
+    pub fn push<I: Interaction>(
         comms: &I,
         pcs: &mut PlayerCombatState,
         hand_index: HandIndex,

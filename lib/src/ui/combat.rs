@@ -24,7 +24,7 @@ impl<'a> CombatClient<'a> {
     ) -> Self {
         Self {
             player_status: PlayerStatus::new(character),
-            enemy_party: vec![],
+            enemy_party: vec![None, None, None, None, None],
             card_chosen: None,
             from_server,
             to_server,
@@ -56,21 +56,22 @@ impl<'a> CombatClient<'a> {
     fn process_notification(&mut self, notification: Notification) {
         println!("{:?}", notification);
         match notification {
-            Notification::Deck(cards) => self.player_status.deck = cards,
-            Notification::Gold(gold) => self.player_status.gold = gold,
-            Notification::Relics(relics) => self.player_status.relics = relics,
-            Notification::Potions(potions) => self.player_status.potions = potions,
             Notification::Block(block) => self.player_status.block = block,
             Notification::Conditions(player_conditions) => {
                 self.player_status.conditions = player_conditions;
             }
+            Notification::Deck(cards) => self.player_status.deck = cards,
             Notification::Dexterity(dexterity) => self.player_status.dexterity = dexterity,
             Notification::DiscardPile(cards) => self.player_status.discard_pile = cards,
+            Notification::EnemyParty(enemy_party) => self.enemy_party = enemy_party,
             Notification::Energy(energy) => self.player_status.energy = energy,
+            Notification::Gold(gold) => self.player_status.gold = gold,
             Notification::Health(health) => {
                 self.player_status.hp = health.0;
                 self.player_status.hp_max = health.1;
             }
+            Notification::Potions(potions) => self.player_status.potions = potions,
+            Notification::Relics(relics) => self.player_status.relics = relics,
             Notification::Status(player_status) => self.player_status = player_status,
             Notification::Strength(strength) => self.player_status.strength = strength,
             _ => {}

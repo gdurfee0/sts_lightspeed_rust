@@ -114,9 +114,8 @@ impl PlayerCombatSystem {
                 .cards
                 .hand
                 .iter()
-                .filter(|combat_card| Self::can_play_card(pcs, combat_card))
-                .copied()
                 .enumerate()
+                .filter(|(_, combat_card)| Self::can_play_card(pcs, combat_card))
                 .map(|(hand_index, combat_card)| {
                     Choice::PlayCardFromHand(
                         hand_index,
@@ -162,9 +161,9 @@ impl PlayerCombatSystem {
         let combat_card = pcs.cards.hand.remove(hand_index);
         PlayerConditionSystem::on_some_card_played(comms, pcs, &combat_card, effect_queue)?;
         if combat_card.details.exhaust {
-            ExhaustSystem::exhaust_card(comms, pps, pcs, hand_index, combat_card, effect_queue)
+            ExhaustSystem::push(comms, pps, pcs, hand_index, combat_card, effect_queue)
         } else {
-            DiscardSystem::discard_card(comms, pcs, hand_index, combat_card)
+            DiscardSystem::push(comms, pcs, hand_index, combat_card)
         }
     }
 

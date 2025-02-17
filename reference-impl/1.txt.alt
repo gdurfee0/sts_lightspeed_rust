@@ -1,0 +1,23 @@
+1 i 0
+3       # obtain a random boss relic [4: NeowBlessing(ReplaceStarterRelic)]
+3       # 3: MONSTER [2: ClimbFloor(3)]
+4       # Defend (cost 2) [5: PlayCardFromHand(4, Defend(false), Two)]
+0       # Strike (cost 1) [1: PlayCardFromHand(0, Strike(false), One), 1: TargetEnemy(0, Cultist)]
+end     # [1: EndTurn]
+3       # Strike (cost 0) [4: PlayCardFromHand(3, Strike(false), Zero), 1: TargetEnemy(0, Cultist)]
+end     # [7: EndTurn]
+4       # Strike (cost 2) [5: PlayCardFromHand(4, Strike(false), Two), 1: TargetEnemy(0, Cultist)]
+2       # Defend (cost 1) [3: PlayCardFromHand(2, Defend(false), One)]
+end     # [2: EndTurn]
+4       # Bash (cost 2) [5: PlayCardFromHand(4, Bash(false), Two), 1: TargetEnemy(0, Cultist)]
+2       # Strike (cost 0) [2: PlayCardFromHand(1, Strike(false), Zero), 1: TargetEnemy(0, Cultist)]
+0       # Strike (cost 0) [1: PlayCardFromHand(1, Strike(false), Zero), 1: TargetEnemy(0, Cultist)]
+2       # Defend (cost 0) [3: PlayCardFromHand(2, Defend(false), Zero)]
+end     
+6
+0
+gold 0
+card 0 0
+proceed
+4
+1

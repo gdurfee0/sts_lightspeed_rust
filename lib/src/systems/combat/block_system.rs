@@ -12,6 +12,7 @@ use crate::systems::enemy::{EnemyParty, EnemyState};
 use crate::types::Block;
 
 use super::damage_calculator::{CalculatedBlock, CalculatedDamage};
+use super::PlayerConditionSystem;
 
 pub struct BlockSystem;
 
@@ -81,6 +82,7 @@ impl BlockSystem {
             Ok(())
         } else {
             RelicSystem::modify_damage_taken_by_player(pps, &mut damage_taken);
+            PlayerConditionSystem::on_damage_taken(comms, pcs, &damage_taken, effect_queue)?;
             comms.send_notification(Notification::DamageTaken(damage_taken.hp_lost))?;
             HealthSystem::decrease_hp(comms, pps, damage_taken.hp_lost)?;
             Self::notify_player(comms, pcs)

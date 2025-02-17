@@ -94,16 +94,18 @@ impl<'a> CombatSimulator<'a> {
             )? {
                 CombatAction::PlayCard(combat_card, maybe_enemy_index) => {
                     ctx.maybe_enemy_index = maybe_enemy_index;
-                    for effect in combat_card.details.on_play.iter() {
-                        effect_queue.push_back(Effect::Card(effect));
-                    }
-                    self.process_effect_queue(ctx, &mut effect_queue)?;
+                    println!("Disposing of card just played: {:?}", combat_card);
                     self.player_combat_system.dispose_of_card_just_played(
                         ctx.comms,
                         ctx.pps,
                         ctx.pcs,
                         &mut effect_queue,
                     )?;
+                    self.process_effect_queue(ctx, &mut effect_queue)?;
+                    for effect in combat_card.details.on_play.iter() {
+                        effect_queue.push_back(Effect::Card(effect));
+                    }
+                    println!("Hand is now {:?}", ctx.pcs.cards.hand);
                     self.process_effect_queue(ctx, &mut effect_queue)?;
                 }
                 CombatAction::EndTurn => break,

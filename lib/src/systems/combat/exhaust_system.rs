@@ -13,7 +13,7 @@ pub struct ExhaustSystem;
 impl ExhaustSystem {
     /// Exhausts the indicated card and notifies the player of the change. Queues any effects
     /// that should be applied as a result of the player's relics and conditions.
-    pub fn exhaust_card<I: Interaction>(
+    pub fn push<I: Interaction>(
         comms: &I,
         pps: &PlayerPersistentState,
         pcs: &mut PlayerCombatState,

@@ -82,12 +82,13 @@ impl StsSimulator {
         let mut floor = 1;
         loop {
             self.misc_rng = self.seed.with_offset(floor).into();
-            match map_simulator.advance(&mut pps)? {
-                Room::Boss => todo!(),
-                Room::BurningElite1 => todo!(),
-                Room::BurningElite2 => todo!(),
-                Room::BurningElite3 => todo!(),
-                Room::BurningElite4 => todo!(),
+            let room = map_simulator.advance(&mut pps)?;
+            match room {
+                Room::Boss => todo!("{:?}", room),
+                Room::BurningElite1 => todo!("{:?}", room),
+                Room::BurningElite2 => todo!("{:?}", room),
+                Room::BurningElite3 => todo!("{:?}", room),
+                Room::BurningElite4 => todo!("{:?}", room),
                 Room::RestSite => {
                     let choices = vec![Choice::Rest, Choice::Smith];
                     match comms.prompt_for_choice(Prompt::ChooseRestSiteAction, &choices)? {
@@ -116,7 +117,7 @@ impl StsSimulator {
                             break;
                         }
                     }
-                    (Room::Shop, None) => todo!(),
+                    (Room::Shop, None) => self.run_shop(&comms, floor, &mut pps)?,
                     (Room::Treasure, None) => todo!(),
                     invalid => unreachable!("{:?}", invalid),
                 },
@@ -126,8 +127,8 @@ impl StsSimulator {
                         break;
                     }
                 }
-                Room::Shop => todo!(),
-                Room::Treasure => todo!(),
+                Room::Shop => self.run_shop(&comms, floor, &mut pps)?,
+                Room::Treasure => todo!("{:?}", room),
             }
             floor += 1;
         }
@@ -159,6 +160,15 @@ impl StsSimulator {
             )?;
             Ok(true)
         }
+    }
+
+    fn run_shop(
+        &mut self,
+        comms: &PlayerInteraction,
+        floor: Floor,
+        pps: &mut PlayerPersistentState,
+    ) -> Result<(), Error> {
+        todo!()
     }
 }
 
@@ -362,7 +372,7 @@ mod test {
                 Prompt::CombatAction,
                 vec![
                     Choice::PlayCardFromHand(0, Card::Defend(false), EnergyCost::One),
-                    Choice::PlayCardFromHand(1, Card::Defend(false), EnergyCost::One),
+                    Choice::PlayCardFromHand(2, Card::Defend(false), EnergyCost::One),
                     Choice::EndTurn,
                 ]
             )
@@ -1181,7 +1191,7 @@ mod test {
                 Err(_) => panic!(
                     concat!(
                         "Timed out waiting for message, or channel closed. ",
-                        "Choice history: {:?}, total steps: {}",
+                        "Choice history: {:#?}, total steps: {}",
                     ),
                     choice_seq, steps
                 ),

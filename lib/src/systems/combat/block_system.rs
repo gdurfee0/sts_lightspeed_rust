@@ -1,89 +1,70 @@
 use anyhow::Error;
 
-use crate::components::{
-    DamageTaken, Effect, EffectQueue, Interaction, Notification, PlayerCombatState,
-};
-use crate::data::{
-    Damage, EnemyCondition, EnemyEffect, PlayerCondition, PlayerEffect, TargetEffect,
-};
-use crate::systems::base::{HealthSystem, RelicSystem};
-use crate::systems::enemy::{EnemyParty, EnemyState};
+use crate::components::{DamageTaken, EffectQueue, Interaction, Notification};
+use crate::systems::base::{CombatContext, EnemyState, HealthSystem, RelicSystem};
 use crate::types::Block;
 
 use super::damage_calculator::{CalculatedBlock, CalculatedDamage};
-use super::PlayerConditionSystem;
+use super::enemy_condition_system::EnemyConditionSystem;
+use super::player_condition_system::PlayerConditionSystem;
 
 pub struct BlockSystem;
 
 impl BlockSystem {
     /// Notifies the player of their current block amount.
-    pub fn notify_player<I: Interaction>(comms: &I, pcs: &PlayerCombatState) -> Result<(), Error> {
-        comms.send_notification(Notification::Block(pcs.block))
+    pub fn notify_player<I: Interaction>(ctx: &mut CombatContext<I>) -> Result<(), Error> {
+        ctx.comms
+            .send_notification(Notification::Block(ctx.pcs.block))
     }
 
     /// Resets the player's block to 0 at the start of their turn.
-    pub fn start_player_turn<I: Interaction>(
-        comms: &I,
-        pcs: &mut PlayerCombatState,
-    ) -> Result<(), Error> {
-        if pcs.block > 0 {
-            pcs.block = 0;
-            Self::notify_player(comms, pcs)?;
+    pub fn on_player_turn_started<I: Interaction>(ctx: &mut CombatContext<I>) -> Result<(), Error> {
+        if ctx.pcs.block > 0 {
+            ctx.pcs.block = 0;
+            Self::notify_player(ctx)?;
         }
         Ok(())
     }
 
-    /// Resets the enemyies' block to 0 at the start of their turn.
-    pub fn start_enemy_turn(enemy_party: &mut EnemyParty) {
-        for enemy in enemy_party.0.iter_mut().filter_map(|e| e.as_mut()) {
+    /// Resets the enemies' block to 0 at the start of their turn.
+    pub fn on_enemies_turn_started<I: Interaction>(ctx: &mut CombatContext<I>) {
+        for enemy in ctx.enemy_party.0.iter_mut().filter_map(|e| e.as_mut()) {
             enemy.block = 0;
         }
     }
 
     /// Gains block for the player.
     pub fn gain_block<I: Interaction>(
-        comms: &I,
-        pcs: &mut PlayerCombatState,
+        ctx: &mut CombatContext<I>,
         calculated_block: CalculatedBlock,
     ) -> Result<(), Error> {
-        pcs.block = pcs.block.saturating_add(calculated_block.amount);
-        comms.send_notification(Notification::BlockGained(calculated_block.amount))?;
-        Self::notify_player(comms, pcs)
+        ctx.pcs.block = ctx.pcs.block.saturating_add(calculated_block.amount);
+        ctx.comms
+            .send_notification(Notification::BlockGained(calculated_block.amount))?;
+        Self::notify_player(ctx)
     }
 
     /// Damages the player and notifies them of the change.
     pub fn damage_player<I: Interaction>(
-        comms: &I,
-        pcs: &mut PlayerCombatState,
+        ctx: &mut CombatContext<I>,
         damage: CalculatedDamage,
-        effect_queue: &mut EffectQueue,
     ) -> Result<(), Error> {
-        let mut damage_taken = Self::damage_taken(pcs.block, damage);
+        let mut damage_taken = Self::damage_taken(ctx.pcs.block, damage);
         if damage_taken.blocked > 0 {
-            pcs.block = pcs.block.saturating_sub(damage_taken.blocked);
-            comms.send_notification(Notification::DamageBlocked(damage_taken.blocked))?;
-            Self::notify_player(comms, pcs)?;
-        }
-        if damage_taken.provokes_thorns {
-            for condition in pcs.conditions.iter_mut() {
-                match condition {
-                    PlayerCondition::FlameBarrier(hp) | PlayerCondition::Thorns(hp) => {
-                        effect_queue.push_front(Effect::PlayerState(PlayerEffect::ToSingleTarget(
-                            TargetEffect::Deal(Damage::BlockableNonAttack(*hp)),
-                        )));
-                    }
-                    _ => {}
-                }
-            }
+            ctx.pcs.block = ctx.pcs.block.saturating_sub(damage_taken.blocked);
+            ctx.comms
+                .send_notification(Notification::DamageBlocked(damage_taken.blocked))?;
+            Self::notify_player(ctx)?;
         }
         if damage_taken.hp_lost == 0 {
             Ok(())
         } else {
-            RelicSystem::modify_damage_taken_by_player(pcs.pps, &mut damage_taken);
-            PlayerConditionSystem::on_damage_taken(comms, pcs, &damage_taken, effect_queue)?;
-            comms.send_notification(Notification::DamageTaken(damage_taken.hp_lost))?;
-            HealthSystem::decrease_hp(comms, pcs.pps, damage_taken.hp_lost)?;
-            Self::notify_player(comms, pcs)
+            RelicSystem::modify_damage_taken_by_player(ctx.pcs.pps, &mut damage_taken);
+            PlayerConditionSystem::on_damage_taken(ctx, &damage_taken)?;
+            ctx.comms
+                .send_notification(Notification::DamageTaken(damage_taken.hp_lost))?;
+            HealthSystem::decrease_hp(ctx.comms, ctx.pcs.pps, damage_taken.hp_lost)?;
+            Self::notify_player(ctx)
         }
     }
 
@@ -94,15 +75,7 @@ impl BlockSystem {
         effect_queue: &mut EffectQueue,
     ) {
         let damage_taken = Self::damage_taken(enemy_state.block, damage);
-        if damage_taken.provokes_thorns {
-            for condition in enemy_state.conditions.iter_mut() {
-                if let EnemyCondition::Thorns(hp) = condition {
-                    effect_queue.push_front(Effect::EnemyState(EnemyEffect::Deal(
-                        Damage::BlockableNonAttack(*hp),
-                    )));
-                }
-            }
-        }
+        EnemyConditionSystem::on_damage_taken(enemy_state, &damage_taken, effect_queue);
         if damage_taken.blocked > 0 {
             enemy_state.block = enemy_state.block.saturating_sub(damage_taken.blocked);
         }
@@ -111,7 +84,7 @@ impl BlockSystem {
         }
     }
 
-    /// Helper method that calculates block and hp lost for a given damage amount.
+    /// Helper method that calculates block and HP lost for a given damage amount.
     /// Used for both damage to the player and damage to an enemy.
     fn damage_taken(block: Block, damage: CalculatedDamage) -> DamageTaken {
         match damage {

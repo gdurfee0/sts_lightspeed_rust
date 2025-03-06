@@ -192,13 +192,13 @@ impl PlayerCondition {
     }
 
     /// Returns true iff the condition is still active.
-    pub fn start_turn(&mut self) -> bool {
+    pub fn on_turn_started(&mut self) -> bool {
         !matches!(self, PlayerCondition::FlameBarrier(_))
     }
 
     /// Ticks down a condition's turn counter at the end of the player's turn.
     /// Returns true iff the condition is still active.
-    pub fn end_turn(&mut self) -> bool {
+    pub fn on_turn_finished(&mut self) -> bool {
         match self {
             PlayerCondition::Artifact(_) => true,
             PlayerCondition::Barricade => true,
@@ -258,9 +258,25 @@ impl PlayerCondition {
         }
     }
 
+    /// Queues any effects triggered by the player exhausting a card.
+    pub fn on_card_exhausted(&self, effect_queue: &mut EffectQueue) -> bool {
+        match self {
+            PlayerCondition::DarkEmbrace(card_count) => {
+                effect_queue.push_back(Effect::PlayerState(PlayerEffect::Draw(*card_count)));
+            }
+            PlayerCondition::FeelNoPain(block) => {
+                effect_queue.push_back(Effect::PlayerState(PlayerEffect::Gain(Resource::Block(
+                    *block,
+                ))));
+            }
+            _ => {}
+        }
+        true
+    }
+
     /// Queues any effects triggered by the player taking damage.
     pub fn on_damage_taken(
-        &mut self,
+        &self,
         damage_taken: &DamageTaken,
         effect_queue: &mut EffectQueue,
     ) -> bool {

@@ -1,13 +1,12 @@
 use anyhow::Error;
 
-use crate::components::{
-    DamageTaken, Effect, EffectQueue, Interaction, Notification, PlayerCombatState,
-    PlayerPersistentState,
-};
+use crate::components::{DamageTaken, Effect, Interaction, Notification, PlayerPersistentState};
 use crate::data::{Damage, PlayerCondition, PlayerEffect, Relic, TargetEffect};
 use crate::systems::combat::PlayerConditionSystem;
+use crate::types::DrawCount;
 
-use super::HealthSystem;
+use super::combat_context::CombatContext;
+use super::health_system::HealthSystem;
 
 pub struct RelicSystem;
 
@@ -47,7 +46,7 @@ impl RelicSystem {
     }
 
     /// Returns the number of extra cards to draw at the start of the player's turn.
-    pub fn extra_cards_to_draw_at_start_of_player_turn(pps: &PlayerPersistentState) -> usize {
+    pub fn extra_cards_to_draw_at_start_of_player_turn(pps: &PlayerPersistentState) -> DrawCount {
         if pps.relics.contains(&Relic::SneckoEye) {
             2
         } else {
@@ -56,18 +55,15 @@ impl RelicSystem {
     }
 
     /// Applies any relic effects triggered by the start of combat.
-    pub fn on_start_combat<I: Interaction>(
-        comms: &I,
-        pcs: &mut PlayerCombatState,
-    ) -> Result<(), Error> {
-        if pcs.pps.relics.contains(&Relic::SneckoEye) {
-            PlayerConditionSystem::apply_to_player(comms, pcs, &PlayerCondition::Confused)?;
+    pub fn on_combat_started<I: Interaction>(ctx: &mut CombatContext<I>) -> Result<(), Error> {
+        if ctx.pcs.pps.relics.contains(&Relic::SneckoEye) {
+            PlayerConditionSystem::apply_to_player(ctx, &PlayerCondition::Confused)?;
         }
         Ok(())
     }
 
     /// Applies any relic effects triggered by the end of combat.
-    pub fn on_end_combat<I: Interaction>(
+    pub fn on_combat_finished<I: Interaction>(
         comms: &I,
         pps: &mut PlayerPersistentState,
     ) -> Result<(), Error> {
@@ -114,13 +110,14 @@ impl RelicSystem {
     }
 
     /// Queues any relic effects triggered by a card being exhausted.
-    pub fn on_card_exhausted(pps: &PlayerPersistentState, effect_queue: &mut EffectQueue) {
-        for relic in pps.relics.iter() {
+    pub fn on_card_exhausted<I: Interaction>(ctx: &mut CombatContext<I>) {
+        for relic in ctx.pcs.pps.relics.iter() {
             match relic {
                 Relic::CharonsAshes => {
-                    effect_queue.push_back(Effect::PlayerState(PlayerEffect::ToAllEnemies(
-                        TargetEffect::Deal(Damage::BlockableNonAttack(3)),
-                    )));
+                    ctx.effect_queue
+                        .push_back(Effect::PlayerState(PlayerEffect::ToAllEnemies(
+                            TargetEffect::Deal(Damage::BlockableNonAttack(3)),
+                        )));
                 }
                 Relic::DeadBranch => todo!(),
                 _ => {}

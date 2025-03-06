@@ -5,10 +5,10 @@ use crate::systems::rng::StsRandom;
 use crate::types::{Hp, HpMax, StackCount};
 
 pub trait EnemyCharacteristics: fmt::Debug {
-    fn on_spawn(&self, ai_rng: &mut StsRandom) -> (HpMax, Vec<EnemyCondition>, EnemyAction);
+    fn on_spawn(&self, enemy_rng: &mut StsRandom) -> (HpMax, Vec<EnemyCondition>, EnemyAction);
     fn next_action(
         &mut self,
-        ai_rng: &mut StsRandom,
+        enemy_rng: &mut StsRandom,
         last_action: EnemyAction,
         run_length: usize,
     ) -> EnemyAction;
@@ -63,18 +63,18 @@ impl AcidSlimeM {
     }
 
     fn next_action_helper(
-        ai_rng: &mut StsRandom,
+        enemy_rng: &mut StsRandom,
         last_action: Option<EnemyAction>,
         run_length: usize,
     ) -> EnemyAction {
-        match ai_rng.gen_range(0..100) {
+        match enemy_rng.gen_range(0..100) {
             0..30
                 if last_action != Some(EnemyAction::AcidSlimeMCorrosiveSpit) || run_length < 2 =>
             {
                 EnemyAction::AcidSlimeMCorrosiveSpit
             }
             0..30 => {
-                if ai_rng.next_bool() {
+                if enemy_rng.next_bool() {
                     EnemyAction::AcidSlimeMTackle
                 } else {
                     EnemyAction::AcidSlimeMLick
@@ -83,14 +83,14 @@ impl AcidSlimeM {
             30..70 if last_action != Some(EnemyAction::AcidSlimeMTackle) => {
                 EnemyAction::AcidSlimeMTackle
             }
-            30..70 => *ai_rng.weighted_choose(&[
+            30..70 => *enemy_rng.weighted_choose(&[
                 (EnemyAction::AcidSlimeMCorrosiveSpit, 0.5),
                 (EnemyAction::AcidSlimeMLick, 0.5),
             ]),
             _ if last_action != Some(EnemyAction::AcidSlimeMLick) || run_length < 2 => {
                 EnemyAction::AcidSlimeMLick
             }
-            _ => *ai_rng.weighted_choose(&[
+            _ => *enemy_rng.weighted_choose(&[
                 (EnemyAction::AcidSlimeMCorrosiveSpit, 0.4),
                 (EnemyAction::AcidSlimeMTackle, 0.6),
             ]),
@@ -99,21 +99,21 @@ impl AcidSlimeM {
 }
 
 impl EnemyCharacteristics for AcidSlimeM {
-    fn on_spawn(&self, ai_rng: &mut StsRandom) -> (HpMax, Vec<EnemyCondition>, EnemyAction) {
+    fn on_spawn(&self, enemy_rng: &mut StsRandom) -> (HpMax, Vec<EnemyCondition>, EnemyAction) {
         (
             self.hp_max,
             vec![],
-            Self::next_action_helper(ai_rng, None, 0),
+            Self::next_action_helper(enemy_rng, None, 0),
         )
     }
 
     fn next_action(
         &mut self,
-        ai_rng: &mut StsRandom,
+        enemy_rng: &mut StsRandom,
         last_action: EnemyAction,
         run_length: usize,
     ) -> EnemyAction {
-        Self::next_action_helper(ai_rng, Some(last_action), run_length)
+        Self::next_action_helper(enemy_rng, Some(last_action), run_length)
     }
 }
 
@@ -139,9 +139,9 @@ impl AcidSlimeS {
 }
 
 impl EnemyCharacteristics for AcidSlimeS {
-    fn on_spawn(&self, ai_rng: &mut StsRandom) -> (HpMax, Vec<EnemyCondition>, EnemyAction) {
-        let _ = ai_rng.gen_range(0..100);
-        let first_action = if ai_rng.next_bool() {
+    fn on_spawn(&self, enemy_rng: &mut StsRandom) -> (HpMax, Vec<EnemyCondition>, EnemyAction) {
+        let _ = enemy_rng.gen_range(0..100);
+        let first_action = if enemy_rng.next_bool() {
             EnemyAction::AcidSlimeSTackle
         } else {
             EnemyAction::AcidSlimeSLick
@@ -214,30 +214,24 @@ impl FungiBeast {
     }
 
     fn next_action_helper(
-        ai_rng: &mut StsRandom,
+        enemy_rng: &mut StsRandom,
         last_action: Option<EnemyAction>,
         run_length: usize,
     ) -> EnemyAction {
-        let result = match ai_rng.gen_range(0..100) {
+        match enemy_rng.gen_range(0..100) {
             0..60 if last_action != Some(EnemyAction::FungiBeastBite) || run_length < 2 => {
                 EnemyAction::FungiBeastBite
             }
             0..60 => EnemyAction::FungiBeastGrow,
             _ if last_action != Some(EnemyAction::FungiBeastGrow) => EnemyAction::FungiBeastGrow,
             _ => EnemyAction::FungiBeastBite,
-        };
-        println!(
-            "FungiBeast ai_rng {} next_action: {:?}",
-            ai_rng.get_counter(),
-            result
-        );
-        result
+        }
     }
 }
 
 impl EnemyCharacteristics for FungiBeast {
-    fn on_spawn(&self, ai_rng: &mut StsRandom) -> (HpMax, Vec<EnemyCondition>, EnemyAction) {
-        let first_action = Self::next_action_helper(ai_rng, None, 0);
+    fn on_spawn(&self, enemy_rng: &mut StsRandom) -> (HpMax, Vec<EnemyCondition>, EnemyAction) {
+        let first_action = Self::next_action_helper(enemy_rng, None, 0);
         (
             self.hp_max,
             vec![EnemyCondition::SporeCloud(2)],
@@ -247,11 +241,11 @@ impl EnemyCharacteristics for FungiBeast {
 
     fn next_action(
         &mut self,
-        ai_rng: &mut StsRandom,
+        enemy_rng: &mut StsRandom,
         last_action: EnemyAction,
         run_length: usize,
     ) -> EnemyAction {
-        Self::next_action_helper(ai_rng, Some(last_action), run_length)
+        Self::next_action_helper(enemy_rng, Some(last_action), run_length)
     }
 }
 
@@ -281,11 +275,11 @@ impl GreenLouse {
 
     fn next_action_helper(
         &self,
-        ai_rng: &mut StsRandom,
+        enemy_rng: &mut StsRandom,
         last_action: Option<EnemyAction>,
         run_length: usize,
     ) -> EnemyAction {
-        match ai_rng.gen_range(0..100) {
+        match enemy_rng.gen_range(0..100) {
             0..25 if last_action != Some(EnemyAction::GreenLouseSpitWeb) || run_length < 2 => {
                 EnemyAction::GreenLouseSpitWeb
             }
@@ -299,8 +293,8 @@ impl GreenLouse {
 }
 
 impl EnemyCharacteristics for GreenLouse {
-    fn on_spawn(&self, ai_rng: &mut StsRandom) -> (HpMax, Vec<EnemyCondition>, EnemyAction) {
-        let first_action = self.next_action_helper(ai_rng, None, 0);
+    fn on_spawn(&self, enemy_rng: &mut StsRandom) -> (HpMax, Vec<EnemyCondition>, EnemyAction) {
+        let first_action = self.next_action_helper(enemy_rng, None, 0);
         (
             self.hp_max,
             vec![EnemyCondition::CurlUp(self.curl_up_stacks)],
@@ -310,11 +304,11 @@ impl EnemyCharacteristics for GreenLouse {
 
     fn next_action(
         &mut self,
-        ai_rng: &mut StsRandom,
+        enemy_rng: &mut StsRandom,
         last_action: EnemyAction,
         run_length: usize,
     ) -> EnemyAction {
-        self.next_action_helper(ai_rng, Some(last_action), run_length)
+        self.next_action_helper(enemy_rng, Some(last_action), run_length)
     }
 }
 
@@ -348,11 +342,11 @@ impl EnemyCharacteristics for GremlinNob {
 
     fn next_action(
         &mut self,
-        ai_rng: &mut StsRandom,
+        enemy_rng: &mut StsRandom,
         last_action: EnemyAction,
         run_length: usize,
     ) -> EnemyAction {
-        match ai_rng.gen_range(0..100) {
+        match enemy_rng.gen_range(0..100) {
             0..33 => EnemyAction::GremlinNobSkullBash,
             _ if last_action != EnemyAction::GremlinNobRush || run_length < 2 => {
                 EnemyAction::GremlinNobRush
@@ -390,27 +384,27 @@ impl EnemyCharacteristics for JawWorm {
 
     fn next_action(
         &mut self,
-        ai_rng: &mut StsRandom,
+        enemy_rng: &mut StsRandom,
         last_action: EnemyAction,
         run_length: usize,
     ) -> EnemyAction {
-        match ai_rng.gen_range(0..100) {
+        match enemy_rng.gen_range(0..100) {
             0..25 if last_action != EnemyAction::JawWormChomp => EnemyAction::JawWormChomp,
-            0..25 => *ai_rng.weighted_choose(&[
+            0..25 => *enemy_rng.weighted_choose(&[
                 (EnemyAction::JawWormBellow, 0.5625),
                 (EnemyAction::JawWormThrash, 1. - 0.5625),
             ]),
             25..55 if last_action != EnemyAction::JawWormThrash || run_length < 2 => {
                 EnemyAction::JawWormThrash
             }
-            25..55 => *ai_rng.weighted_choose(&[
+            25..55 => *enemy_rng.weighted_choose(&[
                 (EnemyAction::JawWormChomp, 0.357),
                 (EnemyAction::JawWormBellow, 1. - 0.357),
             ]),
             _ if last_action != EnemyAction::JawWormBellow || run_length < 2 => {
                 EnemyAction::JawWormBellow
             }
-            _ => *ai_rng.weighted_choose(&[
+            _ => *enemy_rng.weighted_choose(&[
                 (EnemyAction::JawWormChomp, 0.416),
                 (EnemyAction::JawWormThrash, 1. - 0.416),
             ]),
@@ -440,11 +434,11 @@ impl SpikeSlimeM {
     }
 
     fn next_action_helper(
-        ai_rng: &mut StsRandom,
+        enemy_rng: &mut StsRandom,
         last_action: Option<EnemyAction>,
         run_length: usize,
     ) -> EnemyAction {
-        match ai_rng.gen_range(0..100) {
+        match enemy_rng.gen_range(0..100) {
             0..30 if last_action != Some(EnemyAction::SpikeSlimeMFlameTackle) || run_length < 2 => {
                 EnemyAction::SpikeSlimeMFlameTackle
             }
@@ -458,21 +452,21 @@ impl SpikeSlimeM {
 }
 
 impl EnemyCharacteristics for SpikeSlimeM {
-    fn on_spawn(&self, ai_rng: &mut StsRandom) -> (HpMax, Vec<EnemyCondition>, EnemyAction) {
+    fn on_spawn(&self, enemy_rng: &mut StsRandom) -> (HpMax, Vec<EnemyCondition>, EnemyAction) {
         (
             self.hp_max,
             vec![],
-            Self::next_action_helper(ai_rng, None, 0),
+            Self::next_action_helper(enemy_rng, None, 0),
         )
     }
 
     fn next_action(
         &mut self,
-        ai_rng: &mut StsRandom,
+        enemy_rng: &mut StsRandom,
         last_action: EnemyAction,
         run_length: usize,
     ) -> EnemyAction {
-        Self::next_action_helper(ai_rng, Some(last_action), run_length)
+        Self::next_action_helper(enemy_rng, Some(last_action), run_length)
     }
 }
 
@@ -497,13 +491,13 @@ impl SpikeSlimeS {
 }
 
 impl EnemyCharacteristics for SpikeSlimeS {
-    fn on_spawn(&self, ai_rng: &mut StsRandom) -> (HpMax, Vec<EnemyCondition>, EnemyAction) {
-        let _ = ai_rng.gen_range(0..100); // Burn a random number for consistency with the game
+    fn on_spawn(&self, enemy_rng: &mut StsRandom) -> (HpMax, Vec<EnemyCondition>, EnemyAction) {
+        let _ = enemy_rng.gen_range(0..100); // Burn a random number for consistency with the game
         (self.hp_max, vec![], EnemyAction::SpikeSlimeSTackle)
     }
 
-    fn next_action(&mut self, ai_rng: &mut StsRandom, _: EnemyAction, _: usize) -> EnemyAction {
-        let _ = ai_rng.gen_range(0..100); // Burn a random number for consistency with the game
+    fn next_action(&mut self, enemy_rng: &mut StsRandom, _: EnemyAction, _: usize) -> EnemyAction {
+        let _ = enemy_rng.gen_range(0..100); // Burn a random number for consistency with the game
         EnemyAction::SpikeSlimeSTackle
     }
 }

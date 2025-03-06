@@ -1,11 +1,11 @@
 use anyhow::Error;
 
 use crate::components::{
-    Choice, Interaction, Notification, PlayerCombatState, PlayerPersistentState, PotionAction,
-    Prompt,
+    Choice, Interaction, Notification, PlayerPersistentState, PotionAction, Prompt,
 };
 use crate::data::Potion;
 
+use super::combat_context::CombatContext;
 use super::health_system::HealthSystem;
 
 pub struct PotionSystem;
@@ -125,37 +125,37 @@ impl PotionSystem {
 
     /// Discard or drink a potion in combat.
     pub fn expend_potion_in_combat<I: Interaction>(
-        comms: &I,
-        pcs: &mut PlayerCombatState,
+        ctx: &mut CombatContext<I>,
         potion_action: &PotionAction,
     ) -> Result<(), Error> {
         // TODO: Sacred Bark
         match potion_action {
             PotionAction::Discard(potion_index, _) => {
-                pcs.pps.potions[*potion_index] = None;
+                ctx.pcs.pps.potions[*potion_index] = None;
             }
             PotionAction::Drink(potion_index, potion) => {
-                pcs.pps.potions[*potion_index] = None;
+                ctx.pcs.pps.potions[*potion_index] = None;
                 match potion {
                     Potion::Ambrosia => todo!(),
                     Potion::AncientPotion => todo!(),
                     Potion::AttackPotion => todo!(),
                     Potion::BlessingOfTheForge => todo!(),
                     Potion::BlockPotion => todo!(),
-                    Potion::BloodPotion => Self::blood_potion(comms, pcs.pps)?,
+                    Potion::BloodPotion => Self::blood_potion(ctx.comms, ctx.pcs.pps)?,
                     Potion::BottledMiracle => todo!(),
                     Potion::ColorlessPotion => todo!(),
                     Potion::CultistPotion => todo!(),
                     Potion::CunningPotion => todo!(),
                     Potion::DexterityPotion => {
-                        pcs.dexterity += 2;
-                        comms.send_notification(Notification::Dexterity(pcs.dexterity))?;
+                        ctx.pcs.dexterity += 2;
+                        ctx.comms
+                            .send_notification(Notification::Dexterity(ctx.pcs.dexterity))?;
                     }
                     Potion::DistilledChaos => todo!(),
                     Potion::DuplicationPotion => todo!(),
                     Potion::Elixir => todo!(),
                     Potion::EnergyPotion => todo!(),
-                    Potion::EntropicBrew => Self::entropic_brew(comms, pcs.pps)?,
+                    Potion::EntropicBrew => Self::entropic_brew(ctx.comms, ctx.pcs.pps)?,
                     Potion::EssenceOfDarkness => todo!(),
                     Potion::EssenceOfSteel => todo!(),
                     Potion::ExplosivePotion => todo!(),
@@ -163,7 +163,7 @@ impl PotionSystem {
                     Potion::FearPotion => todo!(),
                     Potion::FirePotion => todo!(),
                     Potion::FlexPotion => todo!(),
-                    Potion::FruitJuice => Self::fruit_juice(comms, pcs.pps)?,
+                    Potion::FruitJuice => Self::fruit_juice(ctx.comms, ctx.pcs.pps)?,
                     Potion::FocusPotion => todo!(),
                     Potion::GamblersBrew => todo!(),
                     Potion::GhostInAJar => todo!(),
@@ -185,7 +185,7 @@ impl PotionSystem {
                 }
             }
         }
-        Self::notify_player(comms, pcs.pps)
+        Self::notify_player(ctx.comms, ctx.pcs.pps)
     }
 
     /// Checks if there is a potion slot available.

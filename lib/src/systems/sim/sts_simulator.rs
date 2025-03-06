@@ -5,7 +5,6 @@ use anyhow::Error;
 use crate::components::{Choice, Interaction, PlayerPersistentState, Prompt, Room, StsMessage};
 use crate::data::{Act, Character, Encounter};
 use crate::systems::base::HealthSystem;
-use crate::systems::player::{MainScreenSystem, PlayerInteraction};
 use crate::systems::rng::{
     CardGenerator, EncounterGenerator, EventGenerator, PotionGenerator, RelicGenerator, Seed,
     StsRandom,
@@ -14,8 +13,10 @@ use crate::types::{Floor, Hp};
 
 use super::combat_simulator::CombatSimulator;
 use super::event_simulator::EventSimulator;
+use super::main_screen_system::MainScreenSystem;
 use super::map_navigation_simulator::MapNavigationSimulator;
 use super::neow_simulator::NeowSimulator;
+use super::player_interaction::PlayerInteraction;
 
 pub struct StsSimulator {
     // Information typically set on the command line

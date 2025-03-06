@@ -27,6 +27,15 @@ pub struct Character {
     /// game's rng.
     pub rare_card_pool: &'static [Card],
 
+    /// For when a random attack card is needed. Omits healing cards like Feed and Reaper.
+    pub attack_card_pool: &'static [Card],
+
+    /// For when a random skill card is needed.
+    pub skill_card_pool: &'static [Card],
+
+    /// For when a random power card is needed.
+    pub power_card_pool: &'static [Card],
+
     /// Potions, again the same order as the game's rng.
     pub potion_pool: &'static [Potion],
 
@@ -51,85 +60,6 @@ impl TryFrom<&str> for &'static Character {
                 "Character options are (I)ronclad, (S)ilent, (D)efect, and (W)atcher"
             )),
         }
-
-        /*
-        SwordBoomerang(false)
-        PerfectedStrike(false)
-        HeavyBlade(false)
-        WildStrike(false)
-        Headbutt(false)
-        Clothesline(false)
-        TwinStrike(false)
-        PommelStrike(false)
-        Thunderclap(false)
-        Clash(false)
-        BodySlam(false)
-        IronWave(false)
-        Cleave(false)
-        Anger(false)
-        Uppercut(false)
-        Dropkick(false)
-        Carnage(false)
-        SearingBlow(0)
-        Whirlwind(false)
-        SeverSoul(false)
-        Rampage(false)
-        Pummel(false)
-        BloodForBlood(false)
-        Hemokinesis(false)
-        RecklessCharge(false)
-            X Feed(false)
-        Bludgeon(false)
-        FiendFire(false)
-            X Reaper(false)
-        Immolate(false)
-
-        Skills:
-        Havoc(false)
-        Armaments(false)
-        ShrugItOff(false)
-        TrueGrit(false)
-        Flex(false)
-        Warcry(false)
-        GhostlyArmor(false)
-        Bloodletting(false)
-        SecondWind(false)
-        BattleTrance(false)
-        Sentinel(false)
-        Entrench(false)
-        Rage(false)
-        Disarm(false)
-        SeeingRed(false)
-        Shockwave(false)
-        BurningPact(false)
-        FlameBarrier(false)
-        Intimidate(false)
-        InfernalBlade(false)
-        DualWield(false)
-        PowerThrough(false)
-        SpotWeakness(false)
-        DoubleTap(false)
-        LimitBreak(false)
-        Impervious(false)
-        Exhume(false)
-        Offering(false)
-
-        Powers:
-        Evolve(false)
-        FireBreathing(false)
-        Rupture(false)
-        FeelNoPain(false)
-        DarkEmbrace(false)
-        Combust(false)
-        Metallicize(false)
-        Inflame(false)
-        DemonForm(false)
-        Corruption(false)
-        Barricade(false)
-        Berserk(false)
-        Juggernaut(false)
-        Brutality(false)
-                */
     }
 }
 
@@ -227,6 +157,82 @@ pub const IRONCLAD: &Character = &Character {
         Card::Bludgeon(false),
         Card::DemonForm(false),
         Card::DoubleTap(false),
+    ],
+    attack_card_pool: &[
+        Card::SwordBoomerang(false),
+        Card::PerfectedStrike(false),
+        Card::HeavyBlade(false),
+        Card::WildStrike(false),
+        Card::Headbutt(false),
+        Card::Clothesline(false),
+        Card::TwinStrike(false),
+        Card::PommelStrike(false),
+        Card::Thunderclap(false),
+        Card::Clash(false),
+        Card::BodySlam(false),
+        Card::IronWave(false),
+        Card::Cleave(false),
+        Card::Anger(false),
+        Card::Uppercut(false),
+        Card::Dropkick(false),
+        Card::Carnage(false),
+        Card::SearingBlow(0),
+        Card::Whirlwind(false),
+        Card::SeverSoul(false),
+        Card::Rampage(false),
+        Card::Pummel(false),
+        Card::BloodForBlood(false),
+        Card::Hemokinesis(false),
+        Card::RecklessCharge(false),
+        Card::Bludgeon(false),
+        Card::FiendFire(false),
+        Card::Immolate(false),
+    ],
+    skill_card_pool: &[
+        Card::Havoc(false),
+        Card::Armaments(false),
+        Card::ShrugItOff(false),
+        Card::TrueGrit(false),
+        Card::Flex(false),
+        Card::Warcry(false),
+        Card::GhostlyArmor(false),
+        Card::Bloodletting(false),
+        Card::SecondWind(false),
+        Card::BattleTrance(false),
+        Card::Sentinel(false),
+        Card::Entrench(false),
+        Card::Rage(false),
+        Card::Disarm(false),
+        Card::SeeingRed(false),
+        Card::Shockwave(false),
+        Card::BurningPact(false),
+        Card::FlameBarrier(false),
+        Card::Intimidate(false),
+        Card::InfernalBlade(false),
+        Card::DualWield(false),
+        Card::PowerThrough(false),
+        Card::SpotWeakness(false),
+        Card::DoubleTap(false),
+        Card::LimitBreak(false),
+        Card::Impervious(false),
+        Card::Exhume(false),
+        Card::Offering(false),
+    ],
+    power_card_pool: &[
+        Card::Evolve(false),
+        Card::FireBreathing(false),
+        Card::Rupture(false),
+        Card::FeelNoPain(false),
+        Card::DarkEmbrace(false),
+        Card::Combust(false),
+        Card::Metallicize(false),
+        Card::Inflame(false),
+        Card::DemonForm(false),
+        Card::Corruption(false),
+        Card::Barricade(false),
+        Card::Berserk(false),
+        Card::Juggernaut(false),
+        Card::Brutality(false),
     ],
     potion_pool: &[
         Potion::BloodPotion,
@@ -499,6 +505,9 @@ pub const SILENT: &Character = &Character {
         Card::CorpseExplosion(false),
         Card::Alchemize(false),
     ],
+    attack_card_pool: &[], // TODO: Add attack cards
+    skill_card_pool: &[],  // TODO: Add skill cards
+    power_card_pool: &[],  // TODO: Add power cards
     potion_pool: &[
         Potion::PoisonPotion,
         Potion::CunningPotion,
@@ -768,6 +777,9 @@ pub const DEFECT: &Character = &Character {
         Card::Hyperbeam(false),
         Card::MultiCast(false),
     ],
+    attack_card_pool: &[], // TODO: Add attack cards
+    skill_card_pool: &[],  // TODO: Add skill cards
+    power_card_pool: &[],  // TODO: Add power cards
     potion_pool: &[
         Potion::FocusPotion,
         Potion::PotionOfCapacity,
@@ -1035,6 +1047,9 @@ pub const WATCHER: &Character = &Character {
         Card::ConjureBlade(false),
         Card::Judgment(false),
     ],
+    attack_card_pool: &[], // TODO: Add attack cards
+    skill_card_pool: &[],  // TODO: Add skill cards
+    power_card_pool: &[],  // TODO: Add power cards
     potion_pool: &[
         Potion::BottledMiracle,
         Potion::StancePotion,

@@ -9,5 +9,5 @@ pub use damage_taken::DamageTaken;
 pub use effect_queue::{Effect, EffectQueue};
 pub use interaction::{Choice, Interaction, Notification, PotionAction, Prompt, StsMessage};
 pub use map::Room;
-pub use state::{CardCombatState, CombatCards, PlayerCombatState, PlayerPersistentState};
+pub use state::{CardCombatState, PlayerCombatState, PlayerPersistentState};
 pub use status::{AttackerStatus, DefenderStatus, EnemyStatus, PlayerStatus};

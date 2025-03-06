@@ -5,6 +5,7 @@ use crate::types::{Gold, Hp, HpMax};
 /// between combat encounters.
 #[derive(Debug)]
 pub struct PlayerPersistentState {
+    pub character: &'static Character,
     pub hp: Hp,
     pub hp_max: HpMax,
     pub gold: Gold,
@@ -18,6 +19,7 @@ impl PlayerPersistentState {
         let relics = vec![character.starting_relic];
         let deck = character.starting_deck.to_vec();
         Self {
+            character,
             hp: character.starting_hp,
             hp_max: character.starting_hp,
             gold: 99,

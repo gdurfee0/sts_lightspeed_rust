@@ -26,9 +26,9 @@ impl EnemyState {
     pub fn new(
         enemy: Enemy,
         characteristics: Box<dyn EnemyCharacteristics>,
-        ai_rng: &mut StsRandom,
+        enemy_rng: &mut StsRandom,
     ) -> Self {
-        let (hp_max, conditions, first_action) = characteristics.on_spawn(ai_rng);
+        let (hp_max, conditions, first_action) = characteristics.on_spawn(enemy_rng);
         Self {
             enemy,
             hp: hp_max,
@@ -39,6 +39,19 @@ impl EnemyState {
             run_length: 1,
             next_action: first_action,
             characteristics,
+        }
+    }
+
+    /// Computes the next action for the enemy, updating the run length if necessary.
+    pub fn advance_action(&mut self, enemy_rng: &mut StsRandom) {
+        let action = self.next_action;
+        self.next_action = self
+            .characteristics
+            .next_action(enemy_rng, action, self.run_length);
+        if self.next_action == action {
+            self.run_length = self.run_length.saturating_add(1);
+        } else {
+            self.run_length = 1;
         }
     }
 

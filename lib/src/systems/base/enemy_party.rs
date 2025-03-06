@@ -12,7 +12,7 @@ impl EnemyParty {
     pub fn generate(
         seed_for_floor: Seed,
         encounter: Encounter,
-        ai_rng: &mut StsRandom,
+        enemy_rng: &mut StsRandom,
         misc_rng: &mut StsRandom,
     ) -> EnemyParty {
         let mut hp_rng = StsRandom::from(seed_for_floor);
@@ -23,7 +23,7 @@ impl EnemyParty {
                 $(
                     if let Some(slot) = iter.next() {
                         let characteristics = gen_characteristics(Enemy::$enemy, &mut hp_rng);
-                        *slot = Some(EnemyState::new(Enemy::$enemy, characteristics, ai_rng));
+                        *slot = Some(EnemyState::new(Enemy::$enemy, characteristics, enemy_rng));
                     }
                 )*
                 EnemyParty(enemy_party)
@@ -50,9 +50,9 @@ impl EnemyParty {
                 let choice = misc_rng.gen_range(0..=1);
 
                 enemy_party[0] = if choice == 0 {
-                    Some(EnemyState::new(Enemy::FungiBeast, fungi_beast, ai_rng))
+                    Some(EnemyState::new(Enemy::FungiBeast, fungi_beast, enemy_rng))
                 } else {
-                    Some(EnemyState::new(Enemy::JawWorm, jaw_worm, ai_rng))
+                    Some(EnemyState::new(Enemy::JawWorm, jaw_worm, enemy_rng))
                 };
                 let louse = if misc_rng.next_bool() {
                     (
@@ -69,9 +69,9 @@ impl EnemyParty {
                 let acid_slime_m = gen_characteristics(Enemy::AcidSlimeM, &mut hp_rng);
                 let choice = misc_rng.gen_range(0..=2);
                 enemy_party[1] = Some(match choice {
-                    0 => EnemyState::new(louse.0, louse.1, ai_rng),
-                    1 => EnemyState::new(Enemy::SpikeSlimeM, spike_slime_m, ai_rng),
-                    2 => EnemyState::new(Enemy::AcidSlimeM, acid_slime_m, ai_rng),
+                    0 => EnemyState::new(louse.0, louse.1, enemy_rng),
+                    1 => EnemyState::new(Enemy::SpikeSlimeM, spike_slime_m, enemy_rng),
+                    2 => EnemyState::new(Enemy::AcidSlimeM, acid_slime_m, enemy_rng),
                     _ => unreachable!(),
                 });
                 EnemyParty(enemy_party)

@@ -13,6 +13,7 @@ pub enum CalculatedDamage {
     HpLoss(Hp),
 }
 
+/// The amount of block gained after defender conditions are applied (i.e. dexterity, frail).
 pub struct CalculatedBlock {
     pub amount: Block,
 }

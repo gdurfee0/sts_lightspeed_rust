@@ -1,9 +1,6 @@
-use crate::{
-    components::{DamageTaken, Effect, EffectQueue},
-    data::{Damage, EnemyCondition, EnemyEffect, PlayerCondition},
-    systems::enemy::EnemyState,
-    types::Strength,
-};
+use crate::components::{DamageTaken, Effect, EffectQueue};
+use crate::data::{Damage, EnemyCondition, EnemyEffect, PlayerCondition};
+use crate::types::{Block, Strength};
 
 impl EnemyCondition {
     /// Attempts to merge the supplied condition into self, returning true iff the conditions
@@ -66,13 +63,13 @@ impl EnemyCondition {
 
     /// Ticks down a condition's turn counter at the start of the enemies' turn.
     /// Returns true iff the condition is still active.
-    pub fn start_turn(&mut self) -> bool {
+    pub fn on_turn_started(&mut self) -> bool {
         true
     }
 
     /// Ticks down the conditions at the end of the enemies' turn.
     /// Returns true iff the condition is still active.
-    pub fn end_turn(&mut self, enemy_strength: &mut Strength) -> bool {
+    pub fn on_turn_finished(&mut self, enemy_strength: &mut Strength) -> bool {
         match self {
             EnemyCondition::Ritual(strength, just_applied) => {
                 if *just_applied {
@@ -97,13 +94,13 @@ impl EnemyCondition {
     /// Queues any effects triggered by the enemy taking damage.
     pub fn on_damage_taken(
         &mut self,
-        enemy_state: &mut EnemyState,
+        enemy_block: &mut Block,
         damage_taken: &DamageTaken,
         effect_queue: &mut EffectQueue,
     ) -> bool {
         match self {
             EnemyCondition::CurlUp(block) => {
-                enemy_state.block = enemy_state.block.saturating_add(*block);
+                *enemy_block = enemy_block.saturating_add(*block);
                 false
             }
             EnemyCondition::Thorns(hp) if damage_taken.provokes_thorns => {

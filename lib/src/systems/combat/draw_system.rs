@@ -1,71 +1,67 @@
 use anyhow::Error;
 
-use crate::components::{
-    CardCombatState, Effect, EffectQueue, Interaction, Notification, PlayerCombatState,
-};
+use crate::components::{CardCombatState, Effect, Interaction, Notification};
 use crate::data::{
     Card, CardType, Damage, EnergyCost, PlayerCondition, PlayerEffect, TargetEffect,
 };
-use crate::systems::base::RelicSystem;
-use crate::systems::rng::{Seed, StsRandom};
+use crate::systems::base::{CombatContext, RelicSystem};
+use crate::types::DrawCount;
 
-pub struct DrawSystem {
-    shuffle_rng: StsRandom,
-    card_randomizer_rng: StsRandom,
-}
+pub struct DrawSystem;
 
 impl DrawSystem {
-    /// Creates a new draw system with the given seed.
-    pub fn new(seed_for_floor: Seed) -> Self {
-        let shuffle_rng = StsRandom::from(seed_for_floor);
-        let card_randomizer_rng = StsRandom::from(seed_for_floor);
-        Self {
-            shuffle_rng,
-            card_randomizer_rng,
-        }
-    }
-
     /// Sets up the draw pile for combat.
-    pub fn start_combat(&mut self, pcs: &mut PlayerCombatState) {
-        self.shuffle_rng
-            .java_compat_shuffle(&mut pcs.cards.draw_pile);
-        pcs.cards.draw_pile.sort_by_key(|card| card.details.innate);
+    pub fn on_combat_started<I: Interaction>(ctx: &mut CombatContext<I>) {
+        ctx.shuffle_rng
+            .java_compat_shuffle(&mut ctx.pcs.cards.draw_pile);
+        ctx.pcs
+            .cards
+            .draw_pile
+            .sort_by_key(|card| card.details.innate);
+        // Count the innate cards
+        let innate_count = ctx
+            .pcs
+            .cards
+            .draw_pile
+            .iter()
+            .filter(|card| card.details.innate)
+            .count() as DrawCount;
+        let cards_to_draw =
+            5 + RelicSystem::extra_cards_to_draw_at_start_of_player_turn(ctx.pcs.pps);
+        if innate_count > cards_to_draw {
+            ctx.effect_queue
+                .push_back(Effect::PlayerState(PlayerEffect::Draw(
+                    innate_count - cards_to_draw,
+                )));
+        }
     }
 
     /// Draws the appropriate number of cards at the start of the player's turn.
-    pub fn start_turn<I: Interaction>(
-        &mut self,
-        comms: &I,
-        pcs: &mut PlayerCombatState,
-        effect_queue: &mut EffectQueue,
-    ) -> Result<(), Error> {
-        let cards_to_draw = 5 + RelicSystem::extra_cards_to_draw_at_start_of_player_turn(pcs.pps);
-        // TODO: Extra draws when innate card count > cards_to_draw
-        for _ in 0..cards_to_draw {
-            self.draw_one_card(comms, pcs, effect_queue)?;
-        }
-        Ok(())
+    pub fn on_player_turn_started<I: Interaction>(ctx: &mut CombatContext<I>) {
+        ctx.effect_queue
+            .push_back(Effect::PlayerState(PlayerEffect::Draw(
+                5 + RelicSystem::extra_cards_to_draw_at_start_of_player_turn(ctx.pcs.pps),
+            )));
     }
 
     /// Draws one card.
-    pub fn draw_one_card<I: Interaction>(
-        &mut self,
-        comms: &I,
-        pcs: &mut PlayerCombatState,
-        effect_queue: &mut EffectQueue,
-    ) -> Result<(), Error> {
-        if pcs.conditions.contains(&PlayerCondition::NoDraw) || pcs.cards.hand.len() >= 10 {
+    pub fn draw_one_card<I: Interaction>(ctx: &mut CombatContext<I>) -> Result<(), Error> {
+        if ctx.pcs.conditions.contains(&PlayerCondition::NoDraw) || ctx.pcs.cards.hand.len() >= 10 {
             Ok(())
-        } else if let Some(card) = pcs.cards.draw_pile.pop() {
-            self.put_drawn_card_into_hand(comms, pcs, card, effect_queue)
+        } else if let Some(card) = ctx.pcs.cards.draw_pile.pop() {
+            Self::put_drawn_card_into_hand(ctx, card)
         } else {
             // Shuffle discard pile into draw pile
-            comms.send_notification(Notification::ShufflingDiscardPileIntoDrawPile)?;
-            self.shuffle_rng
-                .java_compat_shuffle(&mut pcs.cards.discard_pile);
-            pcs.cards.draw_pile.append(&mut pcs.cards.discard_pile);
-            if let Some(card) = pcs.cards.draw_pile.pop() {
-                self.put_drawn_card_into_hand(comms, pcs, card, effect_queue)
+            ctx.comms
+                .send_notification(Notification::ShufflingDiscardPileIntoDrawPile)?;
+            ctx.shuffle_rng
+                .java_compat_shuffle(&mut ctx.pcs.cards.discard_pile);
+            ctx.pcs
+                .cards
+                .draw_pile
+                .append(&mut ctx.pcs.cards.discard_pile);
+            if let Some(card) = ctx.pcs.cards.draw_pile.pop() {
+                Self::put_drawn_card_into_hand(ctx, card)
             } else {
                 Ok(())
             }
@@ -74,17 +70,14 @@ impl DrawSystem {
 
     /// Puts a drawn card into the player's hand.
     fn put_drawn_card_into_hand<I: Interaction>(
-        &mut self,
-        comms: &I,
-        pcs: &mut PlayerCombatState,
+        ctx: &mut CombatContext<I>,
         mut combat_card: CardCombatState,
-        effect_queue: &mut EffectQueue,
     ) -> Result<(), Error> {
         // TODO: Move these checks into ConditionSystem?
-        for condition in pcs.conditions.iter() {
+        for condition in ctx.pcs.conditions.iter() {
             match condition {
                 PlayerCondition::Confused => {
-                    combat_card.cost_this_combat = *self.card_randomizer_rng.choose(&[
+                    combat_card.cost_this_combat = *ctx.card_randomizer_rng.choose(&[
                         EnergyCost::Zero,
                         EnergyCost::One,
                         EnergyCost::Two,
@@ -99,7 +92,7 @@ impl DrawSystem {
                 }
                 PlayerCondition::Evolve(draw_count) => {
                     if matches!(combat_card.details.type_, CardType::Status) {
-                        effect_queue
+                        ctx.effect_queue
                             .push_back(Effect::PlayerState(PlayerEffect::Draw(*draw_count)));
                     }
                 }
@@ -108,9 +101,11 @@ impl DrawSystem {
                         combat_card.details.type_,
                         CardType::Status | CardType::Curse
                     ) {
-                        effect_queue.push_back(Effect::PlayerState(PlayerEffect::ToAllEnemies(
-                            TargetEffect::Deal(Damage::BlockableNonAttack(*hp)),
-                        )));
+                        ctx.effect_queue.push_back(Effect::PlayerState(
+                            PlayerEffect::ToAllEnemies(TargetEffect::Deal(
+                                Damage::BlockableNonAttack(*hp),
+                            )),
+                        ));
                     }
                 }
                 PlayerCondition::NoDraw => unreachable!(),
@@ -118,14 +113,14 @@ impl DrawSystem {
             }
         }
         if let Some(effect) = combat_card.details.on_draw.as_ref() {
-            effect_queue.push_back(Effect::Card(effect));
+            ctx.effect_queue.push_back(Effect::Card(effect));
         }
         if combat_card.card == Card::Normality {
             // TODO: Implement normality counter
         }
-        pcs.cards.hand.push(combat_card);
-        comms.send_notification(Notification::CardDrawn(
-            pcs.cards.hand.len() - 1,
+        ctx.pcs.cards.hand.push(combat_card);
+        ctx.comms.send_notification(Notification::CardDrawn(
+            ctx.pcs.cards.hand.len() - 1,
             combat_card,
         ))
     }
